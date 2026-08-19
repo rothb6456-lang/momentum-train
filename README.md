@@ -29,3 +29,5 @@ For unusual, substituted, or retrospective work, use **Log workout** directly.
 ## Git setup
 
 Initialize this `dashboard/` folder as a private GitHub repository, then connect it in Cloudflare Pages for automatic deploys. Do not commit raw health exports outside the reviewed Markdown snapshots.
+
+The included `DEPLOYMENT_CHECKLIST.md` is the release gate.

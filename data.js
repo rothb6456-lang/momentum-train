@@ -6,10 +6,12 @@ const MomentumData = (() => {
     const lines = markdown.split(/\r?\n/);
     const tables = [];
     for (let i = 0; i < lines.length; i++) {
-      if (!/^\|/.test(lines[i]) || !/^\|?\s*[-:]+/.test(lines[i + 1] || '')) continue;
+      if (!/^\|/.test(lines[i]) || !/^\|\s*[-:|\s]+\|\s*$/.test(lines[i + 1] || '')) continue;
       const headers = lines[i].split('|').slice(1, -1).map(x => x.trim());
       const rows = [];
-      for (i += 2; i < lines.length && /^\|/.test(lines[i]); i++) {
+      i += 2;
+      while (lines[i]?.trim() === 'MarkdownRow') i++;
+      for (; i < lines.length && /^\|/.test(lines[i]); i++) {
         const cells = lines[i].split('|').slice(1, -1).map(x => x.trim());
         if (cells.length === headers.length) rows.push(Object.fromEntries(headers.map((h, n) => [h, cells[n]])));
       }
