@@ -74,7 +74,11 @@
 
   function coachDebrief() {
     const draft = JSON.parse(localStorage.getItem('momentum-draft-sets') || '[]');
-    const grouped = Object.groupBy(draft, row => row.exercise || 'Unassigned exercise');
+    const grouped = draft.reduce((all, row) => {
+      const name = row.exercise || 'Unassigned exercise';
+      (all[name] ||= []).push(row);
+      return all;
+    }, {});
     const start = new Date(meta.startedAt);
     const minutes = Math.max(1, Math.round((Date.now() - start.getTime()) / 60000));
     const setLog = Object.entries(grouped).map(([name, rows]) => `${name}\n` + rows.map((row, index) =>
