@@ -1,0 +1,17 @@
+{
+  "name": "Momentum Training Intelligence",
+  "short_name": "Momentum",
+  "description": "Private training intelligence and gym-floor workout capture.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0c141b",
+  "theme_color": "#0c141b",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
