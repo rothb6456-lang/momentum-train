@@ -1,4 +1,4 @@
-const CACHE = 'momentum-v4';
+const CACHE = 'momentum-v5';
 const ASSETS = ['/', '/index.html', '/manifest.webmanifest', '/icon.svg', '/data.js', '/workout-cards.js', '/app.js', '/data/01_Training_Core.md', '/data/02_Training_Reference.md', '/data/03_Training_Analysis.md', '/data/04_Training_Schema.md'];
 
 self.addEventListener('install', event => {
