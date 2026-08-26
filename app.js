@@ -13,9 +13,9 @@
     String(value ?? '').replace(/[&<>'"]/g, ch => ({  
       '&': '&',  
       '<': '<',  
-      '>': '>',  
-      "'": ''',  
-      '"': '"'  
+'>': '>',  
+"'": "'",  
+'"': '"'  
     }[ch]));
 
   const uid = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;  
