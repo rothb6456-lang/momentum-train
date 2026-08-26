@@ -19,6 +19,34 @@ const MomentumPlanner = (() => {
     const notes = clean(text.replace(exerciseName, '').replace(/(?:tempo\s*)?\d+\s*-\s*\d+\s*-\s*(?:\d+|x)/ig, '').replace(/RIR\s*[\d+\-– ]+/ig, ''));
     return { ...blankBlock(order), exerciseName, targetSets: target?.[1] || '', targetRepsOrDuration: target?.[2]?.trim() || '', targetWeightOrLoad: load, tempo, rir, notes, checkpoints: '', tags: [] };
   }
+  function parse(rawText) {  
+  const parsed = parseWorkoutCardText(rawText);
+
+  const workout = blankWorkout();  
+  workout.title = parsed.title || 'Pasted workout card';  
+  workout.phaseId = parsed.phase || '';  
+  workout.week = parsed.week || '';  
+  workout.day = parsed.day || '';  
+  workout.sourceType = parsed.source || 'chatgpt';  
+  workout.sourceRawText = rawText || '';  
+  workout.exerciseBlocks = (parsed.exercises || []).length  
+    ? parsed.exercises.map((ex, index) => ({  
+        ...blankBlock(index + 1),  
+        exerciseName: ex.name || '',  
+        targetSets: ex.sets || '',  
+        targetRepsOrDuration: ex.reps || '',  
+        targetWeightOrLoad: ex.load || '',  
+        tempo: ex.tempo || '',  
+        rir: ex.rir || '',  
+        notes: joinNotes([ex.notes || '', ex.rest ? `Rest: ${ex.rest}` : '']),  
+        checkpoints: '',  
+        tags: []  
+      }))  
+    : [blankBlock(1)];
+
+  return workout;  
+}  
+  
   function parseWorkoutCardText(rawText) {  
   const text = normalizeWorkoutText(rawText || '');
 
@@ -447,13 +475,86 @@ function buildParseWarnings(meta, exercises) {
   }
 
   return warnings;  
-}  
-  }
-  function upsert(workout) { const all=load(); const copy={...clone(workout),updatedAt:new Date().toISOString()}; const index=all.findIndex(x=>x.id===copy.id); if(index>=0)all[index]=copy;else all.push(copy); save(all); return copy; }
-  function remove(workoutId) { save(load().filter(x=>x.id!==workoutId)); }
-  function move(workoutId, direction) { const all=load(); const index=all.findIndex(x=>x.id===workoutId), target=index+direction; if(index<0||target<0||target>=all.length)return all;[all[index],all[target]]=[all[target],all[index]];save(all);return all; }
-  function duplicate(workoutId) { const original=load().find(x=>x.id===workoutId);if(!original)return null;const copy=clone(original);copy.id=id();copy.title=`${copy.title} (copy)`;copy.status='queued';copy.createdAt=new Date().toISOString();copy.updatedAt=copy.createdAt;return upsert(copy); }
-  function mark(workoutId, status) { const all=load();const item=all.find(x=>x.id===workoutId);if(item){item.status=status;item.updatedAt=new Date().toISOString();save(all);}return item; }
-  function fromCompleted(session) { const workout=blankWorkout();workout.title=`${session.workoutName || 'Completed session'} (re-queue)`;workout.phaseId=session.phase||'';workout.week=session.week||'';workout.day=session.day||'';workout.sourceType='history';workout.exerciseBlocks=(session.plannedWorkout?.exerciseBlocks || [...new Set(session.sets.map(x=>x.exercise))].map((name,index)=>({ ...blankBlock(index+1),exerciseName:typeof name==='string'?name:name.exerciseName,tempo:typeof name==='string'?'':name.tempo||'',rir:typeof name==='string'?'':name.rir||'',notes:typeof name==='string'?'':name.notes||'' })));return workout; }
-  return { load, save, blankBlock, blankWorkout, parse, upsert, remove, move, duplicate, mark, fromCompleted, clone };
-})();
+}
+
+function upsert(workout) {  
+  const all = load();  
+  const copy = { ...clone(workout), updatedAt: new Date().toISOString() };  
+  const index = all.findIndex(x => x.id === copy.id);  
+  if (index >= 0) all[index] = copy;  
+  else all.push(copy);  
+  save(all);  
+  return copy;  
+}
+
+function remove(workoutId) {  
+  save(load().filter(x => x.id !== workoutId));  
+}
+
+function move(workoutId, direction) {  
+  const all = load();  
+  const index = all.findIndex(x => x.id === workoutId), target = index + direction;  
+  if (index < 0 || target < 0 || target >= all.length) return all;  
+  [all[index], all[target]] = [all[target], all[index]];  
+  save(all);  
+  return all;  
+}
+
+function duplicate(workoutId) {  
+  const original = load().find(x => x.id === workoutId);  
+  if (!original) return null;  
+  const copy = clone(original);  
+  copy.id = id();  
+  copy.title = `${copy.title} (copy)`;  
+  copy.status = 'queued';  
+  copy.createdAt = new Date().toISOString();  
+  copy.updatedAt = copy.createdAt;  
+  return upsert(copy);  
+}
+
+function mark(workoutId, status) {  
+  const all = load();  
+  const item = all.find(x => x.id === workoutId);  
+  if (item) {  
+    item.status = status;  
+    item.updatedAt = new Date().toISOString();  
+    save(all);  
+  }  
+  return item;  
+}
+
+function fromCompleted(session) {  
+  const workout = blankWorkout();  
+  workout.title = `${session.workoutName || 'Completed session'} (re-queue)`;  
+  workout.phaseId = session.phase || '';  
+  workout.week = session.week || '';  
+  workout.day = session.day || '';  
+  workout.sourceType = 'history';  
+  workout.exerciseBlocks = (  
+    session.plannedWorkout?.exerciseBlocks ||  
+    [...new Set(session.sets.map(x => x.exercise))].map((name, index) => ({  
+      ...blankBlock(index + 1),  
+      exerciseName: typeof name === 'string' ? name : name.exerciseName,  
+      tempo: typeof name === 'string' ? '' : name.tempo || '',  
+      rir: typeof name === 'string' ? '' : name.rir || '',  
+      notes: typeof name === 'string' ? '' : name.notes || ''  
+    }))  
+  );  
+  return workout;  
+}
+
+return {  
+  load,  
+  save,  
+  blankBlock,  
+  blankWorkout,  
+  parse,  
+  upsert,  
+  remove,  
+  move,  
+  duplicate,  
+  mark,  
+  fromCompleted,  
+  clone  
+};  
+})();  
