@@ -113,8 +113,9 @@ function startCockpitForWorkout(workout) {
   }
 
 const state = {  
-  cockpit: null  
-};
+  cockpit: null,  
+  cockpitEditOpen: false  
+};  
 
 function parseTopEndForDisplay(value) {  
   const raw = String(value || '').trim();  
@@ -159,11 +160,12 @@ function logCockpitSetAction() {
 
     next = MomentumPlanner.logCockpitSet(next, next.exerciseIndex);  
     state.cockpit = next;  
+    state.cockpitEditOpen = false;  
     renderLog();  
   } catch (err) {  
-    showToast(err.message || 'Could not log set.');  
+    toast(err.message || 'Could not log set.');  
   }  
-}
+}  
 
 function startOptionalExercise() {  
   if (!state.cockpit) return;  
@@ -180,18 +182,79 @@ function skipOptionalExercise() {
 function cockpitPrev() {  
   if (!state.cockpit) return;  
   state.cockpit.exerciseIndex = Math.max(0, state.cockpit.exerciseIndex - 1);  
+  state.cockpitEditOpen = false;  
   renderLog();  
 }
 
 function cockpitNext() {  
   if (!state.cockpit) return;  
   state.cockpit.exerciseIndex = Math.min(state.cockpit.exercises.length - 1, state.cockpit.exerciseIndex + 1);  
+  state.cockpitEditOpen = false;  
+  renderLog();  
+}    
+
+function getCockpitEditDefaults(ex) {  
+  return {  
+    load: ex.workingLoad || ex.prescribedLoad || '',  
+    repsOrDuration: parseTopEndForDisplay(ex.prescribedRepsOrDuration || ''),  
+    tempo: ex.prescribedTempo || '',  
+    rir: parseTopEndForDisplay(ex.prescribedRir || ''),  
+    note: ''  
+  };  
+}  
+
+function openCockpitDifferentToday() {  
+  state.cockpitEditOpen = true;  
   renderLog();  
 }
 
-function openCockpitDifferentToday() {  
-  toast('Sprint 1B: exception editing coming next.');  
-}    
+function cancelCockpitDifferentToday() {  
+  state.cockpitEditOpen = false;  
+  renderLog();  
+}  
+
+function renderCockpitDifferentToday(ex) {  
+  if (!state.cockpitEditOpen) return '';
+
+  const d = getCockpitEditDefaults(ex);
+
+  return `  
+    <div class="card section">  
+      <div class="eyebrow">Different today</div>  
+      <div class="set-form" style="margin-top:10px">  
+        <label class="field">  
+          Load  
+          <input id="cockpitEditLoad" class="input" value="${escapeHtml(d.load)}" placeholder="Load">  
+        </label>
+
+        <label class="field">  
+          ${ex.timed ? 'Duration' : 'Reps'}  
+          <input id="cockpitEditReps" class="input" value="${escapeHtml(d.repsOrDuration)}" placeholder="${ex.timed ? 'Duration' : 'Reps'}">  
+        </label>
+
+        <label class="field">  
+          Tempo  
+          <input id="cockpitEditTempo" class="input" value="${escapeHtml(d.tempo)}" placeholder="Tempo">  
+        </label>
+
+        <label class="field">  
+          RIR  
+          <input id="cockpitEditRir" class="input" value="${escapeHtml(d.rir)}" placeholder="RIR">  
+        </label>
+
+        <label class="field full">  
+          Note  
+          <textarea id="cockpitEditNote" placeholder="Deviation, side-to-side note, pain/symptom, technique change"></textarea>  
+        </label>  
+      </div>
+
+      <div class="actions">  
+        <button class="primary" onclick="saveDifferentTodayAndLogSet()">Save & Log Set</button>  
+        <button class="secondary" onclick="cancelCockpitDifferentToday()">Cancel</button>  
+      </div>  
+    </div>  
+  `;  
+}  
 
 let active;  
 try {  
@@ -728,7 +791,7 @@ function renderCockpitExercise(ex) {
           </div>  
         ` : ''}
 
-        ${ex.optional && !ex.started && !ex.skipped ? `  
+                ${ex.optional && !ex.started && !ex.skipped ? `  
           <div class="actions">  
             <button class="secondary" onclick="startOptionalExercise()">Start optional</button>  
             <button class="secondary" onclick="skipOptionalExercise()">Skip optional</button>  
@@ -742,6 +805,8 @@ function renderCockpitExercise(ex) {
           </div>  
         `}
 
+        ${renderCockpitDifferentToday(ex)}
+
         <div class="session-log">  
           <h3>Completed sets</h3>  
           ${renderCompletedSets(ex)}  
@@ -749,6 +814,43 @@ function renderCockpitExercise(ex) {
       </div>  
     </div>  
   `;  
+}  
+
+function saveDifferentTodayAndLogSet() {  
+  const cockpit = state.cockpit;  
+  if (!cockpit) return;
+
+  const ex = getActiveCockpitExercise();  
+  if (!ex) return;
+
+  try {  
+    let next = cockpit;
+
+    const load = document.getElementById('cockpitEditLoad')?.value?.trim() || '';  
+    const repsOrDuration = document.getElementById('cockpitEditReps')?.value?.trim() || '';  
+    const tempo = document.getElementById('cockpitEditTempo')?.value?.trim() || '';  
+    const rir = document.getElementById('cockpitEditRir')?.value?.trim() || '';  
+    const note = document.getElementById('cockpitEditNote')?.value?.trim() || '';
+
+    if (ex.establishLoad && load) {  
+      next = MomentumPlanner.setCockpitWorkingLoad(next, next.exerciseIndex, load);  
+    }
+
+    next = MomentumPlanner.logCockpitSet(next, next.exerciseIndex, {  
+      actualLoad: load || ex.workingLoad || ex.prescribedLoad || '',  
+      actualRepsOrDuration: repsOrDuration || parseTopEndForDisplay(ex.prescribedRepsOrDuration || ''),  
+      actualTempo: tempo || ex.prescribedTempo || '',  
+      actualRir: rir || parseTopEndForDisplay(ex.prescribedRir || ''),  
+      note  
+    });
+
+    state.cockpit = next;  
+    state.cockpitEditOpen = false;  
+    renderLog();  
+    toast('Set logged with exception');  
+  } catch (err) {  
+    toast(err.message || 'Could not log exception set.');  
+  }  
 }  
 
 function renderLog() {  
@@ -1066,6 +1168,8 @@ window.cockpitPrev = cockpitPrev;
 window.cockpitNext = cockpitNext;  
 window.startOptionalExercise = startOptionalExercise;  
 window.skipOptionalExercise = skipOptionalExercise;  
+window.cancelCockpitDifferentToday = cancelCockpitDifferentToday;  
+window.saveDifferentTodayAndLogSet = saveDifferentTodayAndLogSet;  
 
   function debrief(session) {  
     const groups = session.sets.reduce((all, set) => {  
