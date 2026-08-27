@@ -821,64 +821,42 @@ function renderCompletedSets(ex) {
 }
 
 function renderCockpitExercise(ex) {  
-  const complete = ex.completedSets.length >= ex.prescribedSets && ex.prescribedSets > 0;
+  const complete = ex.completedSets >= ex.targetSets;
 
   return `  
-    <div class="card">  
-      <div class="card-head">  
-        <div>  
-          <div class="eyebrow">${ex.optional ? 'Optional exercise' : 'Active exercise'}</div>  
-          <h2>${escapeHtml(ex.exerciseName)}</h2>  
-          <div class="quiet">  
-            ${ex.unilateral ? 'Bilateral set entry for unilateral work' : ''}  
-          </div>  
+    <div class="card section">  
+      <div class="eyebrow">Exercise ${state.cockpit.exerciseIndex + 1} of ${state.cockpit.exercises.length}</div>  
+      <h2>${escapeHtml(ex.name)}</h2>
+
+      ${renderCockpitPrescription(ex)}
+
+      ${ex.establishLoad ? renderCockpitWorkingLoad(ex) : ''}
+
+      ${ex.optional && !ex.started && !ex.skipped ? `  
+        <div class="actions">  
+          <button class="secondary" onclick="startOptionalExercise()">Start optional</button>  
+          <button class="secondary" onclick="skipOptionalExercise()">Skip optional</button>  
         </div>  
-        ${complete ? '<div class="pill">Exercise complete</div>' : ''}  
-      </div>
-
-      <div class="stack">  
-        <div class="signal-card">  
-          <b>${escapeHtml(ex.prescribedSets)} x ${escapeHtml(ex.prescribedRepsOrDuration)}</b>  
-          <span>  
-            Load: ${escapeHtml(ex.workingLoad || ex.prescribedLoad || '—')}<br>  
-            Tempo: ${escapeHtml(ex.prescribedTempo || '—')}<br>  
-            RIR: ${escapeHtml(parseTopEndForDisplay(ex.prescribedRir) || '—')}<br>  
-            Rest: ${escapeHtml(parseRestTopEndForDisplay(ex.prescribedRest) || '—')}  
-          </span>  
-        </div>
-
-        ${ex.establishLoad ? `  
-          <div class="field">  
-            <label>Working load</label>  
-            <input class="input" id="cockpitWorkingLoad" value="${escapeHtml(ex.workingLoad || '')}" placeholder="Enter working load">  
-          </div>  
-        ` : ''}
-
-                ${ex.optional && !ex.started && !ex.skipped ? `  
-          <div class="actions">  
-            <button class="secondary" onclick="startOptionalExercise()">Start optional</button>  
-            <button class="secondary" onclick="skipOptionalExercise()">Skip optional</button>  
-          </div>  
-        ` : `  
-          <div class="actions">  
-            <button class="primary" onclick="logCockpitSetAction()">  
-              ${complete ? 'Log extra set' : 'Log Set'}  
-            </button>  
-            <button class="secondary" onclick="openCockpitDifferentToday()">Different today</button>  
-          </div>  
-        `}
-
-        ${renderCockpitDifferentToday(ex)}
-
-        <div class="session-log">  
-          <h3>Completed sets</h3>  
-          ${renderCompletedSets(ex)}  
+      ` : `  
+        <div class="actions">  
+          <button class="primary" onclick="logCockpitSetAction()">  
+            ${complete ? 'Log extra set' : 'Log Set'}  
+          </button>  
+          <button class="secondary" onclick="openCockpitDifferentToday()">Different today</button>  
         </div>  
+      `}
+
+      ${renderRestTimer()}
+
+      ${renderCockpitDifferentToday(ex)}
+
+      <div class="session-log">  
+        <h3>Completed sets</h3>  
+        ${renderCompletedSets(ex)}  
       </div>  
     </div>  
   `;  
-}  
-${renderRestTimer()}
+}    
 
 function saveDifferentTodayAndLogSet() {  
   const cockpit = state.cockpit;  
