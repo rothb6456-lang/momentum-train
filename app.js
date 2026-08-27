@@ -114,8 +114,47 @@ function startCockpitForWorkout(workout) {
 
 const state = {  
   cockpit: null,  
-  cockpitEditOpen: false  
-};  
+  cockpitEditOpen: false,  
+  restTimer: null
+};    
+
+function parseRestSeconds(value) {  
+  const raw = String(value || '').trim().toLowerCase();  
+  if (!raw) return 90;
+
+  const m = raw.match(/^(\d+)\s*(sec|s|min|m)$/);  
+  if (!m) return 90;
+
+  const n = Number(m[1]);  
+  const unit = m[2];
+
+  if (unit === 'min' || unit === 'm') return n * 60;  
+  return n;  
+}
+
+function startRestTimer(seconds) {  
+  state.restTimer = {  
+    seconds,  
+    endsAt: Date.now() + seconds * 1000  
+  };  
+  renderLog();  
+}
+
+function stopRestTimer() {  
+  state.restTimer = null;  
+  renderLog();  
+}
+
+function getRestTimerRemaining() {  
+  if (!state.restTimer) return 0;  
+  return Math.max(0, Math.ceil((state.restTimer.endsAt - Date.now()) / 1000));  
+}
+
+function formatTimer(seconds) {  
+  const m = Math.floor(seconds / 60);  
+  const s = seconds % 60;  
+  return `${m}:${String(s).padStart(2, '0')}`;  
+}  
 
 function parseTopEndForDisplay(value) {  
   const raw = String(value || '').trim();  
@@ -161,6 +200,7 @@ function logCockpitSetAction() {
     next = MomentumPlanner.logCockpitSet(next, next.exerciseIndex);  
     state.cockpit = next;  
     state.cockpitEditOpen = false;  
+    startRestTimer(parseRestSeconds(ex.prescribedRest || '90 sec'));  
     renderLog();  
   } catch (err) {  
     toast(err.message || 'Could not log set.');  
@@ -192,6 +232,29 @@ function cockpitNext() {
   state.cockpitEditOpen = false;  
   renderLog();  
 }    
+
+function renderRestTimer() {  
+  if (!state.restTimer) return '';
+
+  const remaining = getRestTimerRemaining();
+
+  return `  
+    <div class="card section">  
+      <div class="eyebrow">Rest timer</div>  
+      <div style="font-size:2rem;font-weight:800;line-height:1">${formatTimer(remaining)}</div>  
+      <div class="actions" style="margin-top:10px">  
+        <button class="secondary" onclick="startCurrentExerciseRestTimer()">Restart</button>  
+        <button class="secondary" onclick="stopRestTimer()">Stop</button>  
+      </div>  
+    </div>  
+  `;  
+}  
+
+function startCurrentExerciseRestTimer() {  
+  const ex = getActiveCockpitExercise();  
+  if (!ex) return;  
+  startRestTimer(parseRestSeconds(ex.prescribedRest || '90 sec'));  
+}  
 
 function getCockpitEditDefaults(ex) {  
   return {  
@@ -815,6 +878,7 @@ function renderCockpitExercise(ex) {
     </div>  
   `;  
 }  
+${renderRestTimer()}
 
 function saveDifferentTodayAndLogSet() {  
   const cockpit = state.cockpit;  
@@ -846,6 +910,7 @@ function saveDifferentTodayAndLogSet() {
 
     state.cockpit = next;  
     state.cockpitEditOpen = false;  
+	startRestTimer(parseRestSeconds(ex.prescribedRest || '90 sec'));
     renderLog();  
     toast('Set logged with exception');  
   } catch (err) {  
@@ -1170,6 +1235,8 @@ window.startOptionalExercise = startOptionalExercise;
 window.skipOptionalExercise = skipOptionalExercise;  
 window.cancelCockpitDifferentToday = cancelCockpitDifferentToday;  
 window.saveDifferentTodayAndLogSet = saveDifferentTodayAndLogSet;  
+window.startCurrentExerciseRestTimer = startCurrentExerciseRestTimer;  
+window.stopRestTimer = stopRestTimer;  
 
   function debrief(session) {  
     const groups = session.sets.reduce((all, set) => {  
