@@ -207,15 +207,40 @@ function logCockpitSetAction() {
       next = MomentumPlanner.setCockpitWorkingLoad(next, cockpit.exerciseIndex, load);  
     }
 
-    next = MomentumPlanner.logCockpitSet(next, next.exerciseIndex);  
+    try {  
+      next = MomentumPlanner.logCockpitSet(next, next.exerciseIndex);  
+    } catch (err) {  
+      const msg = String(err?.message || '').toLowerCase();  
+      if (!msg.includes('complete') && !msg.includes('already')) throw err;
+
+      const current = next.exercises[next.exerciseIndex];  
+      const actualLoad = current.workingLoad || current.prescribedLoad || '';  
+      const actualRepsOrDuration = parseTopEndForDisplay(current.prescribedRepsOrDuration || '');  
+      const actualTempo = current.prescribedTempo || '';  
+      const actualRir = parseTopEndForDisplay(current.prescribedRir || '');
+
+      current.completed = current.completed || [];  
+      current.completed.push({  
+        actualLoad,  
+        actualRepsOrDuration,  
+        actualTempo,  
+        actualRir,  
+        note: '',  
+        extra: true,  
+        at: new Date().toISOString()  
+      });
+
+      current.completedSets = (current.completedSets || 0) + 1;  
+    }
+
     state.cockpit = next;  
     state.cockpitEditOpen = false;  
-    startRestTimer(parseRestSeconds(ex.prescribedRest || '90 sec'));  
+    startRestTimer(parseRestSeconds(ex.prescribedRest || ex.rest || '90 sec'));  
     renderLog();  
   } catch (err) {  
     toast(err.message || 'Could not log set.');  
   }  
-}  
+}    
 
 function startOptionalExercise() {  
   if (!state.cockpit) return;  
@@ -251,14 +276,14 @@ function renderRestTimer() {
   return `  
     <div class="card section">  
       <div class="eyebrow">Rest timer</div>  
-      <div style="font-size:2rem;font-weight:800;line-height:1">${formatTimer(remaining)}</div>  
+      <div id="restTimerValue" style="font-size:2rem;font-weight:800;line-height:1">${formatTimer(remaining)}</div>  
       <div class="actions" style="margin-top:10px">  
         <button class="secondary" onclick="startCurrentExerciseRestTimer()">Restart</button>  
         <button class="secondary" onclick="stopRestTimer()">Stop</button>  
       </div>  
     </div>  
   `;  
-}    
+}      
 
 function startCurrentExerciseRestTimer() {  
   const ex = getActiveCockpitExercise();  
@@ -832,10 +857,12 @@ function renderCompletedSets(ex) {
 
 function renderCockpitPrescription(ex) {  
   const sets =  
-    ex.targetSets ??  
-    ex.setsTarget ??  
-    ex.sets ??  
-    '—';
+  ex.targetSets ??  
+  ex.setsTarget ??  
+  ex.prescribedSets ??  
+  ex.setCount ??  
+  ex.sets ??  
+  (Array.isArray(ex.completed) ? ex.completed.length : '—');  
 
   const repsOrDuration =  
     ex.prescribedRepsOrDuration ||  
@@ -860,9 +887,10 @@ function renderCockpitPrescription(ex) {
     '—';
 
   const rest =  
-    ex.prescribedRest ||  
-    ex.rest ||  
-    '—';
+  ex.prescribedRest ||  
+  ex.rest ||  
+  (String(ex.notes || '').match(/rest:\s*([^\|]+)/i)?.[1]?.trim()) ||  
+  '—';  
 
   const notes =  
     ex.notes ||  
@@ -885,7 +913,9 @@ function renderCockpitPrescription(ex) {
 
 function renderCockpitExercise(ex) {  
   const cockpit = state.cockpit;  
-  const complete = (ex.completedSets || 0) >= (ex.targetSets || ex.setsTarget || 0);  
+  const targetSets = Number(ex.targetSets ?? ex.setsTarget ?? ex.sets ?? 0);  
+const completedSets = Number(ex.completedSets ?? 0);  
+const complete = targetSets > 0 && completedSets >= targetSets;    
   const title =  
     ex.name ||  
     ex.exerciseName ||  
@@ -1551,9 +1581,21 @@ ${session.coachQuestions || 'None recorded'}`;
   renderHistory();
 
   setInterval(() => {  
-    const el = $('#timer');  
-    if (el) el.textContent = clock(Math.max(0, Math.floor((Date.now() - new Date(active.startedAt)) / 1000)));  
-  }, 1000);
+  if (!state.restTimer) return;
+
+  const remaining = getRestTimerRemaining();
+
+  if (remaining <= 0) {  
+    state.restTimer = null;  
+    renderLog();  
+    return;  
+  }
+
+  const el = document.getElementById('restTimerValue');  
+  if (el) {  
+    el.textContent = formatTimer(remaining);  
+  }  
+}, 1000);  
 
   const m = MomentumData.metrics();  
   if ($('#dataStatus')) $('#dataStatus').textContent = m.lastDate ? `Data through ${m.lastDate}` : 'Local-first mode';
