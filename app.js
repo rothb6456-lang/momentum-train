@@ -258,7 +258,7 @@ function renderRestTimer() {
       </div>  
     </div>  
   `;  
-}  
+}    
 
 function startCurrentExerciseRestTimer() {  
   const ex = getActiveCockpitExercise();  
@@ -274,7 +274,7 @@ function getCockpitEditDefaults(ex) {
     rir: parseTopEndForDisplay(ex.prescribedRir || ''),  
     note: ''  
   };  
-}  
+}    
 
 function openCockpitDifferentToday() {  
   state.cockpitEditOpen = true;  
@@ -1557,9 +1557,3 @@ ${session.coachQuestions || 'None recorded'}`;
 
   const m = MomentumData.metrics();  
   if ($('#dataStatus')) $('#dataStatus').textContent = m.lastDate ? `Data through ${m.lastDate}` : 'Local-first mode';
-
-  if ('serviceWorker' in navigator) {  
-  navigator.serviceWorker.register('/sw.js').catch(err => {  
-    console.warn('Service worker registration failed', err);  
-  });  
-}  
