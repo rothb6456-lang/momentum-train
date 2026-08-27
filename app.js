@@ -140,7 +140,7 @@ function escapeHtml(value) {
     .replace(/>/g, '>')  
     .replace(/"/g, '"')  
     .replace(/'/g, ''');  
-}      
+}  
 
 function logCockpitSetAction() {  
   const cockpit = state.cockpit;  
