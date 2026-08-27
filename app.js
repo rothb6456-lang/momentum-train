@@ -1059,6 +1059,14 @@ persist();
     toast('Session saved and staged for review');  
   }
 
+window.startCockpitForWorkout = startCockpitForWorkout;  
+window.logCockpitSetAction = logCockpitSetAction;  
+window.openCockpitDifferentToday = openCockpitDifferentToday;  
+window.cockpitPrev = cockpitPrev;  
+window.cockpitNext = cockpitNext;  
+window.startOptionalExercise = startOptionalExercise;  
+window.skipOptionalExercise = skipOptionalExercise;  
+
   function debrief(session) {  
     const groups = session.sets.reduce((all, set) => {  
       (all[set.exercise] ??= []).push(set);  
