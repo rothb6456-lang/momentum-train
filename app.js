@@ -820,6 +820,41 @@ function renderCompletedSets(ex) {
   return rows.join('');  
 }
 
+function renderCockpitPrescription(ex) {  
+  return `  
+    <div class="card section">  
+      <div class="eyebrow">Prescription</div>  
+      <div class="kv">  
+        <span>Sets</span>  
+        <strong>${escapeHtml(ex.targetSets || '—')}</strong>  
+      </div>  
+      <div class="kv">  
+        <span>Reps / Duration</span>  
+        <strong>${escapeHtml(ex.prescribedRepsOrDuration || '—')}</strong>  
+      </div>  
+      <div class="kv">  
+        <span>Load</span>  
+        <strong>${escapeHtml(ex.prescribedLoad || (ex.establishLoad ? 'Establish today' : '—'))}</strong>  
+      </div>  
+      <div class="kv">  
+        <span>Tempo</span>  
+        <strong>${escapeHtml(ex.prescribedTempo || '—')}</strong>  
+      </div>  
+      <div class="kv">  
+        <span>RIR</span>  
+        <strong>${escapeHtml(ex.prescribedRir || '—')}</strong>  
+      </div>  
+      <div class="kv">  
+        <span>Rest</span>  
+        <strong>${escapeHtml(ex.prescribedRest || '—')}</strong>  
+      </div>  
+      ${ex.notes ? `  
+        <div class="hint" style="margin-top:8px">${escapeHtml(ex.notes)}</div>  
+      ` : ''}  
+    </div>  
+  `;  
+}  
+
 function renderCockpitExercise(ex) {  
   const complete = ex.completedSets >= ex.targetSets;
 
