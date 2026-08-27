@@ -1557,3 +1557,5 @@ ${session.coachQuestions || 'None recorded'}`;
 
   const m = MomentumData.metrics();  
   if ($('#dataStatus')) $('#dataStatus').textContent = m.lastDate ? `Data through ${m.lastDate}` : 'Local-first mode';
+
+})();
