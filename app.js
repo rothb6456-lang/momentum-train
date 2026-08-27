@@ -190,16 +190,20 @@ function cockpitNext() {
 }
 
 function openCockpitDifferentToday() {  
-  showToast('Sprint 1B: exception editing coming next.');  
-}  
+  toast('Sprint 1B: exception editing coming next.');  
+}    
 
-  let active;  
-  try {  
-    active = JSON.parse(localStorage.getItem(ACTIVE_KEY) || 'null');  
-  } catch {  
-    active = null;  
-  }  
-  if (!active || !Array.isArray(active.sets)) active = newSession();
+let active;  
+try {  
+  active = JSON.parse(localStorage.getItem(ACTIVE_KEY) || 'null');  
+} catch {  
+  active = null;  
+}  
+if (!active || !Array.isArray(active.sets)) active = newSession();
+
+if (active?.plannedWorkout?.exerciseBlocks?.length) {  
+  state.cockpit = MomentumPlanner.buildCockpitWorkout(active.plannedWorkout);  
+}  
 
   const persist = () => {  
     active.updatedAt = new Date().toISOString();  
@@ -595,19 +599,21 @@ function openCockpitDifferentToday() {
     `;  
   }
 
-  function startPlan(id) {  
-    const plan = MomentumPlanner.load().find(x => x.id === id);  
-    if (!plan) return;  
-    active = newSession(plan);  
-    MomentumPlanner.mark(plan.id, 'active');  
-    persist();  
-    renderHome();  
-    renderToday();  
-    renderLog();  
-    show('log');  
-    toast('Planned workout started');  
-  }
+function startPlan(id) {  
+  const plan = MomentumPlanner.load().find(x => x.id === id);  
+  if (!plan) return;
 
+  active = newSession(plan);  
+  state.cockpit = MomentumPlanner.buildCockpitWorkout(plan);
+
+  MomentumPlanner.mark(plan.id, 'active');  
+  persist();  
+  renderHome();  
+  renderToday();  
+  renderLog();  
+  show('log');  
+  toast('Planned workout started');  
+}  
   function planForActive() {  
     return active.plannedWorkout || basePlan();  
   }
@@ -978,14 +984,15 @@ function renderLog() {
 
     $('#discard').onclick = () => {  
       if (confirm('Discard this active session?')) {  
-        if (active.planId) MomentumPlanner.mark(active.planId, 'queued');  
-        active = newSession();  
-        persist();  
-        renderLog();  
-        renderToday();  
-        renderHome();  
-        toast('Draft discarded');  
-      }  
+  if (active.planId) MomentumPlanner.mark(active.planId, 'queued');  
+  active = newSession();  
+  state.cockpit = null;  
+  persist();  
+  renderLog();  
+  renderToday();  
+  renderHome();  
+  toast('Draft discarded');  
+}  
     };
 
     $$('[data-delete-set]').forEach(b => b.onclick = () => {  
@@ -1040,8 +1047,9 @@ function renderLog() {
 
     saveDone([complete, ...getDone()]);  
     if (active.planId) MomentumPlanner.mark(active.planId, 'completed');  
-    active = newSession();  
-    persist();
+active = newSession();  
+state.cockpit = null;  
+persist();  
 
     renderHome();  
     renderToday();  
