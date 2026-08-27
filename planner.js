@@ -543,6 +543,163 @@ function fromCompleted(session) {
   return workout;  
 }
 
+function parseTopEndValue(value) {  
+  const raw = clean(value);  
+  if (!raw) return '';
+
+  // 8-10/side -> 10/side  
+  let m = raw.match(/^(\d+)\s*-\s*(\d+)(\/side)$/i);  
+  if (m) return `${m[2]}${m[3]}`;
+
+  // 45-60 sec -> 60 sec  
+  m = raw.match(/^(\d+)\s*-\s*(\d+)\s*(sec|min|s|m)$/i);  
+  if (m) return `${m[2]} ${m[3]}`;
+
+  // 8-10 -> 10  
+  m = raw.match(/^(\d+)\s*-\s*(\d+)$/);  
+  if (m) return m[2];
+
+  // 1-2 -> 2  
+  m = raw.match(/^(\d+)\s*-\s*(\d+)$/);  
+  if (m) return m[2];
+
+  return raw;  
+}
+
+function normalizeRestTopEnd(value) {  
+  const raw = clean(value);  
+  if (!raw) return '';  
+  const m = raw.match(/^(\d+)\s*-\s*(\d+)\s*(sec|min|s|m)$/i);  
+  if (m) return `${m[2]} ${m[3]}`;  
+  return raw;  
+}
+
+function isOptionalExercise(block) {  
+  return /\boptional\b/i.test(block.notes || '') ||  
+         /\boptional\b/i.test(block.exerciseName || '');  
+}
+
+function isEstablishLoad(block) {  
+  return /\bestablish\b/i.test(block.targetWeightOrLoad || '');  
+}
+
+function isTimedPrescription(block) {  
+  return /\bsec\b|\bmin\b|\bs\b|\bm\b/i.test(block.targetRepsOrDuration || '');  
+}
+
+function isUnilateralPrescription(block) {  
+  return /\/side/i.test(block.targetRepsOrDuration || '') ||  
+         /\b1-arm\b|\bsingle-arm\b/i.test(block.exerciseName || '');  
+}
+
+function defaultActualFromBlock(block) {  
+  const repsOrDuration = parseTopEndValue(block.targetRepsOrDuration || '');  
+  const rir = parseTopEndValue(block.rir || '');  
+  return {  
+    actualRepsOrDuration: repsOrDuration,  
+    actualLoad: clean(block.targetWeightOrLoad || ''),  
+    actualTempo: clean(block.tempo || ''),  
+    actualRir: rir,  
+    actualRest: normalizeRestTopEnd(block.rest || ''),  
+    note: ''  
+  };  
+}
+
+function toCockpitExercise(block, index) {  
+  return {  
+    id: block.id || id(),  
+    order: index + 1,  
+    exerciseName: clean(block.exerciseName || ''),  
+    prescribedSets: Number(block.targetSets || 0) || 0,  
+    prescribedRepsOrDuration: clean(block.targetRepsOrDuration || ''),  
+    prescribedLoad: clean(block.targetWeightOrLoad || ''),  
+    prescribedTempo: clean(block.tempo || ''),  
+    prescribedRir: clean(block.rir || ''),  
+    prescribedRest: clean(block.rest || ''),  
+    notes: clean(block.notes || ''),  
+    optional: isOptionalExercise(block),  
+    establishLoad: isEstablishLoad(block),  
+    unilateral: isUnilateralPrescription(block),  
+    timed: isTimedPrescription(block),  
+    completedSets: [],  
+    skipped: false,  
+    started: false,  
+    workingLoad: isEstablishLoad(block) ? '' : clean(block.targetWeightOrLoad || '')  
+  };  
+}
+
+function buildCockpitWorkout(workout) {  
+  const base = clone(workout || blankWorkout());  
+  return {  
+    workoutId: base.id,  
+    title: base.title || 'Untitled workout',  
+    phaseId: base.phaseId || '',  
+    week: base.week || '',  
+    day: base.day || '',  
+    exerciseIndex: 0,  
+    exercises: (base.exerciseBlocks || []).map(toCockpitExercise)  
+  };  
+}
+
+function logCockpitSet(cockpit, exerciseIndex, override = {}) {  
+  const next = clone(cockpit);  
+  const ex = next.exercises[exerciseIndex];  
+  if (!ex) return next;
+
+  if (ex.optional && !ex.started) ex.started = true;
+
+  const baseActual = defaultActualFromBlock({  
+    targetRepsOrDuration: ex.prescribedRepsOrDuration,  
+    targetWeightOrLoad: ex.workingLoad || ex.prescribedLoad,  
+    tempo: ex.prescribedTempo,  
+    rir: ex.prescribedRir,  
+    rest: ex.prescribedRest  
+  });
+
+  const actual = {  
+    ...baseActual,  
+    ...override  
+  };
+
+  if (ex.establishLoad && !clean(actual.actualLoad)) {  
+    throw new Error('Working load required before logging this set.');  
+  }
+
+  ex.completedSets.push({  
+    setNumber: ex.completedSets.length + 1,  
+    ...actual,  
+    loggedAt: new Date().toISOString()  
+  });
+
+  return next;  
+}
+
+function setCockpitWorkingLoad(cockpit, exerciseIndex, load) {  
+  const next = clone(cockpit);  
+  const ex = next.exercises[exerciseIndex];  
+  if (!ex) return next;  
+  ex.workingLoad = clean(load);  
+  return next;  
+}
+
+function skipCockpitExercise(cockpit, exerciseIndex) {  
+  const next = clone(cockpit);  
+  const ex = next.exercises[exerciseIndex];  
+  if (!ex) return next;  
+  ex.skipped = true;  
+  ex.started = false;  
+  return next;  
+}
+
+function startOptionalCockpitExercise(cockpit, exerciseIndex) {  
+  const next = clone(cockpit);  
+  const ex = next.exercises[exerciseIndex];  
+  if (!ex) return next;  
+  ex.started = true;  
+  ex.skipped = false;  
+  return next;  
+}  
+
 return {  
   load,  
   save,  
@@ -555,6 +712,12 @@ return {
   duplicate,  
   mark,  
   fromCompleted,  
-  clone  
+  clone,  
+  buildCockpitWorkout,  
+  logCockpitSet,  
+  setCockpitWorkingLoad,  
+  skipCockpitExercise,  
+  startOptionalCockpitExercise,  
+  defaultActualFromBlock  
 };  
 })();  

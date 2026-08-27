@@ -84,6 +84,11 @@
     }))  
   });
 
+function startCockpitForWorkout(workout) {  
+  state.cockpit = MomentumPlanner.buildCockpitWorkout(workout);  
+  renderLog();  
+}  
+
   function newSession(plan = null) {  
     const source = plan || basePlan();  
     return {  
@@ -106,6 +111,88 @@
       coachQuestions: ''  
     };  
   }
+
+let active;  
+const state = {  
+  cockpit: null  
+};
+
+function parseTopEndForDisplay(value) {  
+  const raw = String(value || '').trim();  
+  if (!raw) return '';  
+  const m = raw.match(/^(\d+)\s*-\s*(\d+)$/);  
+  if (m) return m[2];  
+  return raw;  
+}  
+
+function parseRestTopEndForDisplay(value) {  
+  const raw = String(value || '').trim();  
+  if (!raw) return '';  
+  const m = raw.match(/^(\d+)\s*-\s*(\d+)\s*(sec|min|s|m)$/i);  
+  if (m) return `${m[2]} ${m[3]}`;  
+  return raw;  
+}  
+
+function escapeHtml(value) {  
+  return String(value ?? '')  
+    .replace(/&/g, '&')  
+    .replace(/</g, '<')  
+    .replace(/>/g, '>')  
+    .replace(/"/g, '"')  
+    .replace(/'/g, ''');  
+}      
+
+function logCockpitSetAction() {  
+  const cockpit = state.cockpit;  
+  if (!cockpit) return;
+
+  const ex = getActiveCockpitExercise();  
+  if (!ex) return;
+
+  try {  
+    let next = cockpit;
+
+    if (ex.establishLoad) {  
+      const input = document.getElementById('cockpitWorkingLoad');  
+      const load = input ? input.value : '';  
+      next = MomentumPlanner.setCockpitWorkingLoad(next, cockpit.exerciseIndex, load);  
+    }
+
+    next = MomentumPlanner.logCockpitSet(next, next.exerciseIndex);  
+    state.cockpit = next;  
+    renderLog();  
+  } catch (err) {  
+    showToast(err.message || 'Could not log set.');  
+  }  
+}
+
+function startOptionalExercise() {  
+  if (!state.cockpit) return;  
+  state.cockpit = MomentumPlanner.startOptionalCockpitExercise(state.cockpit, state.cockpit.exerciseIndex);  
+  renderLog();  
+}
+
+function skipOptionalExercise() {  
+  if (!state.cockpit) return;  
+  state.cockpit = MomentumPlanner.skipCockpitExercise(state.cockpit, state.cockpit.exerciseIndex);  
+  renderLog();  
+}
+
+function cockpitPrev() {  
+  if (!state.cockpit) return;  
+  state.cockpit.exerciseIndex = Math.max(0, state.cockpit.exerciseIndex - 1);  
+  renderLog();  
+}
+
+function cockpitNext() {  
+  if (!state.cockpit) return;  
+  state.cockpit.exerciseIndex = Math.min(state.cockpit.exercises.length - 1, state.cockpit.exerciseIndex + 1);  
+  renderLog();  
+}
+
+function openCockpitDifferentToday() {  
+  showToast('Sprint 1B: exception editing coming next.');  
+}  
 
   let active;  
   try {  
@@ -545,115 +632,248 @@
     ].filter(Boolean))];  
   }
 
-  function renderLog() {  
-    const block = activeBlock();
+function getActiveCockpitExercise() {  
+  if (!state.cockpit || !state.cockpit.exercises?.length) return null;  
+  return state.cockpit.exercises[state.cockpit.exerciseIndex] || null;  
+}
 
-    $('#log').innerHTML = `  
-      <div class="log-shell">  
-        <header class="active-session">  
-          <div>  
-            <div class="eyebrow">${active.planId ? 'Planned session · autosaved' : 'Ad hoc session · autosaved'}</div>  
-            <h1>${esc(active.workoutName)}</h1>  
-            <div id="timer">${clock(Math.max(0, Math.floor((Date.now() - new Date(active.startedAt)) / 1000)))}</div>  
-          </div>  
-          <div class="session-tools">  
-            <button class="secondary" id="finish">Finish</button>  
-            <button class="danger" id="discard">Discard</button>  
-          </div>  
-        </header>
-
-        ${active.planId ? `  
-          <article class="card" style="margin-bottom:12px">  
-            <div class="eyebrow">Planned context</div>  
-            <b>${esc(planForActive().title)}</b> · ${esc(planSummary(planForActive()))}  
-          </article>  
-        ` : ''}
-
-        <div class="logger-layout">  
-          <aside class="card">  
-            <div class="card-head"><div><h2>Exercise flow</h2>Planned exercises are pinned first.</div></div>  
-            <input id="searchExercise" class="input" placeholder="Search or add custom exercise">  
-            <div id="exercisePicker" class="picker-list"></div>  
-          </aside>
-
-          <section>  
-            <article class="card">  
-              <div class="eyebrow">Set entry</div>  
-              <h2 style="margin-top:6px">${esc(block.exerciseName || 'Choose exercise')}</h2>  
-              <p class="quiet">  
-                ${esc([  
-                  block.targetSets && `${block.targetSets} sets`,  
-                  block.targetRepsOrDuration,  
-                  block.targetWeightOrLoad && `${block.targetWeightOrLoad} lb`,  
-                  block.tempo && `Tempo ${block.tempo}`,  
-                  block.rir && `RIR ${block.rir}`  
-                ].filter(Boolean).join(' · ') || 'No planned target')}  
-              </p>
-
-              <div class="set-form">  
-                <label class="field">Load (lb)<input id="load" class="input" inputmode="decimal" placeholder="0"></label>  
-                <label class="field">Result<input id="result" class="input" inputmode="decimal" placeholder="Reps / sec"></label>
-
-                <div class="field full">  
-                  Result type  
-                  <div class="segment">  
-                    <button class="secondary active" data-type="reps">Reps</button>  
-                    <button class="secondary" data-type="duration">Duration</button>  
-                  </div>  
-                </div>
-
-                <div class="field full">  
-                  Tempo (eccentric · pause · concentric)  
-                  <div class="tempo">  
-                    <input id="tempoE" class="input" value="${esc((block.tempo || '').split('-')[0] || '')}" placeholder="E">  
-                    <input id="tempoP" class="input" value="${esc((block.tempo || '').split('-')[1] || '')}" placeholder="P">  
-                    <input id="tempoC" class="input" value="${esc((block.tempo || '').split('-')[2] || '')}" placeholder="C">  
-                  </div>  
-                </div>
-
-                <div class="field full">  
-                  RIR  
-                  <div class="rir-chips">  
-                    ${['0', '0-1', '1', '1-2', '2', '2+', '3+', '4+'].map(x => `<button class="chip ${block.rir === x ? 'active' : ''}" data-rir="${x}">${x}</button>`).join('')}  
-                  </div>  
-                </div>
-
-                <label class="field full">Technical checkpoint<textarea id="checkpoint" placeholder="Position, path, cue, or execution observation">${esc(block.checkpoints || '')}</textarea></label>  
-                <label class="field full">Joint / performance note<textarea id="note" placeholder="Shoulder, grip, substitution, or performance detail"></textarea></label>  
-              </div>
-
-              <div class="actions">  
-                <button class="primary" id="addSet">Add completed set</button>  
-                <button class="secondary" id="duplicateLast">Duplicate previous</button>  
-              </div>  
-            </article>
-
-            <article class="card session-log">  
-              <div class="card-head">  
-                <div><h2>Live session log</h2>${active.sets.length} completed set${active.sets.length === 1 ? '' : 's'} · saved automatically</div>  
-                ${new Set(active.sets.map(x => x.exercise)).size} exercises  
-              </div>  
-              ${logMarkup(active)}  
-            </article>
-
-            <article class="card section">  
-              <h2>Session context</h2>  
-              <div class="set-form" style="margin-top:11px">  
-                <label class="field">Shoulder pre-session<textarea data-context="pre">${esc(active.shoulder.pre)}</textarea></label>  
-                <label class="field">During pressing<textarea data-context="during">${esc(active.shoulder.during)}</textarea></label>  
-                <label class="field">Post-session<textarea data-context="post">${esc(active.shoulder.post)}</textarea></label>  
-                <label class="field">Grip status<textarea data-context="gripNotes">${esc(active.gripNotes)}</textarea></label>  
-                <label class="field full">Questions for Coach<textarea data-context="coachQuestions">${esc(active.coachQuestions)}</textarea></label>  
-              </div>  
-            </article>  
-          </section>  
+function renderCockpitHeader(cockpit) {  
+  return `  
+    <div class="active-session">  
+      <div>  
+        <div class="eyebrow">Execute</div>  
+        <h1>${escapeHtml(cockpit.title || 'Workout')}</h1>  
+        <div class="quiet">  
+          ${cockpit.phaseId ? `Phase ${escapeHtml(cockpit.phaseId)} • ` : ''}  
+          ${cockpit.week ? `Week ${escapeHtml(cockpit.week)} • ` : ''}  
+          ${cockpit.day ? `Day ${escapeHtml(cockpit.day)}` : ''}  
         </div>  
       </div>  
-    `;
+      <div class="pill">  
+        Exercise ${cockpit.exerciseIndex + 1} of ${cockpit.exercises.length}  
+      </div>  
+    </div>  
+  `;  
+}
 
-    renderPicker();  
-    bindLog();  
+function renderCompletedSets(ex) {  
+  const total = ex.prescribedSets || 0;  
+  const rows = [];
+
+  for (let i = 1; i <= total; i++) {  
+    const set = ex.completedSets[i - 1];  
+    if (set) {  
+      rows.push(`  
+        <div class="log-row">  
+          <div><b>${i}</b></div>  
+          <div class="set-main">  
+            ${escapeHtml(set.actualLoad || '—')} × ${escapeHtml(set.actualRepsOrDuration || '—')}  
+          </div>  
+          <div class="set-meta">  
+            ${escapeHtml(set.actualTempo || '')}${set.actualTempo && set.actualRir ? ' | ' : ''}  
+            ${set.actualRir ? `RIR ${escapeHtml(set.actualRir)}` : ''}  
+          </div>  
+        </div>  
+      `);  
+    } else {  
+      rows.push(`  
+        <div class="log-row">  
+          <div><b>${i}</b></div>  
+          <div class="set-main">—</div>  
+          <div class="set-meta">Pending</div>  
+        </div>  
+      `);  
+    }  
   }
+
+  return rows.join('');  
+}
+
+function renderCockpitExercise(ex) {  
+  const complete = ex.completedSets.length >= ex.prescribedSets && ex.prescribedSets > 0;
+
+  return `  
+    <div class="card">  
+      <div class="card-head">  
+        <div>  
+          <div class="eyebrow">${ex.optional ? 'Optional exercise' : 'Active exercise'}</div>  
+          <h2>${escapeHtml(ex.exerciseName)}</h2>  
+          <div class="quiet">  
+            ${ex.unilateral ? 'Bilateral set entry for unilateral work' : ''}  
+          </div>  
+        </div>  
+        ${complete ? '<div class="pill">Exercise complete</div>' : ''}  
+      </div>
+
+      <div class="stack">  
+        <div class="signal-card">  
+          <b>${escapeHtml(ex.prescribedSets)} x ${escapeHtml(ex.prescribedRepsOrDuration)}</b>  
+          <span>  
+            Load: ${escapeHtml(ex.workingLoad || ex.prescribedLoad || '—')}<br>  
+            Tempo: ${escapeHtml(ex.prescribedTempo || '—')}<br>  
+            RIR: ${escapeHtml(parseTopEndForDisplay(ex.prescribedRir) || '—')}<br>  
+            Rest: ${escapeHtml(parseRestTopEndForDisplay(ex.prescribedRest) || '—')}  
+          </span>  
+        </div>
+
+        ${ex.establishLoad ? `  
+          <div class="field">  
+            <label>Working load</label>  
+            <input class="input" id="cockpitWorkingLoad" value="${escapeHtml(ex.workingLoad || '')}" placeholder="Enter working load">  
+          </div>  
+        ` : ''}
+
+        ${ex.optional && !ex.started && !ex.skipped ? `  
+          <div class="actions">  
+            <button class="secondary" onclick="startOptionalExercise()">Start optional</button>  
+            <button class="secondary" onclick="skipOptionalExercise()">Skip optional</button>  
+          </div>  
+        ` : `  
+          <div class="actions">  
+            <button class="primary" onclick="logCockpitSetAction()">  
+              ${complete ? 'Log extra set' : 'Log Set'}  
+            </button>  
+            <button class="secondary" onclick="openCockpitDifferentToday()">Different today</button>  
+          </div>  
+        `}
+
+        <div class="session-log">  
+          <h3>Completed sets</h3>  
+          ${renderCompletedSets(ex)}  
+        </div>  
+      </div>  
+    </div>  
+  `;  
+}  
+
+function renderLog() {  
+  const root = document.getElementById('log');  
+  if (!root) return;
+
+  if (state.cockpit && state.cockpit.exercises?.length) {  
+    const ex = getActiveCockpitExercise();
+
+    root.innerHTML = `  
+      <div class="log-shell">  
+        ${renderCockpitHeader(state.cockpit)}  
+        ${renderCockpitExercise(ex)}  
+        <div class="actions section">  
+          <button class="secondary" onclick="cockpitPrev()" ${state.cockpit.exerciseIndex === 0 ? 'disabled' : ''}>Previous</button>  
+          <button class="secondary" onclick="cockpitNext()" ${state.cockpit.exerciseIndex === state.cockpit.exercises.length - 1 ? 'disabled' : ''}>Next</button>  
+        </div>  
+      </div>  
+    `;  
+    return;  
+  }
+
+  const block = activeBlock();
+
+  $('#log').innerHTML = `  
+    <div class="log-shell">  
+      <header class="active-session">  
+        <div>  
+          <div class="eyebrow">${active.planId ? 'Planned session · autosaved' : 'Ad hoc session · autosaved'}</div>  
+          <h1>${esc(active.workoutName)}</h1>  
+          <div id="timer">${clock(Math.max(0, Math.floor((Date.now() - new Date(active.startedAt)) / 1000)))}</div>  
+        </div>  
+        <div class="session-tools">  
+          <button class="secondary" id="finish">Finish</button>  
+          <button class="danger" id="discard">Discard</button>  
+        </div>  
+      </header>
+
+      ${active.planId ? `  
+        <article class="card" style="margin-bottom:12px">  
+          <div class="eyebrow">Planned context</div>  
+          <b>${esc(planForActive().title)}</b> · ${esc(planSummary(planForActive()))}  
+        </article>  
+      ` : ''}
+
+      <div class="logger-layout">  
+        <aside class="card">  
+          <div class="card-head"><div><h2>Exercise flow</h2>Planned exercises are pinned first.</div></div>  
+          <input id="searchExercise" class="input" placeholder="Search or add custom exercise">  
+          <div id="exercisePicker" class="picker-list"></div>  
+        </aside>
+
+        <section>  
+          <article class="card">  
+            <div class="eyebrow">Set entry</div>  
+            <h2 style="margin-top:6px">${esc(block.exerciseName || 'Choose exercise')}</h2>  
+            <p class="quiet">  
+              ${esc([  
+                block.targetSets && `${block.targetSets} sets`,  
+                block.targetRepsOrDuration,  
+                block.targetWeightOrLoad && `${block.targetWeightOrLoad} lb`,  
+                block.tempo && `Tempo ${block.tempo}`,  
+                block.rir && `RIR ${block.rir}`  
+              ].filter(Boolean).join(' · ') || 'No planned target')}  
+            </p>
+
+            <div class="set-form">  
+              <label class="field">Load (lb)<input id="load" class="input" inputmode="decimal" placeholder="0"></label>  
+              <label class="field">Result<input id="result" class="input" inputmode="decimal" placeholder="Reps / sec"></label>
+
+              <div class="field full">  
+                Result type  
+                <div class="segment">  
+                  <button class="secondary active" data-type="reps">Reps</button>  
+                  <button class="secondary" data-type="duration">Duration</button>  
+                </div>  
+              </div>
+
+              <div class="field full">  
+                Tempo (eccentric · pause · concentric)  
+                <div class="tempo">  
+                  <input id="tempoE" class="input" value="${esc((block.tempo || '').split('-')[0] || '')}" placeholder="E">  
+                  <input id="tempoP" class="input" value="${esc((block.tempo || '').split('-')[1] || '')}" placeholder="P">  
+                  <input id="tempoC" class="input" value="${esc((block.tempo || '').split('-')[2] || '')}" placeholder="C">  
+                </div>  
+              </div>
+
+              <div class="field full">  
+                RIR  
+                <div class="rir-chips">  
+                  ${['0', '0-1', '1', '1-2', '2', '2+', '3+', '4+'].map(x => `<button class="chip ${block.rir === x ? 'active' : ''}" data-rir="${x}">${x}</button>`).join('')}  
+                </div>  
+              </div>
+
+              <label class="field full">Technical checkpoint<textarea id="checkpoint" placeholder="Position, path, cue, or execution observation">${esc(block.checkpoints || '')}</textarea></label>  
+              <label class="field full">Joint / performance note<textarea id="note" placeholder="Shoulder, grip, substitution, or performance detail"></textarea></label>  
+            </div>
+
+            <div class="actions">  
+              <button class="primary" id="addSet">Add completed set</button>  
+              <button class="secondary" id="duplicateLast">Duplicate previous</button>  
+            </div>  
+          </article>
+
+          <article class="card session-log">  
+            <div class="card-head">  
+              <div><h2>Live session log</h2>${active.sets.length} completed set${active.sets.length === 1 ? '' : 's'} · saved automatically</div>  
+              ${new Set(active.sets.map(x => x.exercise)).size} exercises  
+            </div>  
+            ${logMarkup(active)}  
+          </article>
+
+          <article class="card section">  
+            <h2>Session context</h2>  
+            <div class="set-form" style="margin-top:11px">  
+              <label class="field">Shoulder pre-session<textarea data-context="pre">${esc(active.shoulder.pre)}</textarea></label>  
+              <label class="field">During pressing<textarea data-context="during">${esc(active.shoulder.during)}</textarea></label>  
+              <label class="field">Post-session<textarea data-context="post">${esc(active.shoulder.post)}</textarea></label>  
+              <label class="field">Grip status<textarea data-context="gripNotes">${esc(active.gripNotes)}</textarea></label>  
+              <label class="field full">Questions for Coach<textarea data-context="coachQuestions">${esc(active.coachQuestions)}</textarea></label>  
+            </div>  
+          </article>  
+        </section>  
+      </div>  
+    </div>  
+  `;
+
+  renderPicker();  
+  bindLog();  
+}  
 
   function renderPicker(query = '') {  
     const root = $('#exercisePicker');  
