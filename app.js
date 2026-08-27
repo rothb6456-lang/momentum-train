@@ -84,6 +84,16 @@
     }))  
   });
 
+setInterval(() => {  
+  if (!state.restTimer) return;
+
+  if (getRestTimerRemaining() <= 0) {  
+    state.restTimer = null;  
+  }
+
+  renderLog();  
+}, 1000);  
+
 function startCockpitForWorkout(workout) {  
   state.cockpit = MomentumPlanner.buildCockpitWorkout(workout);  
   renderLog();  
@@ -821,47 +831,71 @@ function renderCompletedSets(ex) {
 }
 
 function renderCockpitPrescription(ex) {  
+  const sets =  
+    ex.targetSets ??  
+    ex.setsTarget ??  
+    ex.sets ??  
+    '—';
+
+  const repsOrDuration =  
+    ex.prescribedRepsOrDuration ||  
+    ex.reps ||  
+    ex.repRange ||  
+    '—';
+
+  const load =  
+    ex.workingLoad ||  
+    ex.prescribedLoad ||  
+    ex.load ||  
+    (ex.establishLoad ? 'Establish today' : '—');
+
+  const tempo =  
+    ex.prescribedTempo ||  
+    ex.tempo ||  
+    '—';
+
+  const rir =  
+    ex.prescribedRir ||  
+    ex.rir ||  
+    '—';
+
+  const rest =  
+    ex.prescribedRest ||  
+    ex.rest ||  
+    '—';
+
+  const notes =  
+    ex.notes ||  
+    ex.note ||  
+    '';
+
   return `  
     <div class="card section">  
       <div class="eyebrow">Prescription</div>  
-      <div class="kv">  
-        <span>Sets</span>  
-        <strong>${escapeHtml(ex.targetSets || '—')}</strong>  
-      </div>  
-      <div class="kv">  
-        <span>Reps / Duration</span>  
-        <strong>${escapeHtml(ex.prescribedRepsOrDuration || '—')}</strong>  
-      </div>  
-      <div class="kv">  
-        <span>Load</span>  
-        <strong>${escapeHtml(ex.prescribedLoad || (ex.establishLoad ? 'Establish today' : '—'))}</strong>  
-      </div>  
-      <div class="kv">  
-        <span>Tempo</span>  
-        <strong>${escapeHtml(ex.prescribedTempo || '—')}</strong>  
-      </div>  
-      <div class="kv">  
-        <span>RIR</span>  
-        <strong>${escapeHtml(ex.prescribedRir || '—')}</strong>  
-      </div>  
-      <div class="kv">  
-        <span>Rest</span>  
-        <strong>${escapeHtml(ex.prescribedRest || '—')}</strong>  
-      </div>  
-      ${ex.notes ? `  
-        <div class="hint" style="margin-top:8px">${escapeHtml(ex.notes)}</div>  
-      ` : ''}  
+      <div class="kv"><span>Sets</span><strong>${escapeHtml(String(sets))}</strong></div>  
+      <div class="kv"><span>Reps / Duration</span><strong>${escapeHtml(String(repsOrDuration))}</strong></div>  
+      <div class="kv"><span>Load</span><strong>${escapeHtml(String(load))}</strong></div>  
+      <div class="kv"><span>Tempo</span><strong>${escapeHtml(String(tempo))}</strong></div>  
+      <div class="kv"><span>RIR</span><strong>${escapeHtml(String(rir))}</strong></div>  
+      <div class="kv"><span>Rest</span><strong>${escapeHtml(String(rest))}</strong></div>  
+      ${notes ? `<div class="hint" style="margin-top:8px">${escapeHtml(String(notes))}</div>` : ''}  
     </div>  
   `;  
-}  
+}   
 
 function renderCockpitExercise(ex) {  
-  const complete = ex.completedSets >= ex.targetSets;
+  const cockpit = state.cockpit;  
+  const complete = (ex.completedSets || 0) >= (ex.targetSets || ex.setsTarget || 0);  
+  const title =  
+    ex.name ||  
+    ex.exerciseName ||  
+    ex.title ||  
+    'Exercise';
 
   return `  
     <div class="card section">  
-      <div class="eyebrow">Exercise ${state.cockpit.exerciseIndex + 1} of ${state.cockpit.exercises.length}</div>  
-      <h2>${escapeHtml(ex.name)}</h2>
+      <div class="eyebrow">Exercise ${cockpit.exerciseIndex + 1} of ${cockpit.exercises.length}</div>  
+      <h2>${escapeHtml(title)}</h2>
 
       ${renderCockpitPrescription(ex)}
 
@@ -881,8 +915,7 @@ function renderCockpitExercise(ex) {
         </div>  
       `}
 
-      ${renderRestTimer()}
-
+      ${renderRestTimer()}  
       ${renderCockpitDifferentToday(ex)}
 
       <div class="session-log">  
@@ -891,7 +924,7 @@ function renderCockpitExercise(ex) {
       </div>  
     </div>  
   `;  
-}    
+}  
 
 function saveDifferentTodayAndLogSet() {  
   const cockpit = state.cockpit;  
@@ -1525,5 +1558,8 @@ ${session.coachQuestions || 'None recorded'}`;
   const m = MomentumData.metrics();  
   if ($('#dataStatus')) $('#dataStatus').textContent = m.lastDate ? `Data through ${m.lastDate}` : 'Local-first mode';
 
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');  
-})();  
+  if ('serviceWorker' in navigator) {  
+  navigator.serviceWorker.register('/sw.js').catch(err => {  
+    console.warn('Service worker registration failed', err);  
+  });  
+} 
