@@ -112,7 +112,6 @@ function startCockpitForWorkout(workout) {
     };  
   }
 
-let active;  
 const state = {  
   cockpit: null  
 };
