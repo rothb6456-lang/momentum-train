@@ -319,6 +319,24 @@ function normalizePerformedReps(value) {
   return raw;  
 }  
 
+function updateReviewQuestions(sessionId, value) {  
+  const sessions = getDone();  
+  const idx = sessions.findIndex(x => x.id === sessionId);  
+  if (idx === -1) return;
+
+  sessions[idx].coachQuestions = value || '';  
+  saveDone(sessions);  
+}  
+
+function updateReviewQuestions(sessionId, value) {  
+  const sessions = getDone();  
+  const idx = sessions.findIndex(x => x.id === sessionId);  
+  if (idx === -1) return;
+
+  sessions[idx].coachQuestions = value || '';  
+  saveDone(sessions);  
+}  
+
 function logCockpitSetAction() {  
   const cockpit = state.cockpit;  
   if (!cockpit) return;
@@ -956,19 +974,26 @@ function renderCockpitHeader(cockpit) {
 }  
 
 function renderCompletedSets(ex) {  
-  const total = ex.prescribedSets || 0;  
+  const prescribed = Number(ex.prescribedSets || 0);  
+  const completed = Array.isArray(ex.completedSets) ? ex.completedSets : [];  
+  const total = Math.max(prescribed, completed.length);  
   const rows = [];
 
   for (let i = 1; i <= total; i++) {  
-    const set = ex.completedSets[i - 1];  
+    const set = completed[i - 1];
+
     if (set) {  
+      const isExtra = i > prescribed;
+
       rows.push(`  
         <div class="log-row">  
-          <div><b>${i}</b></div>  
+          <div><b>${isExtra ? `${i}*` : i}</b></div>  
           <div class="set-main">  
             ${escapeHtml(set.actualLoad || '—')} × ${escapeHtml(set.actualRepsOrDuration || '—')}  
           </div>  
           <div class="set-meta">  
+            ${isExtra ? 'Extra set' : ''}  
+            ${(isExtra && (set.actualTempo || set.actualRir)) ? ' | ' : ''}  
             ${escapeHtml(set.actualTempo || '')}${set.actualTempo && set.actualRir ? ' | ' : ''}  
             ${set.actualRir ? `RIR ${escapeHtml(set.actualRir)}` : ''}  
           </div>  
@@ -986,7 +1011,7 @@ function renderCompletedSets(ex) {
   }
 
   return rows.join('');  
-}
+}  
 
 function renderCockpitPrescription(ex) {  
   const sets =  
@@ -1469,37 +1494,84 @@ window.stopRestTimer = stopRestTimer;
 window.finishWorkoutAction = finishWorkoutAction;  
 window.deleteLastCockpitSet = deleteLastCockpitSet;      
 
-  function debrief(session) {  
-    const groups = session.sets.reduce((all, set) => {  
-      (all[set.exercise] ??= []).push(set);  
-      return all;  
-    }, {});  
-    const mins = Math.max(1, Math.round((new Date(session.completedAt || Date.now()) - new Date(session.startedAt)) / 60000));
+function debrief(session) {  
+  const sets = Array.isArray(session?.sets) ? session.sets : [];
 
-    return `Phase: ${session.phase || '—'} | Week: ${session.week || '—'} | Day: ${session.day || '—'}  
-Date: ${dateIso(session.completedAt || session.startedAt)}  
-Workout: ${session.workoutName || 'Momentum session'}
+  const groups = sets.reduce((all, set) => {  
+    const exercise = set?.exercise ?? 'Unknown exercise';  
+    (all[exercise] ??= []).push(set);  
+    return all;  
+  }, {});
+
+  const started = session?.startedAt ? new Date(session.startedAt) : null;  
+  const completed = new Date(session?.completedAt ?? Date.now());
+
+  const validStarted = started && !Number.isNaN(started.getTime());  
+  const validCompleted = !Number.isNaN(completed.getTime());
+
+  const mins =  
+    validStarted && validCompleted  
+      ? Math.max(1, Math.round((completed - started) / 60000))  
+      : '—';
+
+  const formatDate = (value) => {  
+    const d = new Date(value);  
+    return Number.isNaN(d.getTime()) ? '—' : d.toISOString().slice(0, 10);  
+  };
+
+  const formatLoad = (set) => {  
+    if (set?.load == null || set.load === '') return 'bodyweight';  
+    return `${set.load}${set.loadUnit ? ` ${set.loadUnit}` : ' lb'}`;  
+  };
+
+  const formatResult = (set) => {  
+    if (set?.result == null || set.result === '') return '?';  
+    if (set.resultType === 'duration') return `${set.result} sec`;  
+    return `${set.result}`;  
+  };
+
+  const setLog = Object.entries(groups)  
+    .map(([name, exerciseSets]) => {  
+      const lines = exerciseSets.map((s, i) => {  
+        const parts = [  
+          `  Set ${i + 1}: ${formatLoad(s)} x ${formatResult(s)}`,  
+          `Tempo ${s?.tempo ?? 'not logged'}`,  
+          `RIR ${s?.rir ?? 'not logged'}`  
+        ];
+
+        if (s?.checkpoint) parts.push(`Checkpoint: ${s.checkpoint}`);  
+        if (s?.note) parts.push(`Note: ${s.note}`);
+
+        return parts.join(' | ');  
+      });
+
+      return `${name}\n${lines.join('\n')}`;  
+    })  
+    .join('\n\n');
+
+  return `Phase: ${session?.phase ?? '—'} | Week: ${session?.week ?? '—'} | Day: ${session?.day ?? '—'}  
+Date: ${formatDate(session?.completedAt ?? session?.startedAt)}  
+Workout: ${session?.workoutName ?? 'Momentum session'}
 
 SESSION SUMMARY  
 Duration: ${mins} min  
-Total sets: ${session.sets.length}  
+Total sets: ${sets.length}  
 Exercises: ${Object.keys(groups).length}
 
 SET LOG  
-${Object.entries(groups).map(([name, sets]) => `${name}  
-${sets.map((s, i) => `  Set ${i + 1}: ${s.load || 'bodyweight'}${s.load ? ' lb' : ''} x ${s.result || '?'}${s.resultType === 'duration' ? ' sec' : ''} | Tempo ${s.tempo || 'not logged'} | RIR ${s.rir || 'not logged'}${s.checkpoint ? ' | Checkpoint: ' + s.checkpoint : ''}${s.note ? ' | Note: ' + s.note : ''}`).join('\n')}`).join('\n\n')}
+${setLog || 'No sets recorded'}
 
 SHOULDER STATUS  
-Pre-session: ${session.shoulder?.pre || 'Not recorded'}  
-During pressing: ${session.shoulder?.during || 'Not recorded'}  
-Post-session: ${session.shoulder?.post || 'Not recorded'}
+Pre-session: ${session?.shoulder?.pre ?? 'Not recorded'}  
+During pressing: ${session?.shoulder?.during ?? 'Not recorded'}  
+Post-session: ${session?.shoulder?.post ?? 'Not recorded'}
 
 GRIP STATUS  
-${session.gripNotes || 'Not recorded'}
+${session?.gripNotes ?? 'Not recorded'}
 
 QUESTIONS FOR COACH  
-${session.coachQuestions || 'None recorded'}`;  
-  }
+${session?.coachQuestions ?? 'None recorded'}`;  
+}  
 
   function csv(session) {  
     const fields = [  
@@ -1624,6 +1696,34 @@ ${session.coachQuestions || 'None recorded'}`;
 
     if (selected) bindReview(selected);  
   }
+
+function bindReview(selected) {  
+  const reviewQuestions = document.getElementById('reviewQuestions');  
+  if (reviewQuestions) {  
+    reviewQuestions.oninput = () => {  
+      updateReviewQuestions(selected.id, reviewQuestions.value);  
+    };  
+  }
+
+  const copyDebrief = document.getElementById('copyDebrief');  
+  if (copyDebrief) {  
+    copyDebrief.onclick = async () => {  
+      const text = debrief(selected);  
+      await navigator.clipboard.writeText(text);  
+      toast('Debrief copied');  
+    };  
+  }
+
+  const exportCsv = document.getElementById('exportCsv');  
+  if (exportCsv) {  
+    exportCsv.onclick = () => downloadFile(`${selected.workoutName || 'session'}.csv`, csv(selected), 'text/csv');  
+  }
+
+  const exportJson = document.getElementById('exportJson');  
+  if (exportJson) {  
+    exportJson.onclick = () => downloadFile(`${selected.workoutName || 'session'}.json`, JSON.stringify(selected, null, 2), 'application/json');  
+  }  
+}  
 
   function reviewDetail(session) {  
     return `  
