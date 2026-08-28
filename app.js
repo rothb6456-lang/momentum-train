@@ -633,6 +633,29 @@ function renderCockpitDifferentToday(ex) {
   `;  
 }  
 
+let active;  
+try {  
+  active = JSON.parse(localStorage.getItem(ACTIVE_KEY) || 'null');  
+} catch {  
+  active = null;  
+}
+
+if (!active || !Array.isArray(active.sets)) {  
+  active = newSession();  
+}
+
+if (active?.plannedWorkout?.exerciseBlocks?.length) {  
+  state.cockpit = MomentumPlanner.buildCockpitWorkout(active.plannedWorkout);  
+}
+
+const persist = () => {  
+  active.updatedAt = new Date().toISOString();  
+  localStorage.setItem(ACTIVE_KEY, JSON.stringify(active));  
+};
+
+let editor = null;  
+let selectedReviewId = '';  
+
   function show(view) {  
     $$('.view').forEach(x => x.classList.toggle('active', x.id === view));  
     $$('[data-view]').forEach(x => x.classList.toggle('active', x.dataset.view === view));  
@@ -1917,7 +1940,7 @@ function bindReview(session) {
                 <td>${dateText(x.date)}</td>  
                 <td>  
                   <b>${esc(x.name || 'Untitled')}</b>  
-                  ${x.id ? `<br><button class="secondary" style="min-height:30px;padding:4px 7px;margin-top:5px" data-history-requeue="${x.id}">Re-queue</button>` : ''}  
+                   
                 </td>  
                 <td>${x.sets}</td>  
                 <td>${x.source}</td>  
@@ -1926,16 +1949,7 @@ function bindReview(session) {
           </tbody>  
         </table>  
       ` : '<div class="empty">No sessions match this filter.</div>';
-
-      $$('[data-history-requeue]').forEach(b => b.onclick = () => {  
-        const session = getDone().find(x => x.id === b.dataset.historyRequeue);  
-        if (!session) return;  
-        MomentumPlanner.upsert(MomentumPlanner.fromCompleted(session));  
-        renderHome();  
-        renderToday();  
-        toast('Workout re-queued');  
-        show('today');  
-      });  
+  
     };
 
     $('#historyMove').oninput = draw;  
