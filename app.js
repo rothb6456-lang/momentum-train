@@ -247,7 +247,8 @@ function finishWorkoutAction() {
     return sets.map((set, setIndex) => ({  
       exercise: exerciseName,  
       result: set.actualRepsOrDuration || '',  
-      load: set.actualLoad || '',  
+      load: normalizeLoadValue(set.actualLoad || ''),  
+      actualLoad: normalizeLoadValue(set.actualLoad || ''),  
       tempo: set.actualTempo || '',  
       rir: set.actualRir || '',  
       checkpoint: '',  
@@ -337,6 +338,20 @@ function updateReviewQuestions(sessionId, value) {
   saveDone(sessions);  
 }  
 
+function normalizeNumericEntry(value, allowDecimal = false) {  
+  const raw = String(value || '').trim();  
+  if (!raw) return '';
+
+  const cleaned = allowDecimal  
+    ? raw.replace(/[^0-9.]/g, '')  
+    : raw.replace(/[^0-9]/g, '');
+
+  if (!allowDecimal) return cleaned;
+
+  const parts = cleaned.split('.');  
+  return parts.length <= 1 ? cleaned : `${parts[0]}.${parts.slice(1).join('')}`;  
+}  
+
 function logCockpitSetAction() {  
   const cockpit = state.cockpit;  
   if (!cockpit) return;
@@ -361,7 +376,7 @@ function logCockpitSetAction() {
 
       const current = next.exercises[next.exerciseIndex];
 
-      const actualLoad = current.workingLoad || current.prescribedLoad || '';  
+      const actualLoad = normalizeLoadValue(current.workingLoad || current.prescribedLoad || '');  
       const actualRepsOrDuration = normalizePerformedReps(  
         parseTopEndForDisplay(current.prescribedRepsOrDuration || '')  
       );  
@@ -414,6 +429,20 @@ function cockpitNext() {
   state.cockpitEditOpen = false;  
   renderLog();  
 }    
+
+function normalizeLoadValue(value) {  
+  const raw = String(value || '').trim();  
+  if (!raw) return '';
+
+  const match = raw.replace(/,/g, '').match(/-?\d+(\.\d+)?/);  
+  return match ? match[0] : '';  
+}
+
+function formatLoadLbs(value) {  
+  const raw = String(value || '').trim();  
+  if (!raw) return 'bodyweight';  
+  return `${raw} lb`;  
+}  
 
 function renderRestTimer() {  
   if (!state.restTimer) return '';
@@ -1100,15 +1129,16 @@ function renderCockpitExercise(ex) {
         </div>  
       `}
 
-      ${renderRestTimer()}  
+        
       ${renderCockpitDifferentToday(ex)}
 
       <div class="session-log">  
         <h3>Completed sets</h3>  
         ${renderCompletedSets(ex)}  
       </div>
+${renderRestTimer()}
 
-      <div class="actions" style="margin-top:14px">  
+<div class="actions" style="margin-top:14px">  
   <button class="secondary" onclick="cockpitPrev()">Previous</button>  
   <button class="secondary" onclick="cockpitNext()">Next</button>  
 </div>
@@ -1117,7 +1147,6 @@ function renderCockpitExercise(ex) {
   <button class="primary" onclick="finishWorkoutAction()">Finish workout</button>  
   <button class="secondary" onclick="deleteLastCockpitSet()">Delete last set</button>  
 </div>    
-    </div>  
   `;  
 }  
 
@@ -1133,18 +1162,18 @@ function saveDifferentTodayAndLogSet() {
     const current = next.exercises[next.exerciseIndex];
 
     const loadInput = document.getElementById('cockpitEditLoad');  
-    const repsInput = document.getElementById('cockpitEditReps');  
+    const repsRaw = document.getElementById('cockpitEditReps')?.value || '';  
+    const actualRepsOrDuration = normalizeNumericEntry(repsRaw) || normalizePerformedReps(current.prescribedRepsOrDuration || '');    
     const tempoInput = document.getElementById('cockpitEditTempo');  
     const rirInput = document.getElementById('cockpitEditRir');  
     const noteInput = document.getElementById('cockpitEditNote');
 
-    const load = loadInput ? loadInput.value.trim() : '';  
+    const load = normalizeLoadValue(document.getElementById('cockpitEditLoad')?.value || '');  
+    const actualLoad = load || normalizeLoadValue(current.workingLoad || current.prescribedLoad || ''); 
     const repsValue = repsInput ? repsInput.value.trim() : '';  
     const tempo = tempoInput ? tempoInput.value.trim() : '';  
     const rir = rirInput ? rirInput.value.trim() : '';  
     const note = noteInput ? noteInput.value.trim() : '';
-
-    const actualLoad = load || current.workingLoad || current.prescribedLoad || '';  
     const actualRepsOrDuration = normalizePerformedReps(  
       repsValue || current.prescribedRepsOrDuration || ''  
     );  
@@ -1495,83 +1524,52 @@ window.finishWorkoutAction = finishWorkoutAction;
 window.deleteLastCockpitSet = deleteLastCockpitSet;      
 
 function debrief(session) {  
-  const sets = Array.isArray(session?.sets) ? session.sets : [];
-
-  const groups = sets.reduce((all, set) => {  
-    const exercise = set?.exercise ?? 'Unknown exercise';  
-    (all[exercise] ??= []).push(set);  
+  const groups = (session.sets || []).reduce((all, set) => {  
+    const name = set.exercise || set.exerciseName || set.name || 'Unnamed exercise';  
+    (all[name] ??= []).push(set);  
     return all;  
   }, {});
 
-  const started = session?.startedAt ? new Date(session.startedAt) : null;  
-  const completed = new Date(session?.completedAt ?? Date.now());
+  const mins = Math.max(  
+    1,  
+    Math.round((new Date(session.completedAt || Date.now()) - new Date(session.startedAt || Date.now())) / 60000)  
+  );
 
-  const validStarted = started && !Number.isNaN(started.getTime());  
-  const validCompleted = !Number.isNaN(completed.getTime());
-
-  const mins =  
-    validStarted && validCompleted  
-      ? Math.max(1, Math.round((completed - started) / 60000))  
-      : '—';
-
-  const formatDate = (value) => {  
-    const d = new Date(value);  
-    return Number.isNaN(d.getTime()) ? '—' : d.toISOString().slice(0, 10);  
-  };
-
-  const formatLoad = (set) => {  
-    if (set?.load == null || set.load === '') return 'bodyweight';  
-    return `${set.load}${set.loadUnit ? ` ${set.loadUnit}` : ' lb'}`;  
-  };
-
-  const formatResult = (set) => {  
-    if (set?.result == null || set.result === '') return '?';  
-    if (set.resultType === 'duration') return `${set.result} sec`;  
-    return `${set.result}`;  
-  };
-
-  const setLog = Object.entries(groups)  
-    .map(([name, exerciseSets]) => {  
-      const lines = exerciseSets.map((s, i) => {  
-        const parts = [  
-          `  Set ${i + 1}: ${formatLoad(s)} x ${formatResult(s)}`,  
-          `Tempo ${s?.tempo ?? 'not logged'}`,  
-          `RIR ${s?.rir ?? 'not logged'}`  
-        ];
-
-        if (s?.checkpoint) parts.push(`Checkpoint: ${s.checkpoint}`);  
-        if (s?.note) parts.push(`Note: ${s.note}`);
-
-        return parts.join(' | ');  
-      });
-
-      return `${name}\n${lines.join('\n')}`;  
-    })  
-    .join('\n\n');
-
-  return `Phase: ${session?.phase ?? '—'} | Week: ${session?.week ?? '—'} | Day: ${session?.day ?? '—'}  
-Date: ${formatDate(session?.completedAt ?? session?.startedAt)}  
-Workout: ${session?.workoutName ?? 'Momentum session'}
+  return `Phase: ${session.phase || '—'} | Week: ${session.week || '—'} | Day: ${session.day || '—'}  
+Date: ${dateIso(session.completedAt || session.startedAt)}  
+Workout: ${session.workoutName || 'Momentum session'}
 
 SESSION SUMMARY  
 Duration: ${mins} min  
-Total sets: ${sets.length}  
+Total sets: ${(session.sets || []).length}  
 Exercises: ${Object.keys(groups).length}
 
 SET LOG  
-${setLog || 'No sets recorded'}
+${Object.entries(groups).map(([name, sets]) => `${name}  
+${sets.map((s, i) => {  
+  const load = formatLoadLbs(normalizeLoadValue(s.load || s.actualLoad || ''));  
+  const result = s.result || s.repsOrDuration || s.actualRepsOrDuration || '?';  
+  const parts = [`  Set ${i + 1}: ${load} x ${result}`];
+
+  if (s.tempo) parts.push(`Tempo ${s.tempo}`);  
+  if (s.rir) parts.push(`RIR ${s.rir}`);  
+  if (s.checkpoint) parts.push(`Checkpoint: ${s.checkpoint}`);  
+  if (s.note) parts.push(`Note: ${s.note}`);
+
+  return parts.join(' | ');  
+}).join('\n')}`).join('\n\n')}
 
 SHOULDER STATUS  
-Pre-session: ${session?.shoulder?.pre ?? 'Not recorded'}  
-During pressing: ${session?.shoulder?.during ?? 'Not recorded'}  
-Post-session: ${session?.shoulder?.post ?? 'Not recorded'}
+Pre-session: ${session.shoulder?.pre || 'Not recorded'}  
+During pressing: ${session.shoulder?.during || 'Not recorded'}  
+Post-session: ${session.shoulder?.post || 'Not recorded'}
 
 GRIP STATUS  
-${session?.gripNotes ?? 'Not recorded'}
+${session.gripNotes || 'Not recorded'}
 
 QUESTIONS FOR COACH  
-${session?.coachQuestions ?? 'None recorded'}`;  
-}  
+${session.coachQuestions || 'None recorded'}`;  
+}    
 
   function csv(session) {  
     const fields = [  
@@ -1590,7 +1588,7 @@ ${session?.coachQuestions ?? 'None recorded'}`;
 
     const q = v => `"${String(v ?? '').replaceAll('"', '""')}"`;
 
-    const rows = session.sets.map((s, i) => ({  
+const rows = session.sets.map((s, i) => ({  
   Routine_Name: session.workoutName,  
   Activity_Date: dateIso(session.completedAt || session.startedAt),  
   Exercise_Name: s.exercise || s.exerciseName || s.name || '',  
@@ -1598,7 +1596,7 @@ ${session?.coachQuestions ?? 'None recorded'}`;
   Exercise_Equipment: '',  
   Exercise_Date_Time: s.at || new Date(new Date(session.startedAt).getTime() + i * 1000).toISOString(),  
   Repetitions_Or_Duration: s.result || s.repsOrDuration || s.actualRepsOrDuration || '',  
-  Weight_Or_Distance: s.load || s.actualLoad || '',  
+  Weight_Or_Distance: normalizeLoadValue(s.load || s.actualLoad || ''),  
   Use_Metric: 'FALSE',  
   Note: [  
     s.tempo && `Tempo ${s.tempo}`,  
@@ -1607,7 +1605,7 @@ ${session?.coachQuestions ?? 'None recorded'}`;
     s.note  
   ].filter(Boolean).join('; '),  
   Superset: ''  
-}));  
+}));    
 
     return [fields.join(','), ...rows.map(row => fields.map(key => q(row[key])).join(','))].join('\r\n');  
   }
@@ -1749,8 +1747,6 @@ function bindReview(selected) {
       <div class="export-box">  
         <button class="primary" id="copyDebrief">Copy Coach-ready debrief</button>  
         <button class="secondary" id="exportCsv">Export CSV</button>  
-        <button class="secondary" id="exportJson">Export JSON</button>  
-        <button class="secondary" id="requeue">Re-queue workout</button>  
       </div>  
     `;  
   }
@@ -1767,7 +1763,7 @@ function bindReview(selected) {
     $('#copyDebrief').onclick = () => copy(debrief(session));  
     $('#exportCsv').onclick = () => download(`momentum-${dateIso(session.completedAt)}.csv`, 'text/csv;charset=utf-8', csv(session));  
     $('#exportJson').onclick = () => download(`momentum-${dateIso(session.completedAt)}.json`, 'application/json', JSON.stringify(session, null, 2));  
-    $('#requeue').onclick = () => {  
+    
       MomentumPlanner.upsert(MomentumPlanner.fromCompleted(session));  
       renderHome();  
       renderToday();  
