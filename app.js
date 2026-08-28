@@ -501,7 +501,7 @@ function renderRestTimer() {
   const remaining = getRestTimerRemaining();
 
   return `  
-    <div class="card section">  
+    <div class="section" style="margin-top:12px">  
       <div class="eyebrow">Rest timer</div>  
       <div id="restTimerValue" style="font-size:2rem;font-weight:800;line-height:1">${formatTimer(remaining)}</div>  
       <div class="actions" style="margin-top:10px">  
@@ -510,7 +510,26 @@ function renderRestTimer() {
       </div>  
     </div>  
   `;  
-}    
+}  
+
+function bindSessionContext() {  
+  $$('[data-context]').forEach(el => {  
+    el.oninput = () => {  
+      const key = el.dataset.context;
+
+      if (key === 'pre' || key === 'during' || key === 'post') {  
+        active.shoulder = active.shoulder || { pre: '', during: '', post: '' };  
+        active.shoulder[key] = el.value;  
+      } else if (key === 'gripNotes') {  
+        active.gripNotes = el.value;  
+      } else if (key === 'coachQuestions') {  
+        active.coachQuestions = el.value;  
+      }
+
+      persist();  
+    };  
+  });  
+}  
 
 function startCurrentExerciseRestTimer() {  
   const ex = getActiveCockpitExercise();  
@@ -545,46 +564,64 @@ function renderCockpitDifferentToday(ex) {
 
   return `  
     <div class="card section">  
-      <div class="eyebrow">Different today</div>  
+      <div class="eyebrow">Different today</div>
+
       <div class="set-form" style="margin-top:10px">  
         <label class="field">  
-          Load  
+          <span>Load (lbs)</span>  
           <input  
-    id="cockpitEditLoad"  
-    class="input"  
-    inputmode="decimal"  
-    pattern="[0-9]*[.]?[0-9]*"  
-    placeholder="e.g. 85"  
-    value="${esc(normalizeLoadValue(ex.workingLoad || ex.prescribedLoad || ''))}"  
-  >  
-</label> 
-
-        <label class="field">  
-          ${ex.timed ? 'Duration' : 'Reps'}  
-          <input  
-    id="cockpitEditReps"  
-    class="input"  
-    inputmode="numeric"  
-    pattern="[0-9]*"  
-    placeholder="e.g. 10"  
-    value=""  
-  >  
-</label>
+            id="cockpitEditLoad"  
+            class="input"  
+            inputmode="decimal"  
+            pattern="[0-9]*[.]?[0-9]*"  
+            placeholder="e.g. 85"  
+            value="${esc(normalizeLoadValue(ex.workingLoad || ex.prescribedLoad || ''))}"  
+            oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/^([^.]*\.)|\./g, '$1')"  
+          >  
         </label>
 
         <label class="field">  
-          Tempo  
-          <input id="cockpitEditTempo" class="input" value="${escapeHtml(d.tempo)}" placeholder="Tempo">  
+          <span>${ex.timed ? 'Duration (sec)' : 'Reps'}</span>  
+          <input  
+            id="cockpitEditReps"  
+            class="input"  
+            inputmode="numeric"  
+            pattern="[0-9]*"  
+            placeholder="${ex.timed ? 'e.g. 65' : 'e.g. 10'}"  
+            value=""  
+            oninput="this.value = this.value.replace(/[^0-9]/g, '')"  
+          >  
         </label>
 
         <label class="field">  
-          RIR  
-          <input id="cockpitEditRir" class="input" value="${escapeHtml(d.rir)}" placeholder="RIR">  
+          <span>Tempo</span>  
+          <input  
+            id="cockpitEditTempo"  
+            class="input"  
+            value="${escapeHtml(d.tempo)}"  
+            placeholder="Tempo"  
+          >  
+        </label>
+
+        <label class="field">  
+          <span>RIR</span>  
+          <input  
+            id="cockpitEditRir"  
+            class="input"  
+            inputmode="numeric"  
+            pattern="[0-9]*"  
+            value="${escapeHtml(d.rir)}"  
+            placeholder="RIR"  
+            oninput="this.value = this.value.replace(/[^0-9]/g, '')"  
+          >  
         </label>
 
         <label class="field full">  
-          Note  
-          <textarea id="cockpitEditNote" placeholder="Deviation, side-to-side note, pain/symptom, technique change"></textarea>  
+          <span>Set note</span>  
+          <textarea  
+            id="cockpitEditNote"  
+            placeholder="Deviation, side-to-side note, pain/symptom, technique change"  
+          ></textarea>  
         </label>  
       </div>
 
@@ -595,26 +632,6 @@ function renderCockpitDifferentToday(ex) {
     </div>  
   `;  
 }  
-
-let active;  
-try {  
-  active = JSON.parse(localStorage.getItem(ACTIVE_KEY) || 'null');  
-} catch {  
-  active = null;  
-}  
-if (!active || !Array.isArray(active.sets)) active = newSession();
-
-if (active?.plannedWorkout?.exerciseBlocks?.length) {  
-  state.cockpit = MomentumPlanner.buildCockpitWorkout(active.plannedWorkout);  
-}  
-
-  const persist = () => {  
-    active.updatedAt = new Date().toISOString();  
-    localStorage.setItem(ACTIVE_KEY, JSON.stringify(active));  
-  };
-
-  let editor = null;  
-  let selectedReviewId = '';
 
   function show(view) {  
     $$('.view').forEach(x => x.classList.toggle('active', x.id === view));  
@@ -1071,41 +1088,44 @@ function renderCockpitHeader(cockpit) {
 function renderCompletedSets(ex) {  
   const prescribed = Number(ex.prescribedSets || 0);  
   const completed = Array.isArray(ex.completedSets) ? ex.completedSets : [];  
-  const total = Math.max(prescribed, completed.length);  
-  const rows = [];
+  const total = Math.max(prescribed, completed.length);
 
-  for (let i = 1; i <= total; i++) {  
-    const set = completed[i - 1];
+  return Array.from({ length: total }, (_, idx) => {  
+    const i = idx + 1;  
+    const set = completed[idx];  
+    const isExtra = i > prescribed;
 
-    if (set) {  
-      const isExtra = i > prescribed;
-
-      rows.push(`  
-        <div class="log-row">  
-          <div><b>${isExtra ? `${i}*` : i}</b></div>  
-          <div class="set-main">  
-            ${escapeHtml(set.actualLoad || '—')} × ${escapeHtml(set.actualRepsOrDuration || '—')}  
-          </div>  
-          <div class="set-meta">  
-            ${isExtra ? 'Extra set' : ''}  
-            ${(isExtra && (set.actualTempo || set.actualRir)) ? ' | ' : ''}  
-            ${escapeHtml(set.actualTempo || '')}${set.actualTempo && set.actualRir ? ' | ' : ''}  
-            ${set.actualRir ? `RIR ${escapeHtml(set.actualRir)}` : ''}  
-          </div>  
-        </div>  
-      `);  
-    } else {  
-      rows.push(`  
+    if (!set) {  
+      return `  
         <div class="log-row">  
           <div><b>${i}</b></div>  
-          <div class="set-main">—</div>  
-          <div class="set-meta">Pending</div>  
+          <div>  
+            <div class="set-main">—</div>  
+            <div class="set-meta">Pending</div>  
+          </div>  
         </div>  
-      `);  
-    }  
-  }
+      `;  
+    }
 
-  return rows.join('');  
+    const meta = [  
+      isExtra ? 'Extra set' : '',  
+      set.actualTempo ? `Tempo ${escapeHtml(set.actualTempo)}` : '',  
+      set.actualRir ? `RIR ${escapeHtml(set.actualRir)}` : '',  
+      set.note ? `Note: ${escapeHtml(set.note)}` : ''  
+    ].filter(Boolean).join(' · ');
+
+    return `  
+      <div class="log-row">  
+        <div><b>${isExtra ? `${i}*` : i}</b></div>  
+        <div>  
+          <div class="set-main">  
+            ${escapeHtml(formatLoadLbs(normalizeLoadValue(set.actualLoad || '')))} × ${escapeHtml(set.actualRepsOrDuration || '—')}  
+          </div>  
+          <div class="set-meta">${meta || 'Logged'}</div>  
+        </div>  
+      </div>  
+    `;  
+  }).join('');  
 }  
 
 function renderCockpitPrescription(ex) {  
@@ -1390,7 +1410,8 @@ root.innerHTML = `
   `;
 
   renderPicker();  
-  bindLog();  
+  bindLog();
+bindSessionContext();  
 }  
 
   function renderPicker(query = '') {  
