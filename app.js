@@ -212,6 +212,10 @@ function discardActiveWorkout() {
   toast('Draft discarded');  
 }  
 
+function finishWorkoutAction() {  
+  finish();  
+}  
+
 function logCockpitSetAction() {  
   const cockpit = state.cockpit;  
   if (!cockpit) return;
@@ -973,8 +977,8 @@ function renderCockpitExercise(ex) {
       </div>
 
       <div class="actions" style="margin-top:10px">  
-        <button class="primary" onclick="finish()">Finish workout</button>  
-        <button class="secondary" onclick="discardActiveWorkout()">Discard</button>  
+        <button class="primary" onclick="finishWorkoutAction()">Finish workout</button>  
+        <button class="secondary" onclick="discardActiveWorkout()">Discard</button>    
       </div>  
     </div>  
   `;  
@@ -1336,7 +1340,9 @@ window.skipOptionalExercise = skipOptionalExercise;
 window.cancelCockpitDifferentToday = cancelCockpitDifferentToday;  
 window.saveDifferentTodayAndLogSet = saveDifferentTodayAndLogSet;  
 window.startCurrentExerciseRestTimer = startCurrentExerciseRestTimer;  
-window.stopRestTimer = stopRestTimer;  
+window.stopRestTimer = stopRestTimer;
+window.finishWorkoutAction = finishWorkoutAction;  
+window.discardActiveWorkout = discardActiveWorkout;    
 
   function debrief(session) {  
     const groups = session.sets.reduce((all, set) => {  
