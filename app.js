@@ -213,7 +213,71 @@ function discardActiveWorkout() {
 }  
 
 function finishWorkoutAction() {  
+  const cockpit = state.cockpit;  
+  if (!cockpit) {  
+    toast('No active workout.');  
+    return;  
+  }
+
+  if (!cockpitHasLoggedSets(cockpit)) {  
+    toast('Log at least one set first');  
+    return;  
+  }
+
+  // Temporary sync so legacy finish() can pass its validation  
+  if (!active.sets || !Array.isArray(active.sets)) {  
+    active.sets = [];  
+  }
+
+  active.sets = cockpit.exercises.flatMap((ex, exerciseIndex) => {  
+    const title = ex.name || ex.exerciseName || ex.title || `Exercise ${exerciseIndex + 1}`;  
+    const completed = Array.isArray(ex.completed) ? ex.completed : [];
+
+    return completed.map((set, setIndex) => ({  
+      exerciseName: title,  
+      setNumber: setIndex + 1,  
+      actualLoad: set.actualLoad || '',  
+      actualRepsOrDuration: set.actualRepsOrDuration || '',  
+      actualTempo: set.actualTempo || '',  
+      actualRir: set.actualRir || '',  
+      note: set.note || '',  
+      at: set.at || new Date().toISOString()  
+    }));  
+  });
+
   finish();  
+}   
+
+function cockpitHasLoggedSets(cockpit) {  
+  if (!cockpit || !Array.isArray(cockpit.exercises)) return false;
+
+  return cockpit.exercises.some(ex => {  
+    const completedCount =  
+      Number(ex.completedSets ?? 0) ||  
+      (Array.isArray(ex.completed) ? ex.completed.length : 0);
+
+    return completedCount > 0;  
+  });  
+}  
+
+function deleteLastCockpitSet() {  
+  const cockpit = state.cockpit;  
+  if (!cockpit) return;
+
+  const ex = getActiveCockpitExercise();  
+  if (!ex) return;
+
+  const completed = Array.isArray(ex.completed) ? ex.completed : [];  
+  if (!completed.length) {  
+    toast('No completed set to remove.');  
+    return;  
+  }
+
+  completed.pop();  
+  ex.completedSets = Math.max(0, Number(ex.completedSets || 0) - 1);
+
+  renderLog();  
+  toast('Last set removed');  
 }  
 
 function logCockpitSetAction() {  
@@ -978,7 +1042,7 @@ function renderCockpitExercise(ex) {
 
       <div class="actions" style="margin-top:10px">  
         <button class="primary" onclick="finishWorkoutAction()">Finish workout</button>  
-        <button class="secondary" onclick="discardActiveWorkout()">Discard</button>    
+        <button class="secondary" onclick="deleteLastCockpitSet()">Delete last set</button>  
       </div>  
     </div>  
   `;  
@@ -1338,7 +1402,7 @@ window.saveDifferentTodayAndLogSet = saveDifferentTodayAndLogSet;
 window.startCurrentExerciseRestTimer = startCurrentExerciseRestTimer;  
 window.stopRestTimer = stopRestTimer;
 window.finishWorkoutAction = finishWorkoutAction;  
-window.discardActiveWorkout = discardActiveWorkout;    
+window.deleteLastCockpitSet = deleteLastCockpitSet;      
 
   function debrief(session) {  
     const groups = session.sets.reduce((all, set) => {  
