@@ -1029,16 +1029,12 @@ function renderLog() {
   if (state.cockpit && state.cockpit.exercises?.length) {  
     const ex = getActiveCockpitExercise();
 
-    root.innerHTML = `  
-      <div class="log-shell">  
-        ${renderCockpitHeader(state.cockpit)}  
-        ${renderCockpitExercise(ex)}  
-        <div class="actions section">  
-          <button class="secondary" onclick="cockpitPrev()" ${state.cockpit.exerciseIndex === 0 ? 'disabled' : ''}>Previous</button>  
-          <button class="secondary" onclick="cockpitNext()" ${state.cockpit.exerciseIndex === state.cockpit.exercises.length - 1 ? 'disabled' : ''}>Next</button>  
-        </div>  
-      </div>  
-    `;  
+root.innerHTML = `  
+  <div class="log-shell">  
+    ${renderCockpitHeader(state.cockpit)}  
+    ${renderCockpitExercise(ex)}  
+  </div>  
+`;    
     return;  
   }
 
