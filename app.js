@@ -197,6 +197,16 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');  
 }  
 
+function normalizePerformedReps(value) {  
+  const raw = String(value || '').trim();  
+  if (!raw) return '';
+
+  const m = raw.match(/^(\d+)\s*-\s*(\d+)(.*)$/);  
+  if (m) return `${m[2]}${m[3] || ''}`.trim();
+
+  return raw;  
+}  
+
 function discardActiveWorkout() {  
   if (!confirm('Discard this active session?')) return;
 
@@ -219,19 +229,40 @@ function finishWorkoutAction() {
     return;  
   }
 
+  const plannedBlocks = Array.isArray(active.plannedWorkout?.exerciseBlocks)  
+    ? active.plannedWorkout.exerciseBlocks  
+    : [];
+
   const loggedSets = cockpit.exercises.flatMap((ex, exerciseIndex) => {  
-    const exerciseName = ex.name || ex.exerciseName || ex.title || `Exercise ${exerciseIndex + 1}`;  
+    const plannedName = plannedBlocks[exerciseIndex]?.exerciseName;  
+    const exerciseName =  
+      plannedName ||  
+      ex.exerciseName ||  
+      ex.name ||  
+      ex.title ||  
+      `Exercise ${exerciseIndex + 1}`;
+
     const sets = Array.isArray(ex.completedSets) ? ex.completedSets : [];
 
     return sets.map((set, setIndex) => ({  
-      exerciseName,  
-      setNumber: setIndex + 1,  
-      actualLoad: set.actualLoad || '',  
-      actualRepsOrDuration: set.actualRepsOrDuration || '',  
-      actualTempo: set.actualTempo || '',  
-      actualRir: set.actualRir || '',  
+      exercise: exerciseName,  
+      result: set.actualRepsOrDuration || '',  
+      load: set.actualLoad || '',  
+      tempo: set.actualTempo || '',  
+      rir: set.actualRir || '',  
+      checkpoint: '',  
       note: set.note || '',  
-      at: set.at || new Date().toISOString()  
+      at: set.at || new Date().toISOString(),  
+      setNumber: setIndex + 1,
+
+      // aliases  
+      name: exerciseName,  
+      exerciseName,  
+      repsOrDuration: set.actualRepsOrDuration || '',  
+      actualRepsOrDuration: set.actualRepsOrDuration || '',  
+      actualLoad: set.actualLoad || '',  
+      actualTempo: set.actualTempo || '',  
+      actualRir: set.actualRir || ''  
     }));  
   });
 
@@ -242,7 +273,7 @@ function finishWorkoutAction() {
 
   active.sets = loggedSets;  
   finish();  
-}   
+}     
 
 function cockpitHasLoggedSets(cockpit) {  
   if (!cockpit || !Array.isArray(cockpit.exercises)) return false;
@@ -257,18 +288,36 @@ function cockpitHasLoggedSets(cockpit) {
 }  
 
 function deleteLastCockpitSet() {  
-  const ex = getActiveCockpitExercise();  
+  const cockpit = state.cockpit;  
+  if (!cockpit || !Array.isArray(cockpit.exercises)) return;
+
+  const ex = cockpit.exercises[cockpit.exerciseIndex];  
   if (!ex) return;
 
-  if (!Array.isArray(ex.completedSets) || !ex.completedSets.length) {  
+  const sets = Array.isArray(ex.completedSets) ? ex.completedSets : [];  
+  if (!sets.length) {  
     toast('No completed set to remove.');  
     return;  
   }
 
-  ex.completedSets.pop();  
+  sets.pop();  
+  ex.completedSets = sets;
+
   renderLog();  
   toast('Last set removed');  
-}    
+}      
+
+function normalizePerformedReps(value) {  
+  const raw = String(value || '').trim();  
+  if (!raw) return '';
+
+  const m = raw.match(/^(\d+)\s*-\s*(\d+)(.*)$/);  
+  if (m) {  
+    return `${m[2]}${m[3] || ''}`.trim();  
+  }
+
+  return raw;  
+}  
 
 function logCockpitSetAction() {  
   const cockpit = state.cockpit;  
@@ -282,7 +331,7 @@ function logCockpitSetAction() {
 
     if (ex.establishLoad) {  
       const input = document.getElementById('cockpitWorkingLoad');  
-      const load = input ? input.value : '';  
+      const load = input ? input.value.trim() : '';  
       next = MomentumPlanner.setCockpitWorkingLoad(next, cockpit.exerciseIndex, load);  
     }
 
@@ -292,14 +341,17 @@ function logCockpitSetAction() {
       const msg = String(err?.message || '').toLowerCase();  
       if (!msg.includes('complete') && !msg.includes('already')) throw err;
 
-      const current = next.exercises[next.exerciseIndex];  
+      const current = next.exercises[next.exerciseIndex];
+
       const actualLoad = current.workingLoad || current.prescribedLoad || '';  
-      const actualRepsOrDuration = parseTopEndForDisplay(current.prescribedRepsOrDuration || '');  
+      const actualRepsOrDuration = normalizePerformedReps(  
+        parseTopEndForDisplay(current.prescribedRepsOrDuration || '')  
+      );  
       const actualTempo = current.prescribedTempo || '';  
       const actualRir = parseTopEndForDisplay(current.prescribedRir || '');
 
-      current.completed = current.completed || [];  
-      current.completed.push({  
+      current.completedSets = Array.isArray(current.completedSets) ? current.completedSets : [];  
+      current.completedSets.push({  
         actualLoad,  
         actualRepsOrDuration,  
         actualTempo,  
@@ -307,9 +359,7 @@ function logCockpitSetAction() {
         note: '',  
         extra: true,  
         at: new Date().toISOString()  
-      });
-
-      current.completedSets = (current.completedSets || 0) + 1;  
+      });  
     }
 
     state.cockpit = next;  
@@ -1034,14 +1084,14 @@ function renderCockpitExercise(ex) {
       </div>
 
       <div class="actions" style="margin-top:14px">  
-        <button class="secondary" onclick="cockpitPrev()">Previous</button>  
-        <button class="secondary" onclick="cockpitNext()">Next</button>  
-      </div>
+  <button class="secondary" onclick="cockpitPrev()">Previous</button>  
+  <button class="secondary" onclick="cockpitNext()">Next</button>  
+</div>
 
-      <div class="actions" style="margin-top:10px">  
-        <button class="primary" onclick="finishWorkoutAction()">Finish workout</button>  
-        <button class="secondary" onclick="deleteLastCockpitSet()">Delete last set</button>  
-      </div>  
+<div class="actions" style="margin-top:10px">  
+  <button class="primary" onclick="finishWorkoutAction()">Finish workout</button>  
+  <button class="secondary" onclick="deleteLastCockpitSet()">Delete last set</button>  
+</div>    
     </div>  
   `;  
 }  
@@ -1054,35 +1104,49 @@ function saveDifferentTodayAndLogSet() {
   if (!ex) return;
 
   try {  
-    let next = cockpit;
+    const next = cockpit;  
+    const current = next.exercises[next.exerciseIndex];
 
-    const load = document.getElementById('cockpitEditLoad')?.value?.trim() || '';  
-    const repsOrDuration = document.getElementById('cockpitEditReps')?.value?.trim() || '';  
-    const tempo = document.getElementById('cockpitEditTempo')?.value?.trim() || '';  
-    const rir = document.getElementById('cockpitEditRir')?.value?.trim() || '';  
-    const note = document.getElementById('cockpitEditNote')?.value?.trim() || '';
+    const loadInput = document.getElementById('cockpitEditLoad');  
+    const repsInput = document.getElementById('cockpitEditReps');  
+    const tempoInput = document.getElementById('cockpitEditTempo');  
+    const rirInput = document.getElementById('cockpitEditRir');  
+    const noteInput = document.getElementById('cockpitEditNote');
 
-    if (ex.establishLoad && load) {  
-      next = MomentumPlanner.setCockpitWorkingLoad(next, next.exerciseIndex, load);  
-    }
+    const load = loadInput ? loadInput.value.trim() : '';  
+    const repsValue = repsInput ? repsInput.value.trim() : '';  
+    const tempo = tempoInput ? tempoInput.value.trim() : '';  
+    const rir = rirInput ? rirInput.value.trim() : '';  
+    const note = noteInput ? noteInput.value.trim() : '';
 
-    next = MomentumPlanner.logCockpitSet(next, next.exerciseIndex, {  
-      actualLoad: load || ex.workingLoad || ex.prescribedLoad || '',  
-      actualRepsOrDuration: repsOrDuration || parseTopEndForDisplay(ex.prescribedRepsOrDuration || ''),  
-      actualTempo: tempo || ex.prescribedTempo || '',  
-      actualRir: rir || parseTopEndForDisplay(ex.prescribedRir || ''),  
-      note  
+    const actualLoad = load || current.workingLoad || current.prescribedLoad || '';  
+    const actualRepsOrDuration = normalizePerformedReps(  
+      repsValue || current.prescribedRepsOrDuration || ''  
+    );  
+    const actualTempo = tempo || current.prescribedTempo || '';  
+    const actualRir = normalizePerformedReps(  
+      rir || current.prescribedRir || ''  
+    );
+
+    current.completedSets = Array.isArray(current.completedSets) ? current.completedSets : [];  
+    current.completedSets.push({  
+      actualLoad,  
+      actualRepsOrDuration,  
+      actualTempo,  
+      actualRir,  
+      note,  
+      at: new Date().toISOString()  
     });
 
     state.cockpit = next;  
     state.cockpitEditOpen = false;  
-	startRestTimer(parseRestSeconds(ex.prescribedRest || '90 sec'));
+    startRestTimer(parseRestSeconds(current.prescribedRest || current.rest || '90 sec'));  
     renderLog();  
-    toast('Set logged with exception');  
+    toast('Set logged');  
   } catch (err) {  
-    toast(err.message || 'Could not log exception set.');  
+    toast(err.message || 'Could not save changes.');  
   }  
-}  
+}      
 
 function renderLog() {  
   const root = document.getElementById('log');  
@@ -1334,32 +1398,35 @@ root.innerHTML = `
   const clock = seconds =>  
     `${String(Math.floor(seconds / 3600)).padStart(2, '0')}:${String(Math.floor(seconds % 3600 / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
 
-  function logMarkup(session) {  
-    if (!session.sets.length) return '<div class="empty">No sets logged yet. Completed sets remain here after refresh.</div>';
-
-    const groups = session.sets.reduce((all, set) => {  
-      (all[set.exercise] ??= []).push(set);  
-      return all;  
-    }, {});
-
-    return Object.entries(groups).map(([name, sets]) => `  
-      <div class="exercise-log">  
-        <div class="exercise-title"><b>${esc(name)}</b>${sets.length} set${sets.length === 1 ? '' : 's'}</div>  
-        ${sets.map((set, i) => `  
-          <div class="log-row">  
-            <b>${i + 1}</b>  
-            <div>  
-              <div class="set-main">${esc(set.load || 'BW')}${set.load ? ' lb' : ''} × ${esc(set.result || '—')}${set.resultType === 'duration' ? ' sec' : ''}</div>  
-              <div class="set-meta">${set.tempo ? `Tempo ${esc(set.tempo)} · ` : ''}${set.rir ? `RIR ${esc(set.rir)} · ` : ''}${esc(set.note || set.checkpoint || 'No note')}</div>  
-            </div>  
-            <div class="row-actions">  
-              <button class="icon-btn" data-delete-set="${set.id}" title="Delete set">×</button>  
-            </div>  
-          </div>  
-        `).join('')}  
-      </div>  
-    `).join('');  
+function logMarkup(session) {  
+  if (!session.sets.length) {  
+    return '<div class="empty">No sets logged yet. Completed sets remain here after refresh.</div>';  
   }
+
+  const groups = session.sets.reduce((all, set) => {  
+    const name = set.exercise || set.exerciseName || set.name || 'Unnamed exercise';  
+    (all[name] ??= []).push(set);  
+    return all;  
+  }, {});
+
+  return Object.entries(groups).map(([name, sets]) => `  
+    <div class="exercise-log">  
+      <div class="exercise-title"><b>${esc(name)}</b> ${sets.length} set${sets.length === 1 ? '' : 's'}</div>  
+      ${sets.map((set, i) => `  
+        <div class="log-row">  
+          <b>${i + 1}</b>  
+          <div>  
+            <div class="set-main">${esc(set.load || 'BW')}${set.load ? ' lb' : ''} × ${esc(set.result || '—')}${set.resultType === 'duration' ? ' sec' : ''}</div>  
+            <div class="set-meta">${set.tempo ? `Tempo ${esc(set.tempo)} · ` : ''}${set.rir ? `RIR ${esc(set.rir)} · ` : ''}${esc(set.note || set.checkpoint || 'No note')}</div>  
+          </div>  
+          <div class="row-actions">  
+            <button class="icon-btn" data-delete-set="${set.id || ''}" title="Delete set">×</button>  
+          </div>  
+        </div>  
+      `).join('')}  
+    </div>  
+  `).join('');  
+}  
 
   function finish() {  
     if (!active.sets.length) {  
@@ -1452,33 +1519,49 @@ ${session.coachQuestions || 'None recorded'}`;
     const q = v => `"${String(v ?? '').replaceAll('"', '""')}"`;
 
     const rows = session.sets.map((s, i) => ({  
-      Routine_Name: session.workoutName,  
-      Activity_Date: dateIso(session.completedAt || session.startedAt),  
-      Exercise_Name: s.exercise,  
-      Exercise_Muscle_Groups: '',  
-      Exercise_Equipment: '',  
-      Exercise_Date_Time: new Date(new Date(session.startedAt).getTime() + i * 1000).toISOString(),  
-      Repetitions_Or_Duration: s.result,  
-      Weight_Or_Distance: s.load,  
-      Use_Metric: 'FALSE',  
-      Note: [s.tempo && `Tempo ${s.tempo}`, s.rir && `RIR ${s.rir}`, s.checkpoint, s.note].filter(Boolean).join('; '),  
-      Superset: ''  
-    }));
+  Routine_Name: session.workoutName,  
+  Activity_Date: dateIso(session.completedAt || session.startedAt),  
+  Exercise_Name: s.exercise || s.exerciseName || s.name || '',  
+  Exercise_Muscle_Groups: '',  
+  Exercise_Equipment: '',  
+  Exercise_Date_Time: s.at || new Date(new Date(session.startedAt).getTime() + i * 1000).toISOString(),  
+  Repetitions_Or_Duration: s.result || s.repsOrDuration || s.actualRepsOrDuration || '',  
+  Weight_Or_Distance: s.load || s.actualLoad || '',  
+  Use_Metric: 'FALSE',  
+  Note: [  
+    s.tempo && `Tempo ${s.tempo}`,  
+    s.rir && `RIR ${s.rir}`,  
+    s.checkpoint,  
+    s.note  
+  ].filter(Boolean).join('; '),  
+  Superset: ''  
+}));  
 
     return [fields.join(','), ...rows.map(row => fields.map(key => q(row[key])).join(','))].join('\r\n');  
   }
 
   function comparison(session) {  
-    const plan = session.plannedWorkout?.exerciseBlocks || [];  
-    const actual = session.sets.reduce((all, s) => ((all[s.exercise] = (all[s.exercise] || 0) + 1), all), {});
+  const plan = session.plannedWorkout?.exerciseBlocks || [];
 
-    if (!plan.length) return '<div class="quiet">This ad hoc session has no linked planned workout.</div>';
+  const actual = session.sets.reduce((all, s) => {  
+    const name = s.exercise || s.exerciseName || s.name || 'Unnamed exercise';  
+    all[name] = (all[name] || 0) + 1;  
+    return all;  
+  }, {});
 
-    return `  
-      <div class="stack">  
-        ${plan.map(block => `  
+  if (!plan.length) {  
+    return '<div class="quiet">This ad hoc session has no linked planned workout.</div>';  
+  }
+
+  return `  
+    <div class="stack">  
+      ${plan.map(block => {  
+        const plannedName = block.exerciseName || 'Unnamed exercise';  
+        const performed = actual[plannedName] || 0;
+
+        return `  
           <div class="flag">  
-            <b>${esc(block.exerciseName)}</b><br>  
+            <b>${esc(plannedName)}</b><br>  
             Planned: ${esc([  
               block.targetSets && `${block.targetSets} sets`,  
               block.targetRepsOrDuration,  
@@ -1487,20 +1570,22 @@ ${session.coachQuestions || 'None recorded'}`;
               block.rir && `RIR ${block.rir}`  
             ].filter(Boolean).join(' · ') || 'No structured target')}  
             <br>  
-            Performed: ${actual[block.exerciseName] || 0} set${actual[block.exerciseName] === 1 ? '' : 's'}  
+            Performed: ${performed} set${performed === 1 ? '' : 's'}  
+          </div>  
+        `;  
+      }).join('')}
+
+      ${Object.keys(actual)  
+        .filter(name => !plan.some(x => (x.exerciseName || 'Unnamed exercise') === name))  
+        .map(name => `  
+          <div class="flag">  
+            <b>${esc(name)}</b><br>  
+            Performed as an unplanned exercise: ${actual[name]} sets.  
           </div>  
         `).join('')}  
-        ${Object.keys(actual)  
-          .filter(name => !plan.some(x => x.exerciseName === name))  
-          .map(name => `  
-            <div class="flag">  
-              <b>${esc(name)}</b><br>  
-              Performed as an unplanned exercise: ${actual[name]} sets.  
-            </div>  
-          `).join('')}  
-      </div>  
-    `;  
-  }
+    </div>  
+  `;  
+}  
 
   function renderReview() {  
     const sessions = getDone();  
