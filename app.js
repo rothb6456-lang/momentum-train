@@ -1174,9 +1174,6 @@ function saveDifferentTodayAndLogSet() {
     const tempo = tempoInput ? tempoInput.value.trim() : '';  
     const rir = rirInput ? rirInput.value.trim() : '';  
     const note = noteInput ? noteInput.value.trim() : '';
-    const actualRepsOrDuration = normalizePerformedReps(  
-      repsValue || current.prescribedRepsOrDuration || ''  
-    );  
     const actualTempo = tempo || current.prescribedTempo || '';  
     const actualRir = normalizePerformedReps(  
       rir || current.prescribedRir || ''  
