@@ -660,54 +660,63 @@ if (active?.plannedWorkout?.exerciseBlocks?.length) {
     bindToday();  
   }
 
-  function bindToday() {  
-    $('#pasteCard').onclick = () => {  
+function bindToday() {  
+  const pasteCard = $('#pasteCard');  
+  if (pasteCard) {  
+    pasteCard.onclick = () => {  
       editor = MomentumPlanner.blankWorkout();  
       editor.sourceType = 'chatgpt';  
       renderEditor('paste');  
-    };
+    };  
+  }
 
-    $('#blankCard').onclick = () => {  
+  const blankCard = $('#blankCard');  
+  if (blankCard) {  
+    blankCard.onclick = () => {  
       editor = MomentumPlanner.blankWorkout();  
       renderEditor('builder');  
-    };
+    };  
+  }
 
-    $('#referenceCard').onclick = () => {  
+  const referenceCard = $('#referenceCard');  
+  if (referenceCard) {  
+    referenceCard.onclick = () => {  
       editor = clone(basePlan());  
       editor.id = MomentumPlanner.blankWorkout().id;  
       editor.status = 'queued';  
       editor.sourceType = 'reference';  
       renderEditor('builder');  
-    };
-
-    $$('[data-edit]').forEach(b => b.onclick = () => {  
-      editor = clone(MomentumPlanner.load().find(x => x.id === b.dataset.edit));  
-      renderEditor('builder');  
-    });
-
-    $$('[data-delete]').forEach(b => b.onclick = () => {  
-      if (confirm('Delete this queued workout?')) {  
-        MomentumPlanner.remove(b.dataset.delete);  
-        renderToday();  
-        renderHome();  
-      }  
-    });
-
-    $$('[data-duplicate]').forEach(b => b.onclick = () => {  
-      MomentumPlanner.duplicate(b.dataset.duplicate);  
-      renderToday();  
-      renderHome();  
-      toast('Queued workout duplicated');  
-    });
-
-    $$('[data-move]').forEach(b => b.onclick = () => {  
-      MomentumPlanner.move(b.dataset.move, +b.dataset.direction);  
-      renderToday();  
-      renderHome();  
-    });
-
-    $$('[data-start]').forEach(b => b.onclick = () => startPlan(b.dataset.start));  
+    };  
   }
+
+  $$('[data-edit]').forEach(b => b.onclick = () => {  
+    editor = clone(MomentumPlanner.load().find(x => x.id === b.dataset.edit));  
+    renderEditor('builder');  
+  });
+
+  $$('[data-delete]').forEach(b => b.onclick = () => {  
+    if (confirm('Delete this queued workout?')) {  
+      MomentumPlanner.remove(b.dataset.delete);  
+      renderToday();  
+      renderHome();  
+    }  
+  });
+
+  $$('[data-duplicate]').forEach(b => b.onclick = () => {  
+    MomentumPlanner.duplicate(b.dataset.duplicate);  
+    renderToday();  
+    renderHome();  
+    toast('Queued workout duplicated');  
+  });
+
+  $$('[data-move]').forEach(b => b.onclick = () => {  
+    MomentumPlanner.move(b.dataset.move, +b.dataset.direction);  
+    renderToday();  
+    renderHome();  
+  });
+
+  $$('[data-start]').forEach(b => b.onclick = () => startPlan(b.dataset.start));  
+}  
 
   function renderEditor(mode) {  
     const root = $('#plannerEditor');  
