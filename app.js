@@ -87,12 +87,17 @@
 setInterval(() => {  
   if (!state.restTimer) return;
 
-  if (getRestTimerRemaining() <= 0) {  
+  const remaining = getRestTimerRemaining();  
+  const el = document.getElementById('restTimerValue');
+
+  if (remaining <= 0) {  
     state.restTimer = null;  
+    if (el) el.textContent = '0:00';  
+    return;  
   }
 
-  renderLog();  
-}, 1000);  
+  if (el) el.textContent = formatTimer(remaining);  
+}, 1000);    
 
 function startCockpitForWorkout(workout) {  
   state.cockpit = MomentumPlanner.buildCockpitWorkout(workout);  
@@ -153,7 +158,8 @@ function startRestTimer(seconds) {
 function stopRestTimer() {  
   state.restTimer = null;  
   renderLog();  
-}
+}    
+
 
 function getRestTimerRemaining() {  
   if (!state.restTimer) return 0;  
@@ -189,6 +195,21 @@ function escapeHtml(value) {
     .replace(/>/g, '>')  
     .replace(/"/g, '"')  
     .replace(/'/g, '&#39;');  
+}  
+
+function discardActiveWorkout() {  
+  if (!confirm('Discard this active session?')) return;
+
+  if (active.planId) MomentumPlanner.mark(active.planId, 'queued');  
+  active = newSession();  
+  state.cockpit = null;  
+  state.cockpitEditOpen = false;  
+  state.restTimer = null;  
+  persist();  
+  renderLog();  
+  renderToday();  
+  renderHome();  
+  toast('Draft discarded');  
 }  
 
 function logCockpitSetAction() {  
@@ -283,7 +304,7 @@ function renderRestTimer() {
       </div>  
     </div>  
   `;  
-}      
+}    
 
 function startCurrentExerciseRestTimer() {  
   const ex = getActiveCockpitExercise();  
@@ -806,21 +827,17 @@ function getActiveCockpitExercise() {
 function renderCockpitHeader(cockpit) {  
   return `  
     <div class="active-session">  
-      <div>  
-        <div class="eyebrow">Execute</div>  
-        <h1>${escapeHtml(cockpit.title || 'Workout')}</h1>  
-        <div class="quiet">  
-          ${cockpit.phaseId ? `Phase ${escapeHtml(cockpit.phaseId)} • ` : ''}  
-          ${cockpit.week ? `Week ${escapeHtml(cockpit.week)} • ` : ''}  
-          ${cockpit.day ? `Day ${escapeHtml(cockpit.day)}` : ''}  
-        </div>  
+      <div class="quiet">  
+        ${cockpit.phaseId ? `Phase ${escapeHtml(cockpit.phaseId)} • ` : ''}  
+        ${cockpit.week ? `Week ${escapeHtml(cockpit.week)} • ` : ''}  
+        ${cockpit.day ? `Day ${escapeHtml(cockpit.day)}` : ''}  
       </div>  
       <div class="pill">  
         Exercise ${cockpit.exerciseIndex + 1} of ${cockpit.exercises.length}  
       </div>  
     </div>  
   `;  
-}
+}  
 
 function renderCompletedSets(ex) {  
   const total = ex.prescribedSets || 0;  
@@ -913,14 +930,11 @@ function renderCockpitPrescription(ex) {
 
 function renderCockpitExercise(ex) {  
   const cockpit = state.cockpit;  
-  const targetSets = Number(ex.targetSets ?? ex.setsTarget ?? ex.sets ?? 0);  
-const completedSets = Number(ex.completedSets ?? 0);  
-const complete = targetSets > 0 && completedSets >= targetSets;    
-  const title =  
-    ex.name ||  
-    ex.exerciseName ||  
-    ex.title ||  
-    'Exercise';
+  const title = ex.name || ex.exerciseName || ex.title || 'Exercise';
+
+  const targetSets = Number(ex.targetSets ?? ex.setsTarget ?? ex.prescribedSets ?? ex.sets ?? 0);  
+  const completedSets = Number(ex.completedSets ?? 0);  
+  const complete = targetSets > 0 && completedSets >= targetSets;
 
   return `  
     <div class="card section">  
@@ -951,6 +965,16 @@ const complete = targetSets > 0 && completedSets >= targetSets;
       <div class="session-log">  
         <h3>Completed sets</h3>  
         ${renderCompletedSets(ex)}  
+      </div>
+
+      <div class="actions" style="margin-top:14px">  
+        <button class="secondary" onclick="cockpitPrev()">Previous</button>  
+        <button class="secondary" onclick="cockpitNext()">Next</button>  
+      </div>
+
+      <div class="actions" style="margin-top:10px">  
+        <button class="primary" onclick="finish()">Finish workout</button>  
+        <button class="secondary" onclick="discardActiveWorkout()">Discard</button>  
       </div>  
     </div>  
   `;  
@@ -1580,21 +1604,9 @@ ${session.coachQuestions || 'None recorded'}`;
   renderReview();  
   renderHistory();
 
-  setInterval(() => {  
-  if (!state.restTimer) return;
-
-  const remaining = getRestTimerRemaining();
-
-  if (remaining <= 0) {  
-    state.restTimer = null;  
-    renderLog();  
-    return;  
-  }
-
-  const el = document.getElementById('restTimerValue');  
-  if (el) {  
-    el.textContent = formatTimer(remaining);  
-  }  
+setInterval(() => {  
+  const el = $('#timer');  
+  if (el) el.textContent = clock(Math.max(0, Math.floor((Date.now() - new Date(active.startedAt)) / 1000)));  
 }, 1000);  
 
   const m = MomentumData.metrics();  
