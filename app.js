@@ -214,27 +214,17 @@ function discardActiveWorkout() {
 
 function finishWorkoutAction() {  
   const cockpit = state.cockpit;  
-  if (!cockpit) {  
+  if (!cockpit || !Array.isArray(cockpit.exercises)) {  
     toast('No active workout.');  
     return;  
   }
 
-  if (!cockpitHasLoggedSets(cockpit)) {  
-    toast('Log at least one set first');  
-    return;  
-  }
+  const loggedSets = cockpit.exercises.flatMap((ex, exerciseIndex) => {  
+    const exerciseName = ex.name || ex.exerciseName || ex.title || `Exercise ${exerciseIndex + 1}`;  
+    const sets = Array.isArray(ex.completedSets) ? ex.completedSets : [];
 
-  // Temporary sync so legacy finish() can pass its validation  
-  if (!active.sets || !Array.isArray(active.sets)) {  
-    active.sets = [];  
-  }
-
-  active.sets = cockpit.exercises.flatMap((ex, exerciseIndex) => {  
-    const title = ex.name || ex.exerciseName || ex.title || `Exercise ${exerciseIndex + 1}`;  
-    const completed = Array.isArray(ex.completed) ? ex.completed : [];
-
-    return completed.map((set, setIndex) => ({  
-      exerciseName: title,  
+    return sets.map((set, setIndex) => ({  
+      exerciseName,  
       setNumber: setIndex + 1,  
       actualLoad: set.actualLoad || '',  
       actualRepsOrDuration: set.actualRepsOrDuration || '',  
@@ -245,6 +235,12 @@ function finishWorkoutAction() {
     }));  
   });
 
+  if (!loggedSets.length) {  
+    toast('Log at least one set first');  
+    return;  
+  }
+
+  active.sets = loggedSets;  
   finish();  
 }   
 
@@ -261,24 +257,18 @@ function cockpitHasLoggedSets(cockpit) {
 }  
 
 function deleteLastCockpitSet() {  
-  const cockpit = state.cockpit;  
-  if (!cockpit) return;
-
   const ex = getActiveCockpitExercise();  
   if (!ex) return;
 
-  const completed = Array.isArray(ex.completed) ? ex.completed : [];  
-  if (!completed.length) {  
+  if (!Array.isArray(ex.completedSets) || !ex.completedSets.length) {  
     toast('No completed set to remove.');  
     return;  
   }
 
-  completed.pop();  
-  ex.completedSets = Math.max(0, Number(ex.completedSets || 0) - 1);
-
+  ex.completedSets.pop();  
   renderLog();  
   toast('Last set removed');  
-}  
+}    
 
 function logCockpitSetAction() {  
   const cockpit = state.cockpit;  
@@ -629,7 +619,6 @@ if (active?.plannedWorkout?.exerciseBlocks?.length) {
           <div class="actions">  
             <button class="primary" id="pasteCard">Paste workout card</button>  
             <button class="secondary" id="blankCard">Create blank workout</button>  
-            <button class="secondary" id="referenceCard">Use Phase 9 reference card</button>  
           </div>  
         </article>
 
@@ -1000,9 +989,9 @@ function renderCockpitExercise(ex) {
   const cockpit = state.cockpit;  
   const title = ex.name || ex.exerciseName || ex.title || 'Exercise';
 
-  const targetSets = Number(ex.targetSets ?? ex.setsTarget ?? ex.prescribedSets ?? ex.sets ?? 0);  
-  const completedSets = Number(ex.completedSets ?? 0);  
-  const complete = targetSets > 0 && completedSets >= targetSets;
+  const targetSets = Number(ex.prescribedSets ?? ex.targetSets ?? ex.setsTarget ?? ex.sets ?? 0);  
+  const completedCount = Array.isArray(ex.completedSets) ? ex.completedSets.length : 0;  
+  const complete = targetSets > 0 && completedCount >= targetSets;  
 
   return `  
     <div class="card section">  
