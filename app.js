@@ -1720,56 +1720,65 @@ function bindReview(selected) {
   }  
 }  
 
-  function reviewDetail(session) {  
-    return `  
-      <div class="eyebrow">Session review</div>  
-      <h1 style="font-size:25px">${esc(session.workoutName)}</h1>  
-      <p class="quiet">${esc(planSummary({ phaseId: session.phase, week: session.week, day: session.day }))} · ${dateText(session.completedAt)}</p>
+function reviewDetail(session) {  
+  return `  
+    <div class="eyebrow">Session review</div>  
+    <h1 style="font-size:25px">${esc(session.workoutName)}</h1>  
+    <p class="quiet">${esc(planSummary({ phaseId: session.phase, week: session.week, day: session.day }))} · ${dateText(session.completedAt)}</p>
 
-      <section class="metrics" style="margin:14px 0">  
-        ${metric('Sets', session.sets.length, 'Completed')}  
-        ${metric('Exercises', new Set(session.sets.map(x => x.exercise)).size, 'Logged')}  
-        ${metric('Plan link', session.planId ? 'Yes' : 'Ad hoc', session.planId ? 'Prescription retained' : 'No queue source')}  
-        ${metric('Export', 'Ready', 'CSV · JSON · Coach')}  
-      </section>
+    <section class="metrics" style="margin:14px 0">  
+      ${metric('Sets', session.sets.length, 'Completed')}  
+      ${metric('Exercises', new Set(session.sets.map(x => x.exercise)).size, 'Logged')}  
+      ${metric('Plan link', session.planId ? 'Yes' : 'Ad hoc', session.planId ? 'Prescription retained' : 'No queue source')}  
+      ${metric('Export', 'Ready', 'CSV · Coach')}  
+    </section>
 
-      <h2>Planned vs performed</h2>  
-      ${comparison(session)}
+    <h2>Planned vs performed</h2>  
+    ${comparison(session)}
 
-      <h2 style="margin-top:16px">Performed session</h2>  
-      ${logMarkup(session)}
+    <h2 style="margin-top:16px">Performed session</h2>  
+    ${logMarkup(session)}
 
-      <label class="field" style="margin-top:12px">Questions for Coach<textarea id="reviewQuestions">${esc(session.coachQuestions || '')}</textarea></label>
+    <label class="field" style="margin-top:12px">Questions for Coach<textarea id="reviewQuestions">${esc(session.coachQuestions || '')}</textarea></label>
 
-      <div class="export-box">  
-        <button class="primary" id="copyDebrief">Copy Coach-ready debrief</button>  
-        <button class="secondary" id="exportCsv">Export CSV</button>  
-      </div>  
-    `;  
-  }
+    <div class="export-box">  
+      <button class="primary" id="copyDebrief">Copy Coach-ready debrief</button>  
+      <button class="secondary" id="exportCsv">Export CSV</button>  
+    </div>  
+  `;  
+}  
 
-  function bindReview(session) {  
-    $('#reviewQuestions').oninput = () => {  
+function bindReview(session) {  
+  const reviewQuestions = $('#reviewQuestions');  
+  if (reviewQuestions) {  
+    reviewQuestions.oninput = () => {  
       const all = getDone();  
       const item = all.find(x => x.id === session.id);  
       if (!item) return;  
-      item.coachQuestions = $('#reviewQuestions').value;  
+      item.coachQuestions = reviewQuestions.value;  
       saveDone(all);  
-    };
-
-    $('#copyDebrief').onclick = () => copy(debrief(session));  
-    $('#exportCsv').onclick = () => download(`momentum-${dateIso(session.completedAt)}.csv`, 'text/csv;charset=utf-8', csv(session));  
-    $('#exportJson').onclick = () => download(`momentum-${dateIso(session.completedAt)}.json`, 'application/json', JSON.stringify(session, null, 2));  
-    
-      MomentumPlanner.upsert(MomentumPlanner.fromCompleted(session));  
-      renderHome();  
-      renderToday();  
-      toast('Workout re-queued');  
-      show('today');  
     };  
   }
 
-  function renderHistory() {  
+  const copyDebriefBtn = $('#copyDebrief');  
+  if (copyDebriefBtn) {  
+    copyDebriefBtn.onclick = () => copy(debrief({  
+      ...session,  
+      coachQuestions: $('#reviewQuestions')?.value ?? session.coachQuestions ?? ''  
+    }));  
+  }
+
+  const exportCsvBtn = $('#exportCsv');  
+  if (exportCsvBtn) {  
+    exportCsvBtn.onclick = () =>  
+      download(`momentum-${dateIso(session.completedAt)}.csv`, 'text/csv;charset=utf-8', csv({  
+        ...session,  
+        coachQuestions: $('#reviewQuestions')?.value ?? session.coachQuestions ?? ''  
+      }));  
+  }  
+}  
+
+  function renderHistory() {
     const historical = MomentumData.sessions();  
     const done = getDone();
 
