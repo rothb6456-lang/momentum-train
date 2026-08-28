@@ -354,9 +354,9 @@ function normalizeNumericEntry(value, allowDecimal = false) {
 
 function logCockpitSetAction() {  
   const cockpit = state.cockpit;  
-  if (!cockpit) return;
+  if (!cockpit || !Array.isArray(cockpit.exercises)) return;
 
-  const ex = getActiveCockpitExercise();  
+  const ex = cockpit.exercises[cockpit.exerciseIndex];  
   if (!ex) return;
 
   try {  
@@ -364,7 +364,7 @@ function logCockpitSetAction() {
 
     if (ex.establishLoad) {  
       const input = document.getElementById('cockpitWorkingLoad');  
-      const load = input ? input.value.trim() : '';  
+      const load = normalizeLoadValue(input ? input.value : '');  
       next = MomentumPlanner.setCockpitWorkingLoad(next, cockpit.exerciseIndex, load);  
     }
 
@@ -374,14 +374,11 @@ function logCockpitSetAction() {
       const msg = String(err?.message || '').toLowerCase();  
       if (!msg.includes('complete') && !msg.includes('already')) throw err;
 
-      const current = next.exercises[next.exerciseIndex];
-
+      const current = next.exercises[next.exerciseIndex];  
       const actualLoad = normalizeLoadValue(current.workingLoad || current.prescribedLoad || '');  
-      const actualRepsOrDuration = normalizePerformedReps(  
-        parseTopEndForDisplay(current.prescribedRepsOrDuration || '')  
-      );  
+      const actualRepsOrDuration = normalizeRepValue('', current.prescribedRepsOrDuration || '');  
       const actualTempo = current.prescribedTempo || '';  
-      const actualRir = parseTopEndForDisplay(current.prescribedRir || '');
+      const actualRir = normalizeRirValue('', current.prescribedRir || '');
 
       current.completedSets = Array.isArray(current.completedSets) ? current.completedSets : [];  
       current.completedSets.push({  
@@ -396,13 +393,67 @@ function logCockpitSetAction() {
     }
 
     state.cockpit = next;  
-    state.cockpitEditOpen = false;  
-    startRestTimer(parseRestSeconds(ex.prescribedRest || ex.rest || '90 sec'));  
+    state.cockpitEditOpen = false;
+
+    startRestTimer(parseRestSeconds(  
+      ex.prescribedRest ||  
+      ex.rest ||  
+      (String(ex.notes || '').match(/rest:\s*([^\|]+)/i)?.[1]?.trim()) ||  
+      '90 sec'  
+    ));
+
     renderLog();  
   } catch (err) {  
     toast(err.message || 'Could not log set.');  
   }  
-}    
+}  
+
+function normalizeLoadValue(value) {  
+  const raw = String(value || '').trim();  
+  if (!raw) return '';  
+  const match = raw.replace(/,/g, '').match(/\d+(\.\d+)?/);  
+  return match ? match[0] : '';  
+}
+
+function normalizeRepValue(value, fallback = '') {  
+  const raw = String(value || '').trim();  
+  if (raw) {  
+    const numeric = raw.match(/\d+(\.\d+)?/);  
+    return numeric ? numeric[0] : '';  
+  }
+
+  const fallbackRaw = String(fallback || '').trim();  
+  if (!fallbackRaw) return '';
+
+  const range = fallbackRaw.match(/^(\d+)\s*-\s*(\d+)(.*)$/);  
+  if (range) return `${range[2]}${range[3] || ''}`.trim();
+
+  return fallbackRaw;  
+}
+
+function normalizeRirValue(value, fallback = '') {  
+  const raw = String(value || '').trim();  
+  if (raw) {  
+    const range = raw.match(/^(\d+)\s*-\s*(\d+)$/);  
+    if (range) return range[2];  
+    const numeric = raw.match(/\d+(\.\d+)?/);  
+    return numeric ? numeric[0] : '';  
+  }
+
+  const fallbackRaw = String(fallback || '').trim();  
+  if (!fallbackRaw) return '';
+
+  const fallbackRange = fallbackRaw.match(/^(\d+)\s*-\s*(\d+)$/);  
+  if (fallbackRange) return fallbackRange[2];
+
+  return fallbackRaw;  
+}
+
+function formatLoadLbs(value) {  
+  const raw = String(value || '').trim();  
+  if (!raw) return 'bodyweight';  
+  return `${raw} lb`;  
+}  
 
 function startOptionalExercise() {  
   if (!state.cockpit) return;  
@@ -498,12 +549,27 @@ function renderCockpitDifferentToday(ex) {
       <div class="set-form" style="margin-top:10px">  
         <label class="field">  
           Load  
-          <input id="cockpitEditLoad" class="input" value="${escapeHtml(d.load)}" placeholder="Load">  
-        </label>
+          <input  
+    id="cockpitEditLoad"  
+    class="input"  
+    inputmode="decimal"  
+    pattern="[0-9]*[.]?[0-9]*"  
+    placeholder="e.g. 85"  
+    value="${esc(normalizeLoadValue(ex.workingLoad || ex.prescribedLoad || ''))}"  
+  >  
+</label> 
 
         <label class="field">  
           ${ex.timed ? 'Duration' : 'Reps'}  
-          <input id="cockpitEditReps" class="input" value="${escapeHtml(d.repsOrDuration)}" placeholder="${ex.timed ? 'Duration' : 'Reps'}">  
+          <input  
+    id="cockpitEditReps"  
+    class="input"  
+    inputmode="numeric"  
+    pattern="[0-9]*"  
+    placeholder="e.g. 10"  
+    value=""  
+  >  
+</label>
         </label>
 
         <label class="field">  
@@ -1104,7 +1170,7 @@ function renderCockpitExercise(ex) {
 
   const targetSets = Number(ex.prescribedSets ?? ex.targetSets ?? ex.setsTarget ?? ex.sets ?? 0);  
   const completedCount = Array.isArray(ex.completedSets) ? ex.completedSets.length : 0;  
-  const complete = targetSets > 0 && completedCount >= targetSets;  
+  const complete = targetSets > 0 && completedCount >= targetSets;
 
   return `  
     <div class="card section">  
@@ -1129,55 +1195,52 @@ function renderCockpitExercise(ex) {
         </div>  
       `}
 
-        
       ${renderCockpitDifferentToday(ex)}
 
       <div class="session-log">  
         <h3>Completed sets</h3>  
         ${renderCompletedSets(ex)}  
       </div>
-${renderRestTimer()}
 
-<div class="actions" style="margin-top:14px">  
-  <button class="secondary" onclick="cockpitPrev()">Previous</button>  
-  <button class="secondary" onclick="cockpitNext()">Next</button>  
-</div>
+      ${renderRestTimer()}
 
-<div class="actions" style="margin-top:10px">  
-  <button class="primary" onclick="finishWorkoutAction()">Finish workout</button>  
-  <button class="secondary" onclick="deleteLastCockpitSet()">Delete last set</button>  
-</div>    
+      <div class="actions" style="margin-top:14px">  
+        <button class="secondary" onclick="cockpitPrev()">Previous</button>  
+        <button class="secondary" onclick="cockpitNext()">Next</button>  
+      </div>
+
+      <div class="actions" style="margin-top:10px">  
+        <button class="primary" onclick="finishWorkoutAction()">Finish workout</button>  
+        <button class="secondary" onclick="deleteLastCockpitSet()">Delete last set</button>  
+      </div>  
+    </div>  
   `;  
-}  
+}    
 
 function saveDifferentTodayAndLogSet() {  
   const cockpit = state.cockpit;  
-  if (!cockpit) return;
+  if (!cockpit || !Array.isArray(cockpit.exercises)) return;
 
-  const ex = getActiveCockpitExercise();  
-  if (!ex) return;
+  const current = cockpit.exercises[cockpit.exerciseIndex];  
+  if (!current) return;
 
   try {  
-    const next = cockpit;  
-    const current = next.exercises[next.exerciseIndex];
-
     const loadInput = document.getElementById('cockpitEditLoad');  
-    const repsRaw = document.getElementById('cockpitEditReps')?.value || '';  
-    const actualRepsOrDuration = normalizeNumericEntry(repsRaw) || normalizePerformedReps(current.prescribedRepsOrDuration || '');    
+    const repsInput = document.getElementById('cockpitEditReps');  
     const tempoInput = document.getElementById('cockpitEditTempo');  
     const rirInput = document.getElementById('cockpitEditRir');  
     const noteInput = document.getElementById('cockpitEditNote');
 
-    const load = normalizeLoadValue(document.getElementById('cockpitEditLoad')?.value || '');  
-    const actualLoad = load || normalizeLoadValue(current.workingLoad || current.prescribedLoad || ''); 
-    const repsValue = repsInput ? repsInput.value.trim() : '';  
-    const tempo = tempoInput ? tempoInput.value.trim() : '';  
-    const rir = rirInput ? rirInput.value.trim() : '';  
-    const note = noteInput ? noteInput.value.trim() : '';
-    const actualTempo = tempo || current.prescribedTempo || '';  
-    const actualRir = normalizePerformedReps(  
-      rir || current.prescribedRir || ''  
-    );
+    const loadValue = normalizeLoadValue(loadInput ? loadInput.value : '');  
+    const repsValue = normalizeRepValue(repsInput ? repsInput.value : '', current.prescribedRepsOrDuration || '');  
+    const tempoValue = tempoInput ? tempoInput.value.trim() : '';  
+    const rirValue = normalizeRirValue(rirInput ? rirInput.value : '', current.prescribedRir || '');  
+    const noteValue = noteInput ? noteInput.value.trim() : '';
+
+    const actualLoad = loadValue || normalizeLoadValue(current.workingLoad || current.prescribedLoad || '');  
+    const actualRepsOrDuration = repsValue || normalizeRepValue('', current.prescribedRepsOrDuration || '');  
+    const actualTempo = tempoValue || current.prescribedTempo || '';  
+    const actualRir = rirValue || normalizeRirValue('', current.prescribedRir || '');
 
     current.completedSets = Array.isArray(current.completedSets) ? current.completedSets : [];  
     current.completedSets.push({  
@@ -1185,19 +1248,25 @@ function saveDifferentTodayAndLogSet() {
       actualRepsOrDuration,  
       actualTempo,  
       actualRir,  
-      note,  
+      note: noteValue,  
       at: new Date().toISOString()  
     });
 
-    state.cockpit = next;  
-    state.cockpitEditOpen = false;  
-    startRestTimer(parseRestSeconds(current.prescribedRest || current.rest || '90 sec'));  
+    state.cockpitEditOpen = false;
+
+    startRestTimer(parseRestSeconds(  
+      current.prescribedRest ||  
+      current.rest ||  
+      (String(current.notes || '').match(/rest:\s*([^\|]+)/i)?.[1]?.trim()) ||  
+      '90 sec'  
+    ));
+
     renderLog();  
     toast('Set logged');  
   } catch (err) {  
     toast(err.message || 'Could not save changes.');  
   }  
-}      
+}  
 
 function renderLog() {  
   const root = document.getElementById('log');  
@@ -1467,8 +1536,12 @@ function logMarkup(session) {
         <div class="log-row">  
           <b>${i + 1}</b>  
           <div>  
-            <div class="set-main">${esc(set.load || 'BW')}${set.load ? ' lb' : ''} × ${esc(set.result || '—')}${set.resultType === 'duration' ? ' sec' : ''}</div>  
-            <div class="set-meta">${set.tempo ? `Tempo ${esc(set.tempo)} · ` : ''}${set.rir ? `RIR ${esc(set.rir)} · ` : ''}${esc(set.note || set.checkpoint || 'No note')}</div>  
+            <div class="set-main">${esc(formatLoadLbs(normalizeLoadValue(set.load || set.actualLoad || '')))} × ${esc(set.result || set.repsOrDuration || set.actualRepsOrDuration || '—')}</div>  
+            <div class="set-meta">${[  
+              set.tempo ? `Tempo ${esc(set.tempo)}` : '',  
+              set.rir ? `RIR ${esc(set.rir)}` : '',  
+              esc(set.note || set.checkpoint || 'No note')  
+            ].filter(Boolean).join(' · ')}</div>  
           </div>  
           <div class="row-actions">  
             <button class="icon-btn" data-delete-set="${set.id || ''}" title="Delete set">×</button>  
@@ -1477,7 +1550,7 @@ function logMarkup(session) {
       `).join('')}  
     </div>  
   `).join('');  
-}  
+}    
 
   function finish() {  
     if (!active.sets.length) {  
