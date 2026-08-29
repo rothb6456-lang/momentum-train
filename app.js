@@ -219,8 +219,14 @@ function discardActiveWorkout() {
 }    
 
 function finishWorkoutAction() {  
-  const cockpit = state.cockpit;  
+  const cockpit = state.cockpit;
+
   if (!cockpit || !Array.isArray(cockpit.exercises)) {  
+    if (Array.isArray(active?.sets) && active.sets.length) {  
+      finish();  
+      return;  
+    }
+
     toast('No active workout.');  
     return;  
   }
@@ -263,14 +269,19 @@ function finishWorkoutAction() {
   });
 
   if (!loggedSets.length) {  
+    if (Array.isArray(active?.sets) && active.sets.length) {  
+      finish();  
+      return;  
+    }
+
     toast('Log at least one set first');  
     return;  
   }
 
   active.sets = loggedSets;  
+  persist();  
   finish();  
-}      
-
+}  
 function cockpitHasLoggedSets(cockpit) {  
   if (!cockpit || !Array.isArray(cockpit.exercises)) return false;
 
@@ -1683,32 +1694,38 @@ function logMarkup(session) {
   `).join('');  
 }    
 
-  function finish() {  
-    if (!active.sets.length) {  
-      toast('Log at least one set first');  
-      return;  
-    }
-
-    const complete = {  
-      ...clone(active),  
-      id: uid(),  
-      status: 'staged',  
-      completedAt: new Date().toISOString()  
-    };
-
-    saveDone([complete, ...getDone()]);  
-    if (active.planId) MomentumPlanner.mark(active.planId, 'completed');  
-active = newSession();  
-state.cockpit = null;  
-persist();  
-
-    renderHome();  
-    renderToday();  
-    renderReview();  
-    renderLog();  
-    show('review');  
-    toast('Session saved and staged for review');  
+function finish() {  
+  if (!active.sets.length) {  
+    toast('Log at least one set first');  
+    return;  
   }
+
+  const complete = {  
+    ...clone(active),  
+    id: uid(),  
+    status: 'staged',  
+    completedAt: new Date().toISOString()  
+  };
+
+  saveDone([complete, ...getDone()]);
+
+  if (active.planId) {  
+    MomentumPlanner.mark(active.planId, 'completed');  
+  }
+
+  active = newSession();  
+  state.cockpit = null;  
+  state.cockpitEditOpen = false;  
+  state.restTimer = null;  
+  persist();
+
+  renderHome();  
+  renderToday();  
+  renderReview();  
+  renderLog();  
+  show('review');  
+  toast('Session saved and staged for review');  
+}  
 
 window.startCockpitForWorkout = startCockpitForWorkout;  
 window.logCockpitSetAction = logCockpitSetAction;  
