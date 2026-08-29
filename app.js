@@ -1400,6 +1400,12 @@ function saveDifferentTodayAndLogSet() {
   }  
 }  
 
+function selectedReviewedSession() {  
+  const sessions = getDone();  
+  if (!sessions.length) return null;  
+  return sessions.find(x => x.id === selectedReviewId) || sessions[0] || null;  
+}  
+
 function renderLog() {  
   const root = document.getElementById('log');  
   if (!root) return;
@@ -1407,18 +1413,80 @@ function renderLog() {
   if (state.cockpit && state.cockpit.exercises?.length) {  
     const ex = getActiveCockpitExercise();
 
-root.innerHTML = `  
-  <div class="log-shell">  
-    ${renderCockpitHeader(state.cockpit)}  
-    ${renderCockpitExercise(ex)}  
-  </div>  
-`;    
+    root.innerHTML = `  
+      <div class="log-shell">  
+        ${renderCockpitHeader(state.cockpit)}  
+        ${renderCockpitExercise(ex)}  
+      </div>  
+    `;  
+    return;  
+  }
+
+  const reviewed = selectedReviewedSession();  
+  const showCompletedState =  
+    !active.sets.length &&  
+    !state.cockpit &&  
+    reviewed &&  
+    (reviewed.status === 'staged' || reviewed.status === 'shared');
+
+  if (showCompletedState) {  
+    const next = nextPlan();
+
+    root.innerHTML = `  
+      <div class="log-shell">  
+        <article class="card section">  
+          <div class="eyebrow">Workout complete</div>  
+          <h1 style="margin-top:6px">${esc(reviewed.workoutName || 'Completed workout')}</h1>  
+          <p class="quiet">  
+            This workout has been moved to Review.  
+            To edit completed sets or update Questions for Coach, use the Review page.  
+          </p>
+
+          <div class="signal-card" style="margin-top:12px">  
+            <b>Status:</b> ${esc(reviewed.status)}<br>  
+            ${reviewed.status === 'staged'  
+              ? 'You can still undo finish and return to Log.'  
+              : 'This session has already been shared once, but you can still review it.'}  
+          </div>
+
+          <div class="actions" style="margin-top:14px">  
+            <button class="primary" id="openReviewFromLog">Open Review</button>  
+            ${reviewed.status === 'staged' ? `<button class="secondary" id="undoFinishFromLog">Undo finish</button>` : ''}  
+            ${next ? `<button class="secondary" id="openNextWorkoutFromLog">Open next workout</button>` : ''}  
+          </div>  
+        </article>  
+      </div>  
+    `;
+
+    const openReviewBtn = $('#openReviewFromLog');  
+    if (openReviewBtn) {  
+      openReviewBtn.onclick = () => {  
+        selectedReviewId = reviewed.id;  
+        renderReview();  
+        show('review');  
+      };  
+    }
+
+    const undoFinishBtn = $('#undoFinishFromLog');  
+    if (undoFinishBtn) {  
+      undoFinishBtn.onclick = () => {  
+        restoreStagedSession(reviewed.id);  
+      };  
+    }
+
+    const openNextBtn = $('#openNextWorkoutFromLog');  
+    if (openNextBtn && next) {  
+      openNextBtn.onclick = () => {  
+        show('today');  
+      };  
+    }
+
     return;  
   }
 
   const block = activeBlock();
 
-  $('#log').innerHTML = `  
+  root.innerHTML = `  
     <div class="log-shell">  
       <header class="active-session">  
         <div>  
@@ -1454,14 +1522,14 @@ root.innerHTML = `
               ${esc([  
                 block.targetSets && `${block.targetSets} sets`,  
                 block.targetRepsOrDuration,  
-                block.targetWeightOrLoad && `${block.targetWeightOrLoad} lb`,  
+                block.targetWeightOrLoad && `${block.targetWeightOrLoad} lbs`,  
                 block.tempo && `Tempo ${block.tempo}`,  
                 block.rir && `RIR ${block.rir}`  
               ].filter(Boolean).join(' · ') || 'No planned target')}  
             </p>
 
             <div class="set-form">  
-                            <label class="field">  
+              <label class="field">  
                 Load (lbs)  
                 <input  
                   id="load"  
@@ -1469,9 +1537,10 @@ root.innerHTML = `
                   inputmode="decimal"  
                   pattern="[0-9]*[.]?[0-9]*"  
                   placeholder="0"  
-                  oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/^([^.]*\.)|\./g, '$1')"  
+                  oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/^([^.]*\\.)|\\./g, '$1')"  
                 >  
-              </label>  
+              </label>
+
               <label class="field">  
                 Reps  
                 <input  
@@ -1482,7 +1551,7 @@ root.innerHTML = `
                   placeholder="0"  
                   oninput="this.value = this.value.replace(/[^0-9]/g, '')"  
                 >  
-              </label>  
+              </label>
 
               <div class="field full">  
                 Result type  
@@ -1509,7 +1578,7 @@ root.innerHTML = `
               </div>
 
               <label class="field full">Technical checkpoint<textarea id="checkpoint" placeholder="Position, path, cue, or execution observation">${esc(block.checkpoints || '')}</textarea></label>  
-              <label class="field full">Joint / performance note<textarea id="note" placeholder="Shoulder, grip, substitution, or performance detail"></textarea></label>  
+              <label class="field full">Set note<textarea id="note" placeholder="Substitution, technique note, tolerance note, or performance detail"></textarea></label>  
             </div>
 
             <div class="actions">  
@@ -1529,7 +1598,7 @@ root.innerHTML = `
           <article class="card section">  
             <h2>Session context</h2>  
             <div class="set-form" style="margin-top:11px">  
-                            <label class="field full">Questions for Coach<textarea data-context="coachQuestions">${esc(active.coachQuestions)}</textarea></label>  
+              <label class="field full">Questions for Coach<textarea data-context="coachQuestions">${esc(active.coachQuestions)}</textarea></label>  
             </div>  
           </article>  
         </section>  
@@ -1538,10 +1607,9 @@ root.innerHTML = `
   `;
 
   renderPicker();  
-  bindLog();
-bindSessionContext();  
-}  
-function renderPicker(query = '') {  
+  bindLog();  
+  bindSessionContext();  
+}  function renderPicker(query = '') {  
   const root = $('#exercisePicker');  
   if (!root) return;
 
@@ -1707,7 +1775,8 @@ function finish() {
     completedAt: new Date().toISOString()  
   };
 
-  saveDone([complete, ...getDone()]);
+  saveDone([complete, ...getDone()]);  
+  selectedReviewId = complete.id;
 
   if (active.planId) {  
     MomentumPlanner.mark(active.planId, 'completed');  
@@ -1724,9 +1793,8 @@ function finish() {
   renderReview();  
   renderLog();  
   show('review');  
-  toast('Session saved and staged for review');  
+  toast('Workout complete. Review before sharing.');  
 }  
-
 window.startCockpitForWorkout = startCockpitForWorkout;  
 window.logCockpitSetAction = logCockpitSetAction;  
 window.openCockpitDifferentToday = openCockpitDifferentToday;  
@@ -1867,43 +1935,78 @@ const rows = session.sets.map((s, i) => ({
   `;  
 }  
 
-  function renderReview() {  
-    const sessions = getDone();  
-    if (!selectedReviewId && sessions[0]) selectedReviewId = sessions[0].id;  
-    const selected = sessions.find(x => x.id === selectedReviewId) || sessions[0];
+function renderReview() {  
+  const sessions = getDone();  
+  if (!selectedReviewId && sessions[0]) selectedReviewId = sessions[0].id;  
+  const selected = sessions.find(x => x.id === selectedReviewId) || sessions[0] || null;
 
-    $('#review').innerHTML = `  
-      <div class="review-grid">  
-        <aside class="card">  
-          <div class="eyebrow">Review queue</div>  
-          <h2 style="margin-top:6px">Saved sessions</h2>  
-          <div style="margin-top:12px">  
-            ${  
-              sessions.length  
-                ? sessions.map(s => `  
-                  <button class="session-item ${s.id === selected?.id ? 'active' : ''}" data-review="${s.id}">  
-                    <b>${esc(s.workoutName)}</b>  
-                    <small class="quiet">${dateText(s.completedAt)} · ${s.sets.length} sets · ${esc(s.status)}</small>  
-                  </button>  
-                `).join('')  
-                : '<div class="empty">Finished Momentum sessions appear here.</div>'  
-            }  
-          </div>  
-        </aside>
+  $('#review').innerHTML = `  
+    <div class="review-grid">  
+      <aside class="card">  
+        <div class="eyebrow">Review queue</div>  
+        <h2 style="margin-top:6px">Saved sessions</h2>  
+        <div style="margin-top:12px">  
+          ${  
+            sessions.length  
+              ? sessions.map(s => `  
+                <button class="session-item ${s.id === selected?.id ? 'active' : ''}" data-review="${s.id}">  
+                  <b>${esc(s.workoutName)}</b>  
+                  <small class="quiet">${dateText(s.completedAt)} · ${s.sets.length} sets · ${esc(s.status)}</small>  
+                </button>  
+              `).join('')  
+              : '<div class="empty">Finished Momentum sessions appear here.</div>'  
+          }  
+        </div>  
+      </aside>
 
-        <section class="card">  
-          ${selected ? reviewDetail(selected) : '<div class="empty">Select a saved session to review or export.</div>'}  
-        </section>  
-      </div>  
-    `;
+      <section class="card">  
+        ${selected ? reviewDetail(selected) : '<div class="empty">Select a saved session to review or export.</div>'}  
+      </section>  
+    </div>  
+  `;
 
-    $$('[data-review]').forEach(b => b.onclick = () => {  
-      selectedReviewId = b.dataset.review;  
-      renderReview();  
-    });
+  $$('[data-review]').forEach(b => b.onclick = () => {  
+    selectedReviewId = b.dataset.review;  
+    renderReview();  
+  });
 
-    if (selected) bindReview(selected);  
-  }
+  if (selected) bindReview(selected);  
+}  
+function restoreStagedSession(sessionId) {  
+  const sessions = getDone();  
+  const idx = sessions.findIndex(x => x.id === sessionId);  
+  if (idx === -1) return false;
+
+  const session = clone(sessions[idx]);
+
+  sessions.splice(idx, 1);  
+  saveDone(sessions);
+
+  active = {  
+    ...clone(session),  
+    status: 'draft',  
+    completedAt: '',  
+    updatedAt: new Date().toISOString()  
+  };
+
+  state.cockpit = active?.plannedWorkout?.exerciseBlocks?.length  
+    ? MomentumPlanner.buildCockpitWorkout(active.plannedWorkout)  
+    : null;
+
+  state.cockpitEditOpen = false;  
+  state.restTimer = null;  
+  persist();
+
+  selectedReviewId = sessions[0]?.id || '';
+
+  renderHome();  
+  renderToday();  
+  renderReview();  
+  renderLog();  
+  show('log');  
+  toast('Finish undone. Workout restored to Log.');  
+  return true;  
+}  
 
 function bindReview(selected) {  
   const reviewQuestions = document.getElementById('reviewQuestions');  
@@ -1931,16 +2034,33 @@ function bindReview(selected) {
 }  
 
 function reviewDetail(session) {  
+  const isStaged = session.status === 'staged';  
+  const isShared = session.status === 'shared';
+
   return `  
     <div class="eyebrow">Session review</div>  
     <h1 style="font-size:25px">${esc(session.workoutName)}</h1>  
     <p class="quiet">${esc(planSummary({ phaseId: session.phase, week: session.week, day: session.day }))} · ${dateText(session.completedAt)}</p>
 
+    ${isStaged ? `  
+      <div class="signal-card" style="margin:12px 0">  
+        <b>Workout complete</b><br>  
+        Logging is finished. Review this session, update Questions for Coach, export when ready, or undo finish to return to Log.  
+      </div>  
+    ` : ''}
+
+    ${isShared ? `  
+      <div class="signal-card" style="margin:12px 0">  
+        <b>Debrief copied</b><br>  
+        This session has already been shared once. You can still review or export CSV.  
+      </div>  
+    ` : ''}
+
     <section class="metrics" style="margin:14px 0">  
       ${metric('Sets', session.sets.length, 'Completed')}  
       ${metric('Exercises', new Set(session.sets.map(x => x.exercise)).size, 'Logged')}  
       ${metric('Plan link', session.planId ? 'Yes' : 'Ad hoc', session.planId ? 'Prescription retained' : 'No queue source')}  
-      ${metric('Export', 'Ready', 'CSV · Coach')}  
+      ${metric('Status', session.status || 'staged', isStaged ? 'Editable in Review' : 'Saved')}  
     </section>
 
     <h2>Planned vs performed</h2>  
@@ -1952,12 +2072,12 @@ function reviewDetail(session) {
     <label class="field" style="margin-top:12px">Questions for Coach<textarea id="reviewQuestions">${esc(session.coachQuestions || '')}</textarea></label>
 
     <div class="export-box">  
+      ${isStaged ? `<button class="secondary" id="undoFinish">Undo finish</button>` : ''}  
       <button class="primary" id="copyDebrief">Copy Coach-ready debrief</button>  
       <button class="secondary" id="exportCsv">Export CSV</button>  
     </div>  
   `;  
 }  
-
 function bindReview(session) {  
   const reviewQuestions = $('#reviewQuestions');  
   if (reviewQuestions) {  
@@ -1970,12 +2090,34 @@ function bindReview(session) {
     };  
   }
 
+  const undoFinishBtn = $('#undoFinish');  
+  if (undoFinishBtn) {  
+    undoFinishBtn.onclick = () => {  
+      restoreStagedSession(session.id);  
+    };  
+  }
+
   const copyDebriefBtn = $('#copyDebrief');  
   if (copyDebriefBtn) {  
-    copyDebriefBtn.onclick = () => copy(debrief({  
-      ...session,  
-      coachQuestions: $('#reviewQuestions')?.value ?? session.coachQuestions ?? ''  
-    }));  
+    copyDebriefBtn.onclick = async () => {  
+      const questions = $('#reviewQuestions')?.value ?? session.coachQuestions ?? '';  
+      const payload = {  
+        ...session,  
+        coachQuestions: questions  
+      };
+
+      await copy(debrief(payload));
+
+      const all = getDone();  
+      const item = all.find(x => x.id === session.id);  
+      if (item) {  
+        item.coachQuestions = questions;  
+        if (item.status === 'staged') item.status = 'shared';  
+        saveDone(all);  
+      }
+
+      renderReview();  
+    };  
   }
 
   const exportCsvBtn = $('#exportCsv');  
@@ -1987,7 +2129,6 @@ function bindReview(session) {
       }));  
   }  
 }  
-
   function renderHistory() {
     const historical = MomentumData.sessions();  
     const done = getDone();
