@@ -734,7 +734,7 @@ const persist = () => {
     const primaryCtaLabel = active.sets.length  
          ? 'Resume in-progress session'  
          : next ? 'Open plan' : 'Create plan';  
-    const secondaryCtaLabel = next ? 'Open plan' : 'Build today';  
+    const secondaryCtaLabel = next ? 'Create custom plan' : 'Build today';  
 
     $('#home').innerHTML = `  
       <div class="hero">  
