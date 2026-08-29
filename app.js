@@ -1248,6 +1248,32 @@ function renderCompletedSets(ex) {
   }).join('');  
 }  
 
+function renderCockpitPrescription(ex) {  
+  const parts = [  
+    (ex.prescribedSets || ex.targetSets) ? `${ex.prescribedSets || ex.targetSets} sets` : '',  
+    ex.prescribedRepsOrDuration || ex.targetRepsOrDuration || '',  
+    (ex.prescribedLoad || ex.targetWeightOrLoad) ? `${normalizeLoadValue(ex.prescribedLoad || ex.targetWeightOrLoad)} lbs` : '',  
+    ex.prescribedTempo ? `Tempo ${ex.prescribedTempo}` : '',  
+    ex.prescribedRir ? `RIR ${ex.prescribedRir}` : '',  
+    ex.prescribedRest || ex.rest ? `Rest ${parseRestTopEndForDisplay(ex.prescribedRest || ex.rest)}` : ''  
+  ].filter(Boolean);
+
+  const notes = [  
+    ex.notes || '',  
+    ex.checkpoints || ''  
+  ].filter(Boolean).join(' · ');
+
+  return `  
+    <div class="card section">  
+      <div class="eyebrow">Prescription</div>  
+      <div style="margin-top:6px">  
+        <b>${escapeHtml(parts.join(' · ') || 'No structured prescription')}</b>  
+      </div>  
+      ${notes ? `<div class="quiet" style="margin-top:8px">${escapeHtml(notes)}</div>` : ''}  
+    </div>  
+  `;  
+}  
+
 function renderCockpitExercise(ex) {  
   const cockpit = state.cockpit;  
   const title = ex.name || ex.exerciseName || ex.title || 'Exercise';
