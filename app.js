@@ -194,6 +194,10 @@ function getRestTimerRemaining() {
   return Math.max(0, Math.ceil((state.restTimer.endsAt - Date.now()) / 1000));  
 }
 
+function clock(seconds) {  
+  return formatTimer(seconds);  
+}  
+
 function formatTimer(seconds) {  
   const m = Math.floor(seconds / 60);  
   const s = seconds % 60;  
