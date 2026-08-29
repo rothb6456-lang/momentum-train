@@ -1343,22 +1343,21 @@ function renderCockpitExercise(ex) {
         ${renderCompletedSets(ex)}  
       </div>
 
-      <div style="margin-top:16px">  
+      <div class="actions" style="margin-top:18px">  
+        <button class="secondary" onclick="cockpitPrev()">Previous exercise</button>  
+        <button class="secondary" onclick="cockpitNext()">Next exercise</button>  
+        <button class="secondary" onclick="deleteLastCockpitSet()">Delete last set</button>  
+      </div>
+
+      <div style="margin-top:18px">  
         ${renderRestTimer()}  
       </div>
 
-      <div class="actions" style="margin-top:18px">  
-        <button class="secondary" onclick="cockpitPrev()">Previous</button>  
-        <button class="secondary" onclick="cockpitNext()">Next</button>  
-      </div>
-
-      <div class="actions" style="margin-top:14px; justify-content:space-between">  
-        <button class="secondary" onclick="deleteLastCockpitSet()">Delete last set</button>  
+      <div class="actions" style="margin-top:18px; justify-content:flex-end">  
         <button class="primary" onclick="finishWorkoutAction()">Finish workout</button>  
       </div>  
     </div>  
   `;  
-}  
 function saveDifferentTodayAndLogSet() {  
   const cockpit = state.cockpit;  
   if (!cockpit || !Array.isArray(cockpit.exercises)) return;
@@ -1374,13 +1373,17 @@ function saveDifferentTodayAndLogSet() {
     const noteInput = document.getElementById('cockpitEditNote');
 
     const loadValue = normalizeLoadValue(loadInput ? loadInput.value : '');  
-    const repsValue = normalizeRepValue(repsInput ? repsInput.value : '', current.prescribedRepsOrDuration || '');  
+    const repsRaw = repsInput ? String(repsInput.value || '').trim() : '';  
     const tempoValue = tempoInput ? tempoInput.value.trim() : '';  
     const rirValue = normalizeRirValue(rirInput ? rirInput.value : '', current.prescribedRir || '');  
     const noteValue = noteInput ? noteInput.value.trim() : '';
 
-    const actualLoad = loadValue || normalizeLoadValue(current.workingLoad || current.prescribedLoad || '');  
-    const actualRepsOrDuration = repsValue || normalizeRepValue('', current.prescribedRepsOrDuration || '');  
+    const actualLoad = loadValue || normalizeLoadValue(current.workingLoad || current.prescribedLoad || '');
+
+    const actualRepsOrDuration = repsRaw  
+      ? (current.timed ? `${normalizeNumericEntry(repsRaw, false)} sec` : normalizeRepValue(repsRaw, current.prescribedRepsOrDuration || ''))  
+      : normalizeRepValue('', current.prescribedRepsOrDuration || '');
+
     const actualTempo = tempoValue || current.prescribedTempo || '';  
     const actualRir = rirValue || normalizeRirValue('', current.prescribedRir || '');
 
@@ -1409,7 +1412,6 @@ function saveDifferentTodayAndLogSet() {
     toast(err.message || 'Could not save changes.');  
   }  
 }  
-
 function selectedReviewedSession() {  
   const sessions = getDone();  
   if (!sessions.length) return null;  
