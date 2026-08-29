@@ -723,6 +723,10 @@ const persist = () => {
     $$('[data-go]').forEach(b => b.onclick = () => show(b.dataset.go));  
   }
 
+function isMobileHomeLayout() {  
+  return window.matchMedia('(max-width: 760px)').matches;  
+}  
+
 function renderHome() {  
   const m = MomentumData.metrics();  
   const next = nextPlan();  
@@ -731,7 +735,8 @@ function renderHome() {
   const max = Math.max(...phases.map(x => x.sets), 1);
 
   const hasActiveSession = !!active.sets.length;  
-  const hasQueuedPlan = !!next;
+  const hasQueuedPlan = !!next;  
+  const mobile = isMobileHomeLayout();
 
   let primaryActionMarkup = '';  
   let secondaryActionMarkup = '';
@@ -747,84 +752,118 @@ function renderHome() {
     secondaryActionMarkup = `<button class="secondary" id="homePastePlan">Paste plan from outside source</button>`;  
   }
 
-  $('#home').innerHTML = `  
-    <div class="hero">  
-      <article class="card hero-main">  
-        <div class="eyebrow">Today / command center</div>  
-        <h1>${hasActiveSession ? 'Your session is in progress.' : 'Know what changed. Capture what matters.'}</h1>  
-        <p class="quiet">  
-          ${hasActiveSession  
-            ? `${active.sets.length} set${active.sets.length === 1 ? '' : 's'} are saved locally on this device.`  
-            : 'Queue Coach’s next card, execute it on the gym floor, and carry both plan and performance into review.'}  
-        </p>  
-        <div class="actions">  
-          ${primaryActionMarkup}  
-          ${secondaryActionMarkup}  
-        </div>  
-      </article>
+  if (mobile) {  
+    $('#home').innerHTML = `  
+      <div class="today-launchpad">  
+        <article class="card section">  
+          <div class="eyebrow">Today</div>  
+          <h1 style="margin-top:6px">What would you like to do today?</h1>  
+          <p class="quiet">  
+            ${hasActiveSession  
+              ? `${active.sets.length} set${active.sets.length === 1 ? '' : 's'} are saved locally on this device.`  
+              : hasQueuedPlan  
+                ? `${queued().length} planned workout${queued().length === 1 ? '' : 's'} ready to go.`  
+                : 'Start from a blank plan or paste one from an outside source.'}  
+          </p>  
+          <div class="actions" style="margin-top:14px; flex-direction:column">  
+            ${primaryActionMarkup}  
+            ${secondaryActionMarkup}  
+          </div>  
+        </article>
 
-      <aside class="card">  
-        <div class="eyebrow">Next workout</div>  
-        ${  
-          next  
-            ? `  
-              <h2 style="margin-top:8px">${esc(next.title)}</h2>  
-              <p class="quiet">${esc(planSummary(next))}</p>  
-              <div class="signal-card">  
-                <b>${next.exerciseBlocks.length} planned exercise${next.exerciseBlocks.length === 1 ? '' : 's'}</b>  
-                Queued from ${esc(next.sourceType)}. Planned and performed values remain separate.  
-              </div>  
-              <div class="actions">  
-                <button class="primary" data-start="${next.id}">Start workout</button>  
-              </div>  
-            `  
-            : `  
-              <h2 style="margin-top:8px">Nothing queued</h2>  
-              <p class="quiet">Paste your next Coach card or create a custom plan.</p>  
-              <div class="actions">  
-                <button class="primary" id="homeEmptyPastePlan">Paste plan</button>  
-              </div>  
-            `  
-        }  
-      </aside>  
-    </div>
+        ${hasQueuedPlan ? `  
+          <article class="card section" style="margin-top:12px">  
+            <div class="eyebrow">Next planned workout</div>  
+            <h2 style="margin-top:6px">${esc(next.title)}</h2>  
+            <p class="quiet">${esc(planSummary(next))}</p>  
+            <div class="signal-card">  
+              <b>${next.exerciseBlocks.length} planned exercise${next.exerciseBlocks.length === 1 ? '' : 's'}</b>  
+              Queued from ${esc(next.sourceType)}.  
+            </div>  
+          </article>  
+        ` : ''}  
+      </div>  
+    `;  
+  } else {  
+    $('#home').innerHTML = `  
+      <div class="hero">  
+        <article class="card hero-main">  
+          <div class="eyebrow">Today / command center</div>  
+          <h1>${hasActiveSession ? 'Your session is in progress.' : 'Know what changed. Capture what matters.'}</h1>  
+          <p class="quiet">  
+            ${hasActiveSession  
+              ? `${active.sets.length} set${active.sets.length === 1 ? '' : 's'} are saved locally on this device.`  
+              : 'Queue Coach’s next card, execute it on the gym floor, and carry both plan and performance into review.'}  
+          </p>  
+          <div class="actions">  
+            ${primaryActionMarkup}  
+            ${secondaryActionMarkup}  
+          </div>  
+        </article>
 
-    <section class="metrics">  
-      ${metric('Historical sessions', m.sessions, 'Markdown source data')}  
-      ${metric('Historical sets', m.sets.toLocaleString(), 'Loaded training rows')}  
-      ${metric('Planned workouts', queued().length, next ? 'Next plan ready' : 'Nothing scheduled')}  
-      ${metric('Completed locally', done.length, done[0] ? dateText(done[0].completedAt) : 'On this device')}  
-    </section>
-
-    <section class="grid">  
-      <article class="card">  
-        <div class="card-head">  
-          <div><h2>Phase workload</h2>Historical working sets by phase</div>  
-          Through ${m.lastDate || '—'}  
-        </div>  
-        <div class="stack">  
+        <aside class="card">  
+          <div class="eyebrow">Next planned workout</div>  
           ${  
-            phases.length  
-              ? phases.map(p => `  
-                <div class="bar-row">  
-                  Phase ${esc(p.phase)}  
-                  <div class="bar"><i style="width:${p.sets / max * 100}%"></i></div>  
-                  ${p.sets}  
+            next  
+              ? `  
+                <h2 style="margin-top:8px">${esc(next.title)}</h2>  
+                <p class="quiet">${esc(planSummary(next))}</p>  
+                <div class="signal-card">  
+                  <b>${next.exerciseBlocks.length} planned exercise${next.exerciseBlocks.length === 1 ? '' : 's'}</b>  
+                  Queued from ${esc(next.sourceType)}. Planned and performed values remain separate.  
                 </div>  
-              `).join('')  
-              : '<div class="empty">Historical rows are not currently available.</div>'  
+                <div class="actions">  
+                  <button class="primary" data-start="${next.id}">Start workout</button>  
+                </div>  
+              `  
+              : `  
+                <h2 style="margin-top:8px">Nothing queued</h2>  
+                <p class="quiet">Paste your next Coach card or create a custom plan.</p>  
+                <div class="actions">  
+                  <button class="primary" id="homeEmptyPastePlan">Paste plan</button>  
+                </div>  
+              `  
           }  
-        </div>  
-      </article>
+        </aside>  
+      </div>
 
-      <article class="card">  
-        <h2>What matters now</h2>  
-        <div class="insight"><i class="dot"></i><div><b>Plan → execute → review</b> Every queued workout keeps its raw Coach card and structured exercise blocks alongside actual sets.</div></div>  
-        <div class="insight"><i class="dot amber"></i><div><b>Questions stay lightweight</b> Session-level notes stay in Questions for Coach, while set-level notes capture specific gym-floor observations.</div></div>  
-        <div class="insight"><i class="dot"></i><div><b>${esc(m.primary[0])} is the largest loaded category</b> ${m.primary[1].toLocaleString()} historical training sets are in the current snapshot.</div></div>  
-      </article>  
-    </section>  
-  `;
+      <section class="metrics">  
+        ${metric('Historical sessions', m.sessions, 'Markdown source data')}  
+        ${metric('Historical sets', m.sets.toLocaleString(), 'Loaded training rows')}  
+        ${metric('Planned workouts', queued().length, next ? 'Next plan ready' : 'Nothing scheduled')}  
+        ${metric('Completed locally', done.length, done[0] ? dateText(done[0].completedAt) : 'On this device')}  
+      </section>
+
+      <section class="grid">  
+        <article class="card">  
+          <div class="card-head">  
+            <div><h2>Phase workload</h2>Historical working sets by phase</div>  
+            Through ${m.lastDate || '—'}  
+          </div>  
+          <div class="stack">  
+            ${  
+              phases.length  
+                ? phases.map(p => `  
+                  <div class="bar-row">  
+                    Phase ${esc(p.phase)}  
+                    <div class="bar"><i style="width:${p.sets / max * 100}%"></i></div>  
+                    ${p.sets}  
+                  </div>  
+                `).join('')  
+                : '<div class="empty">Historical rows are not currently available.</div>'  
+            }  
+          </div>  
+        </article>
+
+        <article class="card">  
+          <h2>What matters now</h2>  
+          <div class="insight"><i class="dot"></i><div><b>Plan → execute → review</b> Every queued workout keeps its raw Coach card and structured exercise blocks alongside actual sets.</div></div>  
+          <div class="insight"><i class="dot amber"></i><div><b>Questions stay lightweight</b> Session-level notes stay in Questions for Coach, while set-level notes capture specific gym-floor observations.</div></div>  
+          <div class="insight"><i class="dot"></i><div><b>${esc(m.primary[0])} is the largest loaded category</b> ${m.primary[1].toLocaleString()} historical training sets are in the current snapshot.</div></div>  
+        </article>  
+      </section>  
+    `;  
+  }
 
   bindGo();  
   $$('[data-start]').forEach(b => b.onclick = () => startPlan(b.dataset.start));
@@ -881,7 +920,7 @@ function renderHome() {
       renderEditor('paste');  
     };  
   }  
-}  
+}   
 
   function renderToday() {  
     const list = queued();  
