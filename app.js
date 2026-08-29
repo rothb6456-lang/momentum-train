@@ -105,27 +105,24 @@ function startCockpitForWorkout(workout) {
 }  
 
   function newSession(plan = null) {  
-    const source = plan || basePlan();  
-    return {  
-      id: uid(),  
-      status: 'draft',  
-      planId: source.status === 'reference' ? '' : source.id,  
-      plannedWorkout: clone(source),  
-      phase: source.phaseId || '',  
-      week: source.week || '',  
-      day: source.day || '',  
-      workoutName: source.title || 'Ad hoc workout',  
-      startedAt: new Date().toISOString(),  
-      updatedAt: new Date().toISOString(),  
-      activeExercise: source.exerciseBlocks?.[0]?.exerciseName || '',  
-      sets: [],  
-      tags: [],  
-      readiness: { energy: '', shoulder: '', grip: '', note: '' },  
-      shoulder: { pre: '', during: '', post: '' },  
-      gripNotes: '',  
-      coachQuestions: ''  
-    };  
-  }
+  const source = plan || basePlan();  
+  return {  
+    id: uid(),  
+    status: 'draft',  
+    planId: source.status === 'reference' ? '' : source.id,  
+    plannedWorkout: clone(source),  
+    phase: source.phaseId || '',  
+    week: source.week || '',  
+    day: source.day || '',  
+    workoutName: source.title || 'Ad hoc workout',  
+    startedAt: new Date().toISOString(),  
+    updatedAt: new Date().toISOString(),  
+    activeExercise: source.exerciseBlocks?.[0]?.exerciseName || '',  
+    sets: [],  
+    tags: [],  
+    coachQuestions: ''  
+  };  
+}  
 
 const state = {  
   cockpit: null,  
@@ -210,7 +207,6 @@ function normalizePerformedReps(value) {
 function discardActiveWorkout() {  
   if (!confirm('Discard this active session?')) return;
 
-  if (active.planId) MomentumPlanner.mark(active.planId, 'queued');  
   active = newSession();  
   state.cockpit = null;  
   state.cockpitEditOpen = false;  
@@ -220,7 +216,7 @@ function discardActiveWorkout() {
   renderToday();  
   renderHome();  
   toast('Draft discarded');  
-}  
+}    
 
 function finishWorkoutAction() {  
   const cockpit = state.cockpit;  
@@ -245,25 +241,24 @@ function finishWorkoutAction() {
     const sets = Array.isArray(ex.completedSets) ? ex.completedSets : [];
 
     return sets.map((set, setIndex) => ({  
+      id: uid(),  
       exercise: exerciseName,  
+      name: exerciseName,  
+      exerciseName,  
       result: set.actualRepsOrDuration || '',  
+      repsOrDuration: set.actualRepsOrDuration || '',  
+      actualRepsOrDuration: set.actualRepsOrDuration || '',  
       load: normalizeLoadValue(set.actualLoad || ''),  
       actualLoad: normalizeLoadValue(set.actualLoad || ''),  
       tempo: set.actualTempo || '',  
+      actualTempo: set.actualTempo || '',  
       rir: set.actualRir || '',  
+      actualRir: set.actualRir || '',  
       checkpoint: '',  
       note: set.note || '',  
-      at: set.at || new Date().toISOString(),  
-      setNumber: setIndex + 1,
-
-      // aliases  
-      name: exerciseName,  
-      exerciseName,  
-      repsOrDuration: set.actualRepsOrDuration || '',  
-      actualRepsOrDuration: set.actualRepsOrDuration || '',  
-      actualLoad: set.actualLoad || '',  
-      actualTempo: set.actualTempo || '',  
-      actualRir: set.actualRir || ''  
+      at: set.at || set.loggedAt || new Date().toISOString(),  
+      setNumber: set.setNumber || (setIndex + 1),  
+      extra: !!set.extra  
     }));  
   });
 
@@ -274,19 +269,16 @@ function finishWorkoutAction() {
 
   active.sets = loggedSets;  
   finish();  
-}     
+}      
 
 function cockpitHasLoggedSets(cockpit) {  
   if (!cockpit || !Array.isArray(cockpit.exercises)) return false;
 
   return cockpit.exercises.some(ex => {  
-    const completedCount =  
-      Number(ex.completedSets ?? 0) ||  
-      (Array.isArray(ex.completed) ? ex.completed.length : 0);
-
+    const completedCount = Array.isArray(ex.completedSets) ? ex.completedSets.length : 0;  
     return completedCount > 0;  
   });  
-}  
+}   
 
 function deleteLastCockpitSet() {  
   const cockpit = state.cockpit;  
@@ -307,27 +299,6 @@ function deleteLastCockpitSet() {
   renderLog();  
   toast('Last set removed');  
 }      
-
-function normalizePerformedReps(value) {  
-  const raw = String(value || '').trim();  
-  if (!raw) return '';
-
-  const m = raw.match(/^(\d+)\s*-\s*(\d+)(.*)$/);  
-  if (m) {  
-    return `${m[2]}${m[3] || ''}`.trim();  
-  }
-
-  return raw;  
-}  
-
-function updateReviewQuestions(sessionId, value) {  
-  const sessions = getDone();  
-  const idx = sessions.findIndex(x => x.id === sessionId);  
-  if (idx === -1) return;
-
-  sessions[idx].coachQuestions = value || '';  
-  saveDone(sessions);  
-}  
 
 function updateReviewQuestions(sessionId, value) {  
   const sessions = getDone();  
@@ -413,7 +384,7 @@ function normalizeLoadValue(value) {
   if (!raw) return '';  
   const match = raw.replace(/,/g, '').match(/\d+(\.\d+)?/);  
   return match ? match[0] : '';  
-}
+}  
 
 function normalizeRepValue(value, fallback = '') {  
   const raw = String(value || '').trim();  
@@ -452,8 +423,8 @@ function normalizeRirValue(value, fallback = '') {
 function formatLoadLbs(value) {  
   const raw = String(value || '').trim();  
   if (!raw) return 'bodyweight';  
-  return `${raw} lb`;  
-}  
+  return `${raw} lbs`;  
+}   
 
 function startOptionalExercise() {  
   if (!state.cockpit) return;  
@@ -481,20 +452,6 @@ function cockpitNext() {
   renderLog();  
 }    
 
-function normalizeLoadValue(value) {  
-  const raw = String(value || '').trim();  
-  if (!raw) return '';
-
-  const match = raw.replace(/,/g, '').match(/-?\d+(\.\d+)?/);  
-  return match ? match[0] : '';  
-}
-
-function formatLoadLbs(value) {  
-  const raw = String(value || '').trim();  
-  if (!raw) return 'bodyweight';  
-  return `${raw} lb`;  
-}  
-
 function renderRestTimer() {  
   if (!state.restTimer) return '';
 
@@ -515,21 +472,14 @@ function renderRestTimer() {
 function bindSessionContext() {  
   $$('[data-context]').forEach(el => {  
     el.oninput = () => {  
-      const key = el.dataset.context;
-
-      if (key === 'pre' || key === 'during' || key === 'post') {  
-        active.shoulder = active.shoulder || { pre: '', during: '', post: '' };  
-        active.shoulder[key] = el.value;  
-      } else if (key === 'gripNotes') {  
-        active.gripNotes = el.value;  
-      } else if (key === 'coachQuestions') {  
+      const key = el.dataset.context;  
+      if (key === 'coachQuestions') {  
         active.coachQuestions = el.value;  
-      }
-
-      persist();  
+        persist();  
+      }  
     };  
   });  
-}  
+}   
 
 function startCurrentExerciseRestTimer() {  
   const ex = getActiveCockpitExercise();  
@@ -555,6 +505,26 @@ function openCockpitDifferentToday() {
 function cancelCockpitDifferentToday() {  
   state.cockpitEditOpen = false;  
   renderLog();  
+}  
+
+function renderCockpitWorkingLoad(ex) {  
+  return `  
+    <div class="card section">  
+      <div class="eyebrow">Working load</div>  
+      <label class="field" style="margin-top:10px">  
+        Load (lbs)  
+        <input  
+          id="cockpitWorkingLoad"  
+          class="input"  
+          inputmode="decimal"  
+          pattern="[0-9]*[.]?[0-9]*"  
+          placeholder="e.g. 85"  
+          value="${esc(normalizeLoadValue(ex.workingLoad || ex.prescribedLoad || ''))}"  
+          oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/^([^.]*\.)|\./g, '$1')"  
+        >  
+      </label>  
+    </div>  
+  `;  
 }  
 
 function renderCockpitDifferentToday(ex) {  
@@ -777,7 +747,7 @@ let selectedReviewId = '';
         <article class="card">  
           <h2>What matters now</h2>  
           <div class="insight"><i class="dot"></i><div><b>Plan → execute → review</b> Every queued workout keeps its raw Coach card and structured exercise blocks alongside actual sets.</div></div>  
-          <div class="insight"><i class="dot amber"></i><div><b>Shoulder and grip are capture fields</b> Momentum preserves observed tolerance rather than generating a readiness score.</div></div>  
+          <div class="insight"><i class="dot amber"></i><div><b>Questions stay lightweight</b> Session-level notes stay in Questions for Coach, while set-level notes capture specific gym-floor observations.</div></div>  
           <div class="insight"><i class="dot"></i><div><b>${esc(m.primary[0])} is the largest loaded category</b> ${m.primary[1].toLocaleString()} historical training sets are in the current snapshot.</div></div>  
         </article>  
       </section>  
@@ -974,7 +944,11 @@ function bindToday() {
           <label class="field">Day<input class="input" inputmode="numeric" data-plan="day" value="${esc(editor.day)}"></label>  
         </div>
 
-        <div class="workout-card">  
+                <datalist id="knownExerciseList">  
+          ${exerciseDatalistMarkup()}  
+        </datalist>
+
+        <div class="workout-card">   
           ${editor.exerciseBlocks.map((block, index) => builderBlock(block, index)).join('')}  
         </div>
 
@@ -990,10 +964,30 @@ function bindToday() {
       editor[input.dataset.plan] = input.value;  
     });
 
-    $$('[data-block]').forEach(input => input.oninput = () => {  
+        $$('[data-block]').forEach(input => input.oninput = () => {  
       const block = editor.exerciseBlocks.find(x => x.id === input.dataset.block);  
-      if (block) block[input.dataset.field] = input.value;  
-    });
+      if (!block) return;
+
+      const field = input.dataset.field;  
+      let value = input.value;
+
+      if (field === 'exerciseName') {  
+        block[field] = value;  
+        return;  
+      }
+
+      if (field === 'targetSets' || field === 'rir') {  
+        value = normalizeNumericEntry(value, false);  
+        input.value = value;  
+      }
+
+      if (field === 'targetWeightOrLoad') {  
+        value = normalizeNumericEntry(value, true);  
+        input.value = value;  
+      }
+
+      block[field] = value;  
+    });  
 
     $$('[data-remove-block]').forEach(b => b.onclick = () => {  
       editor.exerciseBlocks = editor.exerciseBlocks.filter(x => x.id !== b.dataset.removeBlock);  
@@ -1007,14 +1001,30 @@ function bindToday() {
     };
 
     $('#saveQueue').onclick = () => {  
-      editor.exerciseBlocks.forEach((x, i) => x.order = i + 1);  
+      const invalidBlock = editor.exerciseBlocks.find(block =>  
+        !isKnownExerciseName(block.exerciseName)  
+      );
+
+      if (invalidBlock) {  
+        toast('Choose exercise names from the known exercise list');  
+        return;  
+      }
+
+      editor.exerciseBlocks.forEach((x, i) => {  
+        x.order = i + 1;  
+        x.exerciseName = String(x.exerciseName || '').trim();  
+        x.targetSets = normalizeNumericEntry(x.targetSets, false);  
+        x.targetWeightOrLoad = normalizeNumericEntry(x.targetWeightOrLoad, true);  
+        x.rir = normalizeNumericEntry(x.rir, false);  
+      });
+
       editor.status = 'queued';  
       MomentumPlanner.upsert(editor);  
       editor = null;  
       renderToday();  
       renderHome();  
       toast('Workout saved to queue');  
-    };
+    };  
 
     $('#cancelEditor').onclick = () => {  
       editor = null;  
@@ -1022,34 +1032,43 @@ function bindToday() {
     };  
   }
 
-  function builderBlock(block, index) {  
-    const field = (label, key, value, full = '') => `  
-      <label class="field ${full}">  
-        ${label}  
-        <input class="input" data-block="${block.id}" data-field="${key}" value="${esc(value)}">  
-      </label>  
-    `;
+function builderBlock(block, index) {  
+  const field = (label, key, value, full = '', attrs = '') => `  
+    <label class="field ${full}">  
+      ${label}  
+      <input class="input" data-block="${block.id}" data-field="${key}" value="${esc(value)}" ${attrs}>  
+    </label>  
+  `;
 
-    return `  
-      <div class="exercise-card">  
-        <div class="exercise-title">  
-          <b>${index + 1}. Planned exercise</b>  
-          <button class="icon-btn" data-remove-block="${block.id}" title="Remove exercise">×</button>  
-        </div>  
-        <div class="set-form" style="margin-top:9px">  
-          ${field('Exercise name', 'exerciseName', block.exerciseName, 'full')}  
-          ${field('Sets', 'targetSets', block.targetSets)}  
-          ${field('Reps / duration', 'targetRepsOrDuration', block.targetRepsOrDuration)}  
-          ${field('Load', 'targetWeightOrLoad', block.targetWeightOrLoad)}  
-          ${field('Tempo', 'tempo', block.tempo)}  
-          ${field('RIR', 'rir', block.rir)}  
-          ${field('Notes', 'notes', block.notes, 'full')}  
-          ${field('Checkpoint', 'checkpoints', block.checkpoints, 'full')}  
-        </div>  
+  return `  
+    <div class="exercise-card">  
+      <div class="exercise-title">  
+        <b>${index + 1}. Planned exercise</b>  
+        <button class="icon-btn" data-remove-block="${block.id}" title="Remove exercise">×</button>  
       </div>  
-    `;  
-  }
-
+      <div class="set-form" style="margin-top:9px">  
+        <label class="field full">  
+          Exercise name  
+          <input  
+            class="input"  
+            data-block="${block.id}"  
+            data-field="exerciseName"  
+            value="${esc(block.exerciseName)}"  
+            list="knownExerciseList"  
+            placeholder="Type to search known exercises"  
+          >  
+        </label>  
+        ${field('Sets', 'targetSets', block.targetSets, '', 'inputmode="numeric" pattern="[0-9]*" oninput="this.value = this.value.replace(/[^0-9]/g, \'\')"')}  
+        ${field('Reps / duration', 'targetRepsOrDuration', block.targetRepsOrDuration)}  
+        ${field('Load (lbs)', 'targetWeightOrLoad', block.targetWeightOrLoad, '', 'inputmode="decimal" pattern="[0-9]*[.]?[0-9]*" oninput="this.value = this.value.replace(/[^0-9.]/g, \'\').replace(/^([^.]*\\.)|\\./g, \'$1\')"')}  
+        ${field('Tempo', 'tempo', block.tempo)}  
+        ${field('RIR', 'rir', block.rir, '', 'inputmode="numeric" pattern="[0-9]*" oninput="this.value = this.value.replace(/[^0-9]/g, \'\')"')}  
+        ${field('Notes', 'notes', block.notes, 'full')}  
+        ${field('Checkpoint', 'checkpoints', block.checkpoints, 'full')}  
+      </div>  
+    </div>  
+  `;  
+}
 function startPlan(id) {  
   const plan = MomentumPlanner.load().find(x => x.id === id);  
   if (!plan) return;
@@ -1080,13 +1099,35 @@ function startPlan(id) {
     };  
   }
 
-  function allExercises() {  
-    return [...new Set([  
-      ...(planForActive().exerciseBlocks || []).map(x => x.exerciseName),  
-      ...MomentumData.recentExercises(),  
-      ...data.core.map(x => x.ExerciseName).filter(Boolean)  
-    ].filter(Boolean))];  
-  }
+function allExercises() {  
+  return knownExerciseNames();  
+}  
+
+function knownExerciseNames() {  
+  return [...new Set([  
+    ...(planForActive().exerciseBlocks || []).map(x => x.exerciseName),  
+    ...MomentumData.recentExercises(),  
+    ...data.core.map(x => x.ExerciseName).filter(Boolean)  
+  ].map(x => String(x || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));  
+}
+
+function isKnownExerciseName(name) {  
+  const value = String(name || '').trim().toLowerCase();  
+  if (!value) return false;  
+  return knownExerciseNames().some(x => x.toLowerCase() === value);  
+}
+
+function exerciseOptionsMarkup(selected = '') {  
+  return knownExerciseNames().map(name =>  
+    `<option value="${esc(name)}"${name === selected ? ' selected' : ''}>${esc(name)}</option>`  
+  ).join('');  
+}
+
+function exerciseDatalistMarkup() {  
+  return knownExerciseNames().map(name =>  
+    `<option value="${esc(name)}"></option>`  
+  ).join('');  
+}  
 
 function getActiveCockpitExercise() {  
   if (!state.cockpit || !state.cockpit.exercises?.length) return null;  
@@ -1353,7 +1394,7 @@ root.innerHTML = `
       <div class="logger-layout">  
         <aside class="card">  
           <div class="card-head"><div><h2>Exercise flow</h2>Planned exercises are pinned first.</div></div>  
-          <input id="searchExercise" class="input" placeholder="Search or add custom exercise">  
+          <input id="searchExercise" class="input" placeholder="Search known exercises">  
           <div id="exercisePicker" class="picker-list"></div>  
         </aside>
 
@@ -1372,8 +1413,28 @@ root.innerHTML = `
             </p>
 
             <div class="set-form">  
-              <label class="field">Load (lb)<input id="load" class="input" inputmode="decimal" placeholder="0"></label>  
-              <label class="field">Result<input id="result" class="input" inputmode="decimal" placeholder="Reps / sec"></label>
+                            <label class="field">  
+                Load (lbs)  
+                <input  
+                  id="load"  
+                  class="input"  
+                  inputmode="decimal"  
+                  pattern="[0-9]*[.]?[0-9]*"  
+                  placeholder="0"  
+                  oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/^([^.]*\.)|\./g, '$1')"  
+                >  
+              </label>  
+              <label class="field">  
+                Reps  
+                <input  
+                  id="result"  
+                  class="input"  
+                  inputmode="numeric"  
+                  pattern="[0-9]*"  
+                  placeholder="0"  
+                  oninput="this.value = this.value.replace(/[^0-9]/g, '')"  
+                >  
+              </label>  
 
               <div class="field full">  
                 Result type  
@@ -1432,78 +1493,75 @@ root.innerHTML = `
   bindLog();
 bindSessionContext();  
 }  
+function renderPicker(query = '') {  
+  const root = $('#exercisePicker');  
+  if (!root) return;
 
-  function renderPicker(query = '') {  
-    const root = $('#exercisePicker');  
-    if (!root) return;
+  const planned = new Set((planForActive().exerciseBlocks || []).map(x => x.exerciseName));  
+  const names = allExercises().filter(x => x.toLowerCase().includes(query.toLowerCase()));
 
-    const planned = new Set((planForActive().exerciseBlocks || []).map(x => x.exerciseName));  
-    const names = allExercises().filter(x => x.toLowerCase().includes(query.toLowerCase()));
+  root.innerHTML =  
+    [  
+      ...names.filter(x => planned.has(x)),  
+      ...names.filter(x => !planned.has(x))  
+    ].map(x => `  
+      <button class="pick ${x === active.activeExercise ? 'active' : ''}" data-pick="${esc(x)}">  
+        <b>${esc(x)}</b>  
+        <small>${planned.has(x) ? 'Planned workout' : 'Exercise library'}</small>  
+      </button>  
+    `).join('')  
+    || '<div class="empty">No matching known exercises.</div>';
 
-    root.innerHTML =  
-      [  
-        ...names.filter(x => planned.has(x)),  
-        ...names.filter(x => !planned.has(x))  
-      ].map(x => `  
-        <button class="pick ${x === active.activeExercise ? 'active' : ''}" data-pick="${esc(x)}">  
-          <b>${esc(x)}</b>  
-          <small>${planned.has(x) ? 'Planned workout' : 'Recent / exercise library'}</small>  
-        </button>  
-      `).join('')  
-      + `  
-        <button class="pick" id="custom">  
-          <b>＋ Use “${esc(query || 'Custom exercise')}”</b>  
-          <small>Capture an unplanned substitution or custom movement.</small>  
-        </button>  
-      `;
+  $$('[data-pick]', root).forEach(b => b.onclick = () => {  
+    active.activeExercise = b.dataset.pick;  
+    persist();  
+    renderLog();  
+  });  
+}  
 
-    $$('[data-pick]', root).forEach(b => b.onclick = () => {  
-      active.activeExercise = b.dataset.pick;  
-      persist();  
-      renderLog();  
-    });
+function bindLog() {  
+  let type = 'reps';  
+  let rir = $('.chip.active')?.dataset.rir || '';
 
-    $('#custom', root).onclick = () => {  
-      const name = query.trim() || window.prompt('Custom exercise name');  
-      if (name) {  
-        active.activeExercise = name;  
-        persist();  
-        renderLog();  
-      }  
-    };  
+  const searchExercise = $('#searchExercise');  
+  if (searchExercise) {  
+    searchExercise.oninput = e => renderPicker(e.target.value);  
   }
 
-  function bindLog() {  
-    let type = 'reps';  
-    let rir = $('.chip.active')?.dataset.rir || '';
+  $$('[data-type]').forEach(b => b.onclick = () => {  
+    type = b.dataset.type;  
+    $$('[data-type]').forEach(x => x.classList.toggle('active', x === b));
 
-    $('#searchExercise').oninput = e => renderPicker(e.target.value);
+    const resultInput = $('#result');  
+    if (resultInput) {  
+      resultInput.value = normalizeNumericEntry(resultInput.value, false);  
+      resultInput.placeholder = type === 'duration' ? 'Seconds' : 'Reps';  
+    }  
+  });
 
-    $$('[data-type]').forEach(b => b.onclick = () => {  
-      type = b.dataset.type;  
-      $$('[data-type]').forEach(x => x.classList.toggle('active', x === b));  
-    });
+  $$('[data-rir]').forEach(b => b.onclick = () => {  
+    rir = b.dataset.rir;  
+    $$('[data-rir]').forEach(x => x.classList.toggle('active', x === b));  
+  });
 
-    $$('[data-rir]').forEach(b => b.onclick = () => {  
-      rir = b.dataset.rir;  
-      $$('[data-rir]').forEach(x => x.classList.toggle('active', x === b));  
-    });
-
-    $$('[data-context]').forEach(i => i.oninput = () => {  
-      const key = i.dataset.context;  
-      if (key === 'gripNotes' || key === 'coachQuestions') active[key] = i.value;  
-      else active.shoulder[key] = i.value;  
-      persist();  
-    });
-
-    $('#addSet').onclick = () => {  
-      const load = $('#load').value.trim();  
-      const result = $('#result').value.trim();  
-      if (!load && !result) {  
-        toast('Enter load, reps, or duration first');  
+  const addSet = $('#addSet');  
+  if (addSet) {  
+    addSet.onclick = () => {  
+      if (!isKnownExerciseName(active.activeExercise)) {  
+        toast('Choose a known exercise first');  
         return;  
-      }  
-      const tempo = [$('#tempoE').value.trim(), $('#tempoP').value.trim(), $('#tempoC').value.trim()].filter(Boolean).join('-');  
+      }
+
+      const load = normalizeNumericEntry($('#load')?.value || '', true);  
+      const result = normalizeNumericEntry($('#result')?.value || '', false);
+
+      if (!load && !result) {  
+        toast('Enter load or reps first');  
+        return;  
+      }
+
+      const tempo = [$('#tempoE').value.trim(), $('#tempoP').value.trim(), $('#tempoC').value.trim()].filter(Boolean).join('-');
+
       active.sets.push({  
         id: uid(),  
         exercise: active.activeExercise,  
@@ -1515,49 +1573,45 @@ bindSessionContext();
         checkpoint: $('#checkpoint').value.trim(),  
         note: $('#note').value.trim(),  
         at: new Date().toISOString()  
-      });  
+      });
+
       persist();  
       renderLog();  
       toast('Set saved locally');  
-    };
+    };  
+  }
 
-    $('#duplicateLast').onclick = () => {  
+  const duplicateLast = $('#duplicateLast');  
+  if (duplicateLast) {  
+    duplicateLast.onclick = () => {  
       const prior = [...active.sets].reverse().find(x => x.exercise === active.activeExercise);  
       if (!prior) {  
         toast('No completed set to duplicate');  
         return;  
       }  
-      active.sets.push({ ...prior, id: uid(), at: new Date().toISOString() });  
+      active.sets.push({  
+        ...prior,  
+        id: uid(),  
+        at: new Date().toISOString()  
+      });  
       persist();  
       renderLog();  
       toast('Previous set duplicated');  
-    };
-
-    $('#finish').onclick = finish;
-
-    $('#discard').onclick = () => {  
-      if (confirm('Discard this active session?')) {  
-  if (active.planId) MomentumPlanner.mark(active.planId, 'queued');  
-  active = newSession();  
-  state.cockpit = null;  
-  persist();  
-  renderLog();  
-  renderToday();  
-  renderHome();  
-  toast('Draft discarded');  
-}  
-    };
-
-    $$('[data-delete-set]').forEach(b => b.onclick = () => {  
-      active.sets = active.sets.filter(x => x.id !== b.dataset.deleteSet);  
-      persist();  
-      renderLog();  
-    });  
+    };  
   }
 
-  const clock = seconds =>  
-    `${String(Math.floor(seconds / 3600)).padStart(2, '0')}:${String(Math.floor(seconds % 3600 / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+  const finishBtn = $('#finish');  
+  if (finishBtn) finishBtn.onclick = finish;
 
+  const discardBtn = $('#discard');  
+  if (discardBtn) discardBtn.onclick = discardActiveWorkout;
+
+  $$('[data-delete-set]').forEach(b => b.onclick = () => {  
+    active.sets = active.sets.filter(x => x.id !== b.dataset.deleteSet);  
+    persist();  
+    renderLog();  
+  });  
+}  
 function logMarkup(session) {  
   if (!session.sets.length) {  
     return '<div class="empty">No sets logged yet. Completed sets remain here after refresh.</div>';  
@@ -1784,7 +1838,7 @@ const rows = session.sets.map((s, i) => ({
         </aside>
 
         <section class="card">  
-          ${selected ? reviewDetail(selected) : '<div class="empty">Select a saved session to review, export, or re-queue.</div>'}  
+          ${selected ? reviewDetail(selected) : '<div class="empty">Select a saved session to review or export.</div>'}  
         </section>  
       </div>  
     `;
@@ -1819,10 +1873,7 @@ function bindReview(selected) {
     exportCsv.onclick = () => downloadFile(`${selected.workoutName || 'session'}.csv`, csv(selected), 'text/csv');  
   }
 
-  const exportJson = document.getElementById('exportJson');  
-  if (exportJson) {  
-    exportJson.onclick = () => downloadFile(`${selected.workoutName || 'session'}.json`, JSON.stringify(selected, null, 2), 'application/json');  
-  }  
+  
 }  
 
 function reviewDetail(session) {  

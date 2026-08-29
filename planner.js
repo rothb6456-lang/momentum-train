@@ -6,19 +6,52 @@ const MomentumPlanner = (() => {
   const clone = value => JSON.parse(JSON.stringify(value));
   const load = () => { try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]'); } catch { return []; } };
   const save = workouts => localStorage.setItem(QUEUE_KEY, JSON.stringify(workouts));
-  const blankBlock = (order = 1) => ({ id: id(), order, exerciseName: '', targetSets: '', targetRepsOrDuration: '', targetWeightOrLoad: '', tempo: '', rir: '', notes: '', checkpoints: '', tags: [] });
+  const blankBlock = (order = 1) => ({  
+  id: id(),  
+  order,  
+  exerciseName: '',  
+  targetSets: '',  
+  targetRepsOrDuration: '',  
+  targetWeightOrLoad: '',  
+  tempo: '',  
+  rir: '',  
+  rest: '',  
+  notes: '',  
+  checkpoints: '',  
+  tags: []  
+});  
   const blankWorkout = () => ({ id: id(), title: 'Untitled workout', scheduledDate: '', phaseId: '', week: '', day: '', sourceType: 'manual', sourceRawText: '', status: 'queued', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), exerciseBlocks: [blankBlock()] });
-  function parseLine(line, order) {
-    const text = clean(line).replace(/^\s*(?:\d+[.)]|[-•])\s*/, '');
-    const tempo = text.match(/(?:tempo\s*)?(\d+\s*-\s*\d+\s*-\s*(?:\d+|x))/i)?.[1]?.replace(/\s/g, '') || '';
-    const rir = text.match(/RIR\s*([\d+\-– ]+)/i)?.[1]?.trim() || '';
-    const load = text.match(/(\d+(?:\.\d+)?)\s*(?:lb|lbs|pounds?)/i)?.[1] || '';
-    const target = text.match(/(?:\b(\d+)\s*[x×]\s*)?(\d+(?:\s*[-–]\s*\d+)?\s*(?:reps?|sec(?:onds?)?|min(?:utes?)?)?)/i);
-    const split = text.split(/\s+(?:[-—]|\||: )\s*/);
-    const exerciseName = clean(split[0].replace(/\b\d+\s*[x×].*$/i, '')) || text;
-    const notes = clean(text.replace(exerciseName, '').replace(/(?:tempo\s*)?\d+\s*-\s*\d+\s*-\s*(?:\d+|x)/ig, '').replace(/RIR\s*[\d+\-– ]+/ig, ''));
-    return { ...blankBlock(order), exerciseName, targetSets: target?.[1] || '', targetRepsOrDuration: target?.[2]?.trim() || '', targetWeightOrLoad: load, tempo, rir, notes, checkpoints: '', tags: [] };
-  }
+  function parseLine(line, order) {  
+  const text = clean(line).replace(/^\s*(?:\d+[.)]|[-•])\s*/, '');  
+  const tempo = text.match(/(?:tempo\s*)?(\d+\s*-\s*\d+\s*-\s*(?:\d+|x))/i)?.[1]?.replace(/\s/g, '') || '';  
+  const rir = text.match(/RIR\s*([\d+\-– ]+)/i)?.[1]?.trim() || '';  
+  const load = text.match(/(\d+(?:\.\d+)?)\s*(?:lb|lbs|pounds?)/i)?.[1] || '';  
+  const rest = normalizeRest(text.match(/rest[:\s]+(\d+(?:\s*-\s*\d+)?\s*(?:sec|min|s|m))/i)?.[1] || '');  
+  const target = text.match(/(?:\b(\d+)\s*[x×]\s*)?(\d+(?:\s*[-–]\s*\d+)?\s*(?:reps?|sec(?:onds?)?|min(?:utes?)?)?)/i);  
+  const split = text.split(/\s+(?:[-—]|\||: )\s*/);  
+  const exerciseName = clean(split[0].replace(/\b\d+\s*[x×].*$/i, '')) || text;  
+  const notes = clean(  
+    text  
+      .replace(exerciseName, '')  
+      .replace(/(?:tempo\s*)?\d+\s*-\s*\d+\s*-\s*(?:\d+|x)/ig, '')  
+      .replace(/RIR\s*[\d+\-– ]+/ig, '')  
+      .replace(/rest[:\s]+\d+(?:\s*-\s*\d+)?\s*(?:sec|min|s|m)/ig, '')  
+  );
+
+  return {  
+    ...blankBlock(order),  
+    exerciseName,  
+    targetSets: target?.[1] || '',  
+    targetRepsOrDuration: target?.[2]?.trim() || '',  
+    targetWeightOrLoad: load,  
+    tempo,  
+    rir,  
+    rest,  
+    notes,  
+    checkpoints: '',  
+    tags: []  
+  };  
+}  
   function parse(rawText) {  
   const parsed = parseWorkoutCardText(rawText);
 
@@ -31,16 +64,17 @@ const MomentumPlanner = (() => {
   workout.sourceRawText = rawText || '';  
   workout.exerciseBlocks = (parsed.exercises || []).length  
     ? parsed.exercises.map((ex, index) => ({  
-        ...blankBlock(index + 1),  
-        exerciseName: ex.name || '',  
-        targetSets: ex.sets || '',  
-        targetRepsOrDuration: ex.reps || '',  
-        targetWeightOrLoad: ex.load || '',  
-        tempo: ex.tempo || '',  
-        rir: ex.rir || '',  
-        notes: joinNotes([ex.notes || '', ex.rest ? `Rest: ${ex.rest}` : '']),  
-        checkpoints: '',  
-        tags: []  
+              ...blankBlock(index + 1),  
+      exerciseName: ex.name || '',  
+      targetSets: ex.sets || '',  
+      targetRepsOrDuration: ex.reps || '',  
+      targetWeightOrLoad: ex.load || '',  
+      tempo: ex.tempo || '',  
+      rir: ex.rir || '',  
+      rest: ex.rest || '',  
+      notes: ex.notes || '',  
+      checkpoints: '',  
+      tags: []  
       }))  
     : [blankBlock(1)];
 
@@ -523,26 +557,6 @@ function mark(workoutId, status) {
   return item;  
 }
 
-function fromCompleted(session) {  
-  const workout = blankWorkout();  
-  workout.title = `${session.workoutName || 'Completed session'} (re-queue)`;  
-  workout.phaseId = session.phase || '';  
-  workout.week = session.week || '';  
-  workout.day = session.day || '';  
-  workout.sourceType = 'history';  
-  workout.exerciseBlocks = (  
-    session.plannedWorkout?.exerciseBlocks ||  
-    [...new Set(session.sets.map(x => x.exercise))].map((name, index) => ({  
-      ...blankBlock(index + 1),  
-      exerciseName: typeof name === 'string' ? name : name.exerciseName,  
-      tempo: typeof name === 'string' ? '' : name.tempo || '',  
-      rir: typeof name === 'string' ? '' : name.rir || '',  
-      notes: typeof name === 'string' ? '' : name.notes || ''  
-    }))  
-  );  
-  return workout;  
-}
-
 function parseTopEndValue(value) {  
   const raw = clean(value);  
   if (!raw) return '';
@@ -603,7 +617,7 @@ function defaultActualFromBlock(block) {
     actualRest: normalizeRestTopEnd(block.rest || ''),  
     note: ''  
   };  
-}
+}  
 
 function toCockpitExercise(block, index) {  
   return {  
@@ -626,7 +640,7 @@ function toCockpitExercise(block, index) {
     started: false,  
     workingLoad: isEstablishLoad(block) ? '' : clean(block.targetWeightOrLoad || '')  
   };  
-}
+}  
 
 function buildCockpitWorkout(workout) {  
   const base = clone(workout || blankWorkout());  
@@ -711,7 +725,6 @@ return {
   move,  
   duplicate,  
   mark,  
-  fromCompleted,  
   clone,  
   buildCockpitWorkout,  
   logCockpitSet,  
