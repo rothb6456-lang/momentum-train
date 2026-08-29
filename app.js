@@ -732,9 +732,9 @@ const persist = () => {
 
     const primaryCtaView = active.sets.length ? 'log' : 'today';  
     const primaryCtaLabel = active.sets.length  
-      ? 'Resume in-progress session'  
-      : (next ? 'Open plan' : 'Create plan';  
-    const secondaryCtaLabel = next ? 'Open plan' : 'Build today';
+         ? 'Resume in-progress session'  
+         : next ? 'Open plan' : 'Create plan';  
+    const secondaryCtaLabel = next ? 'Open plan' : 'Build today';  
 
     $('#home').innerHTML = `  
       <div class="hero">  
