@@ -1422,7 +1422,9 @@ function saveDifferentTodayAndLogSet() {
     toast('Set logged');  
   } catch (err) {  
     toast(err.message || 'Could not save changes.');  
-  }    
+  }  
+}
+
 function selectedReviewedSession() {  
   const sessions = getDone();  
   if (!sessions.length) return null;  
