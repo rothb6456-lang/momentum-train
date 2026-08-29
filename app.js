@@ -2252,10 +2252,18 @@ function reviewDetail(session) {
 
 setInterval(() => {  
   const el = $('#timer');  
-  if (el) el.textContent = clock(Math.max(0, Math.floor((Date.now() - new Date(active.startedAt)) / 1000)));  
-}, 1000);  
+  if (el) {  
+    el.textContent = clock(  
+      Math.max(0, Math.floor((Date.now() - new Date(active.startedAt)) / 1000))  
+    );  
+  }  
+}, 1000);
 
-  const m = MomentumData.metrics();  
-  if ($('#dataStatus')) $('#dataStatus').textContent = m.lastDate ? `Data through ${m.lastDate}` : 'Local-first mode';
+const m = MomentumData.metrics();  
+if ($('#dataStatus')) {  
+  $('#dataStatus').textContent = m.lastDate  
+    ? `Data through ${m.lastDate}`  
+    : 'Local-first mode';  
+}
 
-})();
+})();  
