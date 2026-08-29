@@ -10,13 +10,13 @@
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
   const esc = value =>  
-    String(value ?? '').replace(/[&<>'"]/g, ch => ({  
-      '&': '&',  
-      '<': '<',  
-'>': '>',  
-"'": "'",  
-'"': '"'  
-    }[ch]));
+  String(value ?? '').replace(/[&<>'"]/g, ch => ({  
+    '&': '&amp;',  
+    '<': '&lt;',  
+    '>': '&gt;',  
+    "'": '&#39;',  
+    '"': '&quot;'  
+  }[ch]));
 
   const uid = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;  
   const clone = value => JSON.parse(JSON.stringify(value));
@@ -187,10 +187,10 @@ function parseRestTopEndForDisplay(value) {
 
 function escapeHtml(value) {  
   return String(value ?? '')  
-    .replace(/&/g, '&')  
-    .replace(/</g, '<')  
-    .replace(/>/g, '>')  
-    .replace(/"/g, '"')  
+    .replace(/&/g, '&amp;')  
+    .replace(/</g, '&lt;')  
+    .replace(/>/g, '&gt;')  
+    .replace(/"/g, '&quot;')  
     .replace(/'/g, '&#39;');  
 }  
 
@@ -1370,60 +1370,7 @@ function saveDifferentTodayAndLogSet() {
   }  
 }  
 
-function saveDifferentTodayAndLogSet() {  
-  const cockpit = state.cockpit;  
-  if (!cockpit || !Array.isArray(cockpit.exercises)) return;
 
-  const current = cockpit.exercises[cockpit.exerciseIndex];  
-  if (!current) return;
-
-  try {  
-    const loadInput = document.getElementById('cockpitEditLoad');  
-    const repsInput = document.getElementById('cockpitEditReps');  
-    const tempoInput = document.getElementById('cockpitEditTempo');  
-    const rirInput = document.getElementById('cockpitEditRir');  
-    const noteInput = document.getElementById('cockpitEditNote');
-
-    const loadValue = normalizeLoadValue(loadInput ? loadInput.value : '');  
-    const repsRaw = repsInput ? String(repsInput.value || '').trim() : '';  
-    const tempoValue = tempoInput ? tempoInput.value.trim() : '';  
-    const rirValue = normalizeRirValue(rirInput ? rirInput.value : '', current.prescribedRir || '');  
-    const noteValue = noteInput ? noteInput.value.trim() : '';
-
-    const actualLoad = loadValue || normalizeLoadValue(current.workingLoad || current.prescribedLoad || '');
-
-    const actualRepsOrDuration = repsRaw  
-      ? (current.timed ? `${normalizeNumericEntry(repsRaw, false)} sec` : normalizeRepValue(repsRaw, current.prescribedRepsOrDuration || ''))  
-      : normalizeRepValue('', current.prescribedRepsOrDuration || '');
-
-    const actualTempo = tempoValue || current.prescribedTempo || '';  
-    const actualRir = rirValue || normalizeRirValue('', current.prescribedRir || '');
-
-    current.completedSets = Array.isArray(current.completedSets) ? current.completedSets : [];  
-    current.completedSets.push({  
-      actualLoad,  
-      actualRepsOrDuration,  
-      actualTempo,  
-      actualRir,  
-      note: noteValue,  
-      at: new Date().toISOString()  
-    });
-
-    state.cockpitEditOpen = false;
-
-    startRestTimer(parseRestSeconds(  
-      current.prescribedRest ||  
-      current.rest ||  
-      (String(current.notes || '').match(/rest:\s*([^\|]+)/i)?.[1]?.trim()) ||  
-      '90 sec'  
-    ));
-
-    renderLog();  
-    toast('Set logged');  
-  } catch (err) {  
-    toast(err.message || 'Could not save changes.');  
-  }  
-}
 
 function selectedReviewedSession() {  
   const sessions = getDone();  
