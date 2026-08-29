@@ -416,21 +416,28 @@ function normalizeRepValue(value, fallback = '') {
 function normalizeRirValue(value, fallback = '') {  
   const raw = String(value || '').trim();  
   if (raw) {  
-    const range = raw.match(/^(\d+)\s*-\s*(\d+)$/);  
-    if (range) return range[2];  
-    const numeric = raw.match(/\d+(\.\d+)?/);  
+    const cleaned = raw.replace(/[^0-9+\-]/g, '');  
+    const range = cleaned.match(/^(\d+)\s*-\s*(\d+)$/);  
+    if (range) return `${range[1]}-${range[2]}`;  
+    const plus = cleaned.match(/^(\d+)\+$/);  
+    if (plus) return `${plus[1]}+`;  
+    const numeric = cleaned.match(/^\d+$/);  
     return numeric ? numeric[0] : '';  
   }
 
   const fallbackRaw = String(fallback || '').trim();  
   if (!fallbackRaw) return '';
 
-  const fallbackRange = fallbackRaw.match(/^(\d+)\s*-\s*(\d+)$/);  
-  if (fallbackRange) return fallbackRange[2];
+  const fallbackCleaned = fallbackRaw.replace(/[^0-9+\-]/g, '');  
+  const fallbackRange = fallbackCleaned.match(/^(\d+)\s*-\s*(\d+)$/);  
+  if (fallbackRange) return `${fallbackRange[1]}-${fallbackRange[2]}`;
 
-  return fallbackRaw;  
-}
+  const fallbackPlus = fallbackCleaned.match(/^(\d+)\+$/);  
+  if (fallbackPlus) return `${fallbackPlus[1]}+`;
 
+  const fallbackNumeric = fallbackCleaned.match(/^\d+$/);  
+  return fallbackNumeric ? fallbackNumeric[0] : '';  
+}  
 function formatLoadLbs(value) {  
   const raw = String(value || '').trim();  
   if (!raw) return 'bodyweight';  
@@ -503,10 +510,10 @@ function getCockpitEditDefaults(ex) {
     load: ex.workingLoad || ex.prescribedLoad || '',  
     repsOrDuration: parseTopEndForDisplay(ex.prescribedRepsOrDuration || ''),  
     tempo: ex.prescribedTempo || '',  
-    rir: parseTopEndForDisplay(ex.prescribedRir || ''),  
+    rir: ex.prescribedRir || '',  
     note: ''  
   };  
-}    
+}      
 
 function openCockpitDifferentToday() {  
   state.cockpitEditOpen = true;  
@@ -585,18 +592,17 @@ function renderCockpitDifferentToday(ex) {
         </label>
 
         <label class="field">  
-          <span>RIR</span>  
+          RIR  
           <input  
             id="cockpitEditRir"  
             class="input"  
-            inputmode="numeric"  
-            pattern="[0-9]*"  
+            inputmode="text"  
+            pattern="[0-9+\-]*"  
             value="${escapeHtml(d.rir)}"  
-            placeholder="RIR"  
-            oninput="this.value = this.value.replace(/[^0-9]/g, '')"  
+            placeholder="e.g. 1-2 or 2+"  
+            oninput="this.value = this.value.replace(/[^0-9+\-]/g, '')"  
           >  
-        </label>
-
+        </label>  
         <label class="field full">  
           <span>Set note</span>  
           <textarea  
@@ -987,13 +993,18 @@ function bindToday() {
         return;  
       }
 
-      if (field === 'targetSets' || field === 'rir') {  
+      if (field === 'targetSets') {  
         value = normalizeNumericEntry(value, false);  
         input.value = value;  
       }
 
       if (field === 'targetWeightOrLoad') {  
         value = normalizeNumericEntry(value, true);  
+        input.value = value;  
+      }
+
+      if (field === 'rir') {  
+        value = String(value || '').replace(/[^0-9+\-]/g, '');  
         input.value = value;  
       }
 
@@ -1011,8 +1022,7 @@ function bindToday() {
           block.exerciseName = canon;  
         }  
       };  
-    });  
-    $$('[data-remove-block]').forEach(b => b.onclick = () => {  
+    });      $$('[data-remove-block]').forEach(b => b.onclick = () => {  
       editor.exerciseBlocks = editor.exerciseBlocks.filter(x => x.id !== b.dataset.removeBlock);  
       if (!editor.exerciseBlocks.length) editor.exerciseBlocks = [MomentumPlanner.blankBlock()];  
       renderEditor('builder');  
@@ -1029,7 +1039,7 @@ $('#saveQueue').onclick = () => {
         x.exerciseName = canonicalExerciseName(String(x.exerciseName || '').trim());  
         x.targetSets = normalizeNumericEntry(x.targetSets, false);  
         x.targetWeightOrLoad = normalizeNumericEntry(x.targetWeightOrLoad, true);  
-        x.rir = normalizeNumericEntry(x.rir, false);  
+        x.rir = String(x.rir || '').replace(/[^0-9+\-]/g, '');  
       });
 
       const invalidBlock = editor.exerciseBlocks.find(block => !String(block.exerciseName || '').trim());
@@ -1082,7 +1092,7 @@ function builderBlock(block, index) {
         ${field('Reps / duration', 'targetRepsOrDuration', block.targetRepsOrDuration)}  
         ${field('Load (lbs)', 'targetWeightOrLoad', block.targetWeightOrLoad, '', 'inputmode="decimal" pattern="[0-9]*[.]?[0-9]*" oninput="this.value = this.value.replace(/[^0-9.]/g, \'\').replace(/^([^.]*\\.)|\\./g, \'$1\')"')}  
         ${field('Tempo', 'tempo', block.tempo)}  
-        ${field('RIR', 'rir', block.rir, '', 'inputmode="numeric" pattern="[0-9]*" oninput="this.value = this.value.replace(/[^0-9]/g, \'\')"')}  
+        ${field('RIR', 'rir', block.rir, '', 'inputmode="text" pattern="[0-9+\\-]*" oninput="this.value = this.value.replace(/[^0-9+\\-]/g, \'\')"')}  
         ${field('Notes', 'notes', block.notes, 'full')}  
         ${field('Checkpoint', 'checkpoints', block.checkpoints, 'full')}  
       </div>  
@@ -1184,19 +1194,18 @@ function getActiveCockpitExercise() {
 
 function renderCockpitHeader(cockpit) {  
   return `  
-    <div class="active-session">  
+    <div class="active-session" style="margin-bottom:14px">  
       <div class="quiet">  
         ${cockpit.phaseId ? `Phase ${escapeHtml(cockpit.phaseId)} • ` : ''}  
         ${cockpit.week ? `Week ${escapeHtml(cockpit.week)} • ` : ''}  
         ${cockpit.day ? `Day ${escapeHtml(cockpit.day)}` : ''}  
       </div>  
-      <div class="pill">  
+      <div class="pill" style="margin-left:12px">  
         Exercise ${cockpit.exerciseIndex + 1} of ${cockpit.exercises.length}  
       </div>  
     </div>  
   `;  
 }  
-
 function renderCompletedSets(ex) {  
   const prescribed = Number(ex.prescribedSets || 0);  
   const completed = Array.isArray(ex.completedSets) ? ex.completedSets : [];  
@@ -1334,21 +1343,22 @@ function renderCockpitExercise(ex) {
         ${renderCompletedSets(ex)}  
       </div>
 
-      ${renderRestTimer()}
+      <div style="margin-top:16px">  
+        ${renderRestTimer()}  
+      </div>
 
-      <div class="actions" style="margin-top:14px">  
+      <div class="actions" style="margin-top:18px">  
         <button class="secondary" onclick="cockpitPrev()">Previous</button>  
         <button class="secondary" onclick="cockpitNext()">Next</button>  
       </div>
 
-      <div class="actions" style="margin-top:10px">  
-        <button class="primary" onclick="finishWorkoutAction()">Finish workout</button>  
+      <div class="actions" style="margin-top:14px; justify-content:space-between">  
         <button class="secondary" onclick="deleteLastCockpitSet()">Delete last set</button>  
+        <button class="primary" onclick="finishWorkoutAction()">Finish workout</button>  
       </div>  
     </div>  
   `;  
-}    
-
+}  
 function saveDifferentTodayAndLogSet() {  
   const cockpit = state.cockpit;  
   if (!cockpit || !Array.isArray(cockpit.exercises)) return;
@@ -1971,7 +1981,45 @@ function renderReview() {
   });
 
   if (selected) bindReview(selected);  
+}
+
+function hydrateCockpitFromSession(cockpit, session) {  
+  if (!cockpit || !Array.isArray(cockpit.exercises)) return cockpit;
+
+  const next = clone(cockpit);  
+  const sets = Array.isArray(session?.sets) ? session.sets : [];
+
+  next.exercises.forEach(ex => {  
+    const exerciseName = ex.exerciseName || '';  
+    ex.completedSets = sets  
+      .filter(set => {  
+        const setName = set.exercise || set.exerciseName || set.name || '';  
+        return setName === exerciseName;  
+      })  
+      .map((set, idx) => ({  
+        setNumber: set.setNumber || (idx + 1),  
+        actualLoad: normalizeLoadValue(set.actualLoad || set.load || ''),  
+        actualRepsOrDuration: set.actualRepsOrDuration || set.repsOrDuration || set.result || '',  
+        actualTempo: set.actualTempo || set.tempo || '',  
+        actualRir: set.actualRir || set.rir || '',  
+        note: set.note || '',  
+        extra: !!set.extra,  
+        loggedAt: set.at || new Date().toISOString()  
+      }));
+
+    if (ex.completedSets.length) {  
+      ex.started = true;  
+      ex.skipped = false;  
+    }
+
+    if (ex.establishLoad && !ex.workingLoad && ex.completedSets.length) {  
+      ex.workingLoad = ex.completedSets[0].actualLoad || '';  
+    }  
+  });
+
+  return next;  
 }  
+  
 function restoreStagedSession(sessionId) {  
   const sessions = getDone();  
   const idx = sessions.findIndex(x => x.id === sessionId);  
@@ -1989,13 +2037,18 @@ function restoreStagedSession(sessionId) {
     updatedAt: new Date().toISOString()  
   };
 
-  state.cockpit = active?.plannedWorkout?.exerciseBlocks?.length  
+  const rebuiltCockpit = active?.plannedWorkout?.exerciseBlocks?.length  
     ? MomentumPlanner.buildCockpitWorkout(active.plannedWorkout)  
     : null;
 
+  state.cockpit = hydrateCockpitFromSession(rebuiltCockpit, active);  
   state.cockpitEditOpen = false;  
   state.restTimer = null;  
   persist();
+
+  if (active.planId) {  
+    MomentumPlanner.mark(active.planId, 'active');  
+  }
 
   selectedReviewId = sessions[0]?.id || '';
 
@@ -2004,10 +2057,9 @@ function restoreStagedSession(sessionId) {
   renderReview();  
   renderLog();  
   show('log');  
-  toast('Finish undone. Workout restored to Log.');  
+  toast('Workout restored to Log for revision.');  
   return true;  
 }  
-
 function bindReview(selected) {  
   const reviewQuestions = document.getElementById('reviewQuestions');  
   if (reviewQuestions) {  
@@ -2045,14 +2097,14 @@ function reviewDetail(session) {
     ${isStaged ? `  
       <div class="signal-card" style="margin:12px 0">  
         <b>Workout complete</b><br>  
-        Logging is finished. Review this session, update Questions for Coach, export when ready, or undo finish to return to Log.  
+        Logging is finished. Review Questions for Coach here, or return to Log to revise completed sets before finalizing.  
       </div>  
     ` : ''}
 
     ${isShared ? `  
       <div class="signal-card" style="margin:12px 0">  
-        <b>Debrief copied</b><br>  
-        This session has already been shared once. You can still review or export CSV.  
+        <b>Workout finalized</b><br>  
+        The Coach-ready debrief has already been copied once. You can still review this session or export CSV.  
       </div>  
     ` : ''}
 
@@ -2060,7 +2112,7 @@ function reviewDetail(session) {
       ${metric('Sets', session.sets.length, 'Completed')}  
       ${metric('Exercises', new Set(session.sets.map(x => x.exercise)).size, 'Logged')}  
       ${metric('Plan link', session.planId ? 'Yes' : 'Ad hoc', session.planId ? 'Prescription retained' : 'No queue source')}  
-      ${metric('Status', session.status || 'staged', isStaged ? 'Editable in Review' : 'Saved')}  
+      ${metric('Status', session.status || 'staged', isStaged ? 'Return to Log to revise' : 'Saved')}  
     </section>
 
     <h2>Planned vs performed</h2>  
@@ -2072,13 +2124,12 @@ function reviewDetail(session) {
     <label class="field" style="margin-top:12px">Questions for Coach<textarea id="reviewQuestions">${esc(session.coachQuestions || '')}</textarea></label>
 
     <div class="export-box">  
-      ${isStaged ? `<button class="secondary" id="undoFinish">Undo finish</button>` : ''}  
-      <button class="primary" id="copyDebrief">Copy Coach-ready debrief</button>  
+      ${isStaged ? `<button class="secondary" id="undoFinish">Return to Log for revisions</button>` : ''}  
+      <button class="primary" id="copyDebrief">Finalize workout · Create/copy Coach-ready debrief</button>  
       <button class="secondary" id="exportCsv">Export CSV</button>  
     </div>  
   `;  
-}  
-function bindReview(session) {  
+}  function bindReview(session) {  
   const reviewQuestions = $('#reviewQuestions');  
   if (reviewQuestions) {  
     reviewQuestions.oninput = () => {  
