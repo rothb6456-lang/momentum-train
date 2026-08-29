@@ -4,7 +4,9 @@
   const fallbackCard = WorkoutCards.phase9week3day2;
 
   const ACTIVE_KEY = 'momentum.active.v3';  
-  const DONE_KEY = 'momentum.sessions.v3';
+  const DONE_KEY = 'momentum.sessions.v3';  
+  const COCKPIT_KEY = 'momentum.cockpit.v1';  
+  const EDITOR_KEY = 'momentum.editor.v1';  
 
   const $ = (selector, root = document) => root.querySelector(selector);  
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -102,6 +104,35 @@ setInterval(() => {
 function startCockpitForWorkout(workout) {  
   state.cockpit = MomentumPlanner.buildCockpitWorkout(workout);  
   renderLog();  
+}  
+
+function loadJson(key, fallback = null) {  
+  try {  
+    const raw = localStorage.getItem(key);  
+    return raw ? JSON.parse(raw) : fallback;  
+  } catch {  
+    return fallback;  
+  }  
+}
+
+function saveJson(key, value) {  
+  localStorage.setItem(key, JSON.stringify(value));  
+}
+
+function persistCockpit() {  
+  saveJson(COCKPIT_KEY, state.cockpit || null);  
+}
+
+function persistEditor() {  
+  saveJson(EDITOR_KEY, editor || null);  
+}
+
+function clearCockpitPersisted() {  
+  localStorage.removeItem(COCKPIT_KEY);  
+}
+
+function clearEditorPersisted() {  
+  localStorage.removeItem(EDITOR_KEY);  
 }  
 
   function newSession(plan = null) {  
@@ -307,9 +338,10 @@ function deleteLastCockpitSet() {
   sets.pop();  
   ex.completedSets = sets;
 
+  persist();  
   renderLog();  
   toast('Last set removed');  
-}      
+}  
 
 function updateReviewQuestions(sessionId, value) {  
   const sessions = getDone();  
@@ -384,11 +416,12 @@ function logCockpitSetAction() {
       '90 sec'  
     ));
 
+    persist();  
     renderLog();  
   } catch (err) {  
     toast(err.message || 'Could not log set.');  
   }  
-}  
+}   
 
 function normalizeLoadValue(value) {  
   const raw = String(value || '').trim();  
@@ -447,28 +480,32 @@ function formatLoadLbs(value) {
 function startOptionalExercise() {  
   if (!state.cockpit) return;  
   state.cockpit = MomentumPlanner.startOptionalCockpitExercise(state.cockpit, state.cockpit.exerciseIndex);  
+  persist();  
   renderLog();  
-}
+}  
 
 function skipOptionalExercise() {  
   if (!state.cockpit) return;  
   state.cockpit = MomentumPlanner.skipCockpitExercise(state.cockpit, state.cockpit.exerciseIndex);  
+  persist();  
   renderLog();  
-}
+}  
 
 function cockpitPrev() {  
   if (!state.cockpit) return;  
   state.cockpit.exerciseIndex = Math.max(0, state.cockpit.exerciseIndex - 1);  
   state.cockpitEditOpen = false;  
+  persist();  
   renderLog();  
-}
+}  
 
 function cockpitNext() {  
   if (!state.cockpit) return;  
   state.cockpit.exerciseIndex = Math.min(state.cockpit.exercises.length - 1, state.cockpit.exerciseIndex + 1);  
   state.cockpitEditOpen = false;  
+  persist();  
   renderLog();  
-}    
+}  
 
 function renderRestTimer() {  
   if (!state.restTimer) return '';
@@ -620,28 +657,32 @@ function renderCockpitDifferentToday(ex) {
   `;  
 }  
 
-let active;  
-try {  
-  active = JSON.parse(localStorage.getItem(ACTIVE_KEY) || 'null');  
-} catch {  
-  active = null;  
-}
-
+let active = loadJson(ACTIVE_KEY, null);  
 if (!active || !Array.isArray(active.sets)) {  
   active = newSession();  
 }
 
-if (active?.plannedWorkout?.exerciseBlocks?.length) {  
+let editor = loadJson(EDITOR_KEY, null);  
+let selectedReviewId = '';
+
+const restoredCockpit = loadJson(COCKPIT_KEY, null);  
+if (restoredCockpit && Array.isArray(restoredCockpit.exercises)) {  
+  state.cockpit = restoredCockpit;  
+} else if (active?.plannedWorkout?.exerciseBlocks?.length && active.planId) {  
   state.cockpit = MomentumPlanner.buildCockpitWorkout(active.plannedWorkout);  
-}
+} else {  
+  state.cockpit = null;  
+}  
 
 const persist = () => {  
-  active.updatedAt = new Date().toISOString();  
-  localStorage.setItem(ACTIVE_KEY, JSON.stringify(active));  
-};
+  if (active) {  
+    active.updatedAt = new Date().toISOString();  
+    saveJson(ACTIVE_KEY, active);  
+  }  
+  persistCockpit();  
+  persistEditor();  
+};  
 
-let editor = null;  
-let selectedReviewId = '';  
 
   function show(view) {  
     $$('.view').forEach(x => x.classList.toggle('active', x.id === view));  
@@ -1098,7 +1139,9 @@ function builderBlock(block, index) {
       </div>  
     </div>  
   `;  
-}  function startPlan(id) {  
+}  
+
+function startPlan(id) {  
   const plan = MomentumPlanner.load().find(x => x.id === id);  
   if (!plan) return;
 
@@ -1389,13 +1432,13 @@ function saveDifferentTodayAndLogSet() {
       )  
     );
 
+    persist();  
     renderLog();  
     toast('Set logged');  
   } catch (err) {  
     toast(err.message || 'Could not save changes.');  
   }  
 }  
-
 
 
 function selectedReviewedSession() {  
@@ -2259,6 +2302,26 @@ renderLog();
 renderReview();  
 renderHistory();
 
+let touchStartY = 0;
+
+document.addEventListener('touchstart', e => {  
+  touchStartY = e.touches[0] ? e.touches[0].clientY : 0;  
+}, { passive: true });
+
+document.addEventListener('touchmove', e => {  
+  const activeLogging =  
+    !!state.cockpit ||  
+    (active && Array.isArray(active.sets) && active.sets.length > 0);
+
+  const currentY = e.touches[0] ? e.touches[0].clientY : 0;  
+  const pullingDown = currentY > touchStartY;  
+  const atTop = window.scrollY <= 0;
+
+  if (activeLogging && atTop && pullingDown) {  
+    e.preventDefault();  
+  }  
+}, { passive: false });  
+
 setInterval(() => {  
   const el = $('#timer');  
   if (el) {  
@@ -2274,6 +2337,12 @@ if ($('#dataStatus')) {
     ? `Data through ${m.lastDate}`  
     : 'Local-first mode';  
 }
+
+window.addEventListener('beforeunload', persist);  
+window.addEventListener('pagehide', persist);  
+document.addEventListener('visibilitychange', () => {  
+  if (document.visibilityState === 'hidden') persist();  
+});  
 
 })();  
 
