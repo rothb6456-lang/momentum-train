@@ -1248,62 +1248,6 @@ function renderCompletedSets(ex) {
   }).join('');  
 }  
 
-function renderCockpitPrescription(ex) {  
-  const sets =  
-  ex.targetSets ??  
-  ex.setsTarget ??  
-  ex.prescribedSets ??  
-  ex.setCount ??  
-  ex.sets ??  
-  (Array.isArray(ex.completed) ? ex.completed.length : '—');  
-
-  const repsOrDuration =  
-    ex.prescribedRepsOrDuration ||  
-    ex.reps ||  
-    ex.repRange ||  
-    '—';
-
-  const load =  
-    ex.workingLoad ||  
-    ex.prescribedLoad ||  
-    ex.load ||  
-    (ex.establishLoad ? 'Establish today' : '—');
-
-  const tempo =  
-    ex.prescribedTempo ||  
-    ex.tempo ||  
-    '—';
-
-  const rir =  
-    ex.prescribedRir ||  
-    ex.rir ||  
-    '—';
-
-  const rest =  
-  ex.prescribedRest ||  
-  ex.rest ||  
-  (String(ex.notes || '').match(/rest:\s*([^\|]+)/i)?.[1]?.trim()) ||  
-  '—';  
-
-  const notes =  
-    ex.notes ||  
-    ex.note ||  
-    '';
-
-  return `  
-    <div class="card section">  
-      <div class="eyebrow">Prescription</div>  
-      <div class="kv"><span>Sets</span><strong>${escapeHtml(String(sets))}</strong></div>  
-      <div class="kv"><span>Reps / Duration</span><strong>${escapeHtml(String(repsOrDuration))}</strong></div>  
-      <div class="kv"><span>Load</span><strong>${escapeHtml(String(load))}</strong></div>  
-      <div class="kv"><span>Tempo</span><strong>${escapeHtml(String(tempo))}</strong></div>  
-      <div class="kv"><span>RIR</span><strong>${escapeHtml(String(rir))}</strong></div>  
-      <div class="kv"><span>Rest</span><strong>${escapeHtml(String(rest))}</strong></div>  
-      ${notes ? `<div class="hint" style="margin-top:8px">${escapeHtml(String(notes))}</div>` : ''}  
-    </div>  
-  `;  
-}   
-
 function renderCockpitExercise(ex) {  
   const cockpit = state.cockpit;  
   const title = ex.name || ex.exerciseName || ex.title || 'Exercise';
@@ -1357,6 +1301,7 @@ function renderCockpitExercise(ex) {
       </div>  
     </div>  
   `;  
+}  
 function saveDifferentTodayAndLogSet() {  
   const cockpit = state.cockpit;  
   if (!cockpit || !Array.isArray(cockpit.exercises)) return;
@@ -1620,7 +1565,9 @@ function renderLog() {
   renderPicker();  
   bindLog();  
   bindSessionContext();  
-}  function renderPicker(query = '') {  
+}  
+
+function renderPicker(query = '') {  
   const root = $('#exercisePicker');  
   if (!root) return;
 
