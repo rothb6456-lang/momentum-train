@@ -723,101 +723,165 @@ const persist = () => {
     $$('[data-go]').forEach(b => b.onclick = () => show(b.dataset.go));  
   }
 
-  function renderHome() {  
-    const m = MomentumData.metrics();  
-    const next = nextPlan();  
-    const done = getDone();  
-    const phases = MomentumData.phases();  
-    const max = Math.max(...phases.map(x => x.sets), 1);
+function renderHome() {  
+  const m = MomentumData.metrics();  
+  const next = nextPlan();  
+  const done = getDone();  
+  const phases = MomentumData.phases();  
+  const max = Math.max(...phases.map(x => x.sets), 1);
 
-    const primaryCtaView = active.sets.length ? 'log' : 'today';  
-    const primaryCtaLabel = active.sets.length  
-         ? 'Resume in-progress session'  
-         : next ? 'Open plan' : 'Create plan';  
-    const secondaryCtaLabel = next ? 'Create custom plan' : 'Build today';  
+  const hasActiveSession = !!active.sets.length;  
+  const hasQueuedPlan = !!next;
 
-    $('#home').innerHTML = `  
-      <div class="hero">  
-        <article class="card hero-main">  
-          <div class="eyebrow">Today / command center</div>  
-          <h1>${active.sets.length ? 'Your session is in progress.' : 'Know what changed. Capture what matters.'}</h1>  
-          <p class="quiet">  
-            ${active.sets.length  
-              ? `${active.sets.length} set${active.sets.length === 1 ? '' : 's'} are saved locally on this device.`  
-              : 'Queue Coach’s next card, execute it on the gym floor, and carry both plan and performance into review.'}  
-          </p>  
-          <div class="actions">  
-            <button class="primary" data-go="${primaryCtaView}">${primaryCtaLabel}</button>  
-            <button class="secondary" data-go="today">${secondaryCtaLabel}</button>  
-          </div>  
-        </article>
+  let primaryActionMarkup = '';  
+  let secondaryActionMarkup = '';
 
-        <aside class="card">  
-          <div class="eyebrow">Next workout</div>  
-          ${  
-            next  
-              ? `  
-                <h2 style="margin-top:8px">${esc(next.title)}</h2>  
-                <p class="quiet">${esc(planSummary(next))}</p>  
-                <div class="signal-card">  
-                  <b>${next.exerciseBlocks.length} planned exercise${next.exerciseBlocks.length === 1 ? '' : 's'}</b>  
-                  Queued from ${esc(next.sourceType)}. Planned and performed values remain separate.  
-                </div>  
-                <div class="actions">  
-                  <button class="primary" data-start="${next.id}">Start workout</button>  
-                </div>  
-              `  
-              : `  
-                <h2 style="margin-top:8px">Nothing queued</h2>  
-                <p class="quiet">Paste your next Coach card to create an editable queue item.</p>  
-                <div class="actions">  
-                  <button class="primary" data-go="today">Paste workout card</button>  
-                </div>  
-              `  
-          }  
-        </aside>  
-      </div>
-
-      <section class="metrics">  
-        ${metric('Historical sessions', m.sessions, 'Markdown source data')}  
-        ${metric('Historical sets', m.sets.toLocaleString(), 'Loaded training rows')}  
-        ${metric('Planned workouts', queued().length, next ? 'Next plan ready' : 'Nothing scheduled')}  
-        ${metric('Completed locally', done.length, done[0] ? dateText(done[0].completedAt) : 'On this device')}  
-      </section>
-
-      <section class="grid">  
-        <article class="card">  
-          <div class="card-head">  
-            <div><h2>Phase workload</h2>Historical working sets by phase</div>  
-            Through ${m.lastDate || '—'}  
-          </div>  
-          <div class="stack">  
-            ${  
-              phases.length  
-                ? phases.map(p => `  
-                  <div class="bar-row">  
-                    Phase ${esc(p.phase)}  
-                    <div class="bar"><i style="width:${p.sets / max * 100}%"></i></div>  
-                    ${p.sets}  
-                  </div>  
-                `).join('')  
-                : '<div class="empty">Historical rows are not currently available.</div>'  
-            }  
-          </div>  
-        </article>
-
-        <article class="card">  
-          <h2>What matters now</h2>  
-          <div class="insight"><i class="dot"></i><div><b>Plan → execute → review</b> Every queued workout keeps its raw Coach card and structured exercise blocks alongside actual sets.</div></div>  
-          <div class="insight"><i class="dot amber"></i><div><b>Questions stay lightweight</b> Session-level notes stay in Questions for Coach, while set-level notes capture specific gym-floor observations.</div></div>  
-          <div class="insight"><i class="dot"></i><div><b>${esc(m.primary[0])} is the largest loaded category</b> ${m.primary[1].toLocaleString()} historical training sets are in the current snapshot.</div></div>  
-        </article>  
-      </section>  
-    `;
-
-    bindGo();  
-    $$('[data-start]').forEach(b => b.onclick = () => startPlan(b.dataset.start));  
+  if (hasActiveSession) {  
+    primaryActionMarkup = `<button class="primary" id="homeResumeWorkout">Resume workout</button>`;  
+    secondaryActionMarkup = `<button class="secondary" id="homeOpenPlan">Open plan</button>`;  
+  } else if (hasQueuedPlan) {  
+    primaryActionMarkup = `<button class="primary" id="homeStartQueuedWorkout">Start queued workout</button>`;  
+    secondaryActionMarkup = `<button class="secondary" id="homeOpenPlan">Open plan</button>`;  
+  } else {  
+    primaryActionMarkup = `<button class="primary" id="homeCreatePlan">Create plan from scratch</button>`;  
+    secondaryActionMarkup = `<button class="secondary" id="homePastePlan">Paste plan from outside source</button>`;  
   }
+
+  $('#home').innerHTML = `  
+    <div class="hero">  
+      <article class="card hero-main">  
+        <div class="eyebrow">Today / command center</div>  
+        <h1>${hasActiveSession ? 'Your session is in progress.' : 'Know what changed. Capture what matters.'}</h1>  
+        <p class="quiet">  
+          ${hasActiveSession  
+            ? `${active.sets.length} set${active.sets.length === 1 ? '' : 's'} are saved locally on this device.`  
+            : 'Queue Coach’s next card, execute it on the gym floor, and carry both plan and performance into review.'}  
+        </p>  
+        <div class="actions">  
+          ${primaryActionMarkup}  
+          ${secondaryActionMarkup}  
+        </div>  
+      </article>
+
+      <aside class="card">  
+        <div class="eyebrow">Next workout</div>  
+        ${  
+          next  
+            ? `  
+              <h2 style="margin-top:8px">${esc(next.title)}</h2>  
+              <p class="quiet">${esc(planSummary(next))}</p>  
+              <div class="signal-card">  
+                <b>${next.exerciseBlocks.length} planned exercise${next.exerciseBlocks.length === 1 ? '' : 's'}</b>  
+                Queued from ${esc(next.sourceType)}. Planned and performed values remain separate.  
+              </div>  
+              <div class="actions">  
+                <button class="primary" data-start="${next.id}">Start workout</button>  
+              </div>  
+            `  
+            : `  
+              <h2 style="margin-top:8px">Nothing queued</h2>  
+              <p class="quiet">Paste your next Coach card or create a custom plan.</p>  
+              <div class="actions">  
+                <button class="primary" id="homeEmptyPastePlan">Paste plan</button>  
+              </div>  
+            `  
+        }  
+      </aside>  
+    </div>
+
+    <section class="metrics">  
+      ${metric('Historical sessions', m.sessions, 'Markdown source data')}  
+      ${metric('Historical sets', m.sets.toLocaleString(), 'Loaded training rows')}  
+      ${metric('Planned workouts', queued().length, next ? 'Next plan ready' : 'Nothing scheduled')}  
+      ${metric('Completed locally', done.length, done[0] ? dateText(done[0].completedAt) : 'On this device')}  
+    </section>
+
+    <section class="grid">  
+      <article class="card">  
+        <div class="card-head">  
+          <div><h2>Phase workload</h2>Historical working sets by phase</div>  
+          Through ${m.lastDate || '—'}  
+        </div>  
+        <div class="stack">  
+          ${  
+            phases.length  
+              ? phases.map(p => `  
+                <div class="bar-row">  
+                  Phase ${esc(p.phase)}  
+                  <div class="bar"><i style="width:${p.sets / max * 100}%"></i></div>  
+                  ${p.sets}  
+                </div>  
+              `).join('')  
+              : '<div class="empty">Historical rows are not currently available.</div>'  
+          }  
+        </div>  
+      </article>
+
+      <article class="card">  
+        <h2>What matters now</h2>  
+        <div class="insight"><i class="dot"></i><div><b>Plan → execute → review</b> Every queued workout keeps its raw Coach card and structured exercise blocks alongside actual sets.</div></div>  
+        <div class="insight"><i class="dot amber"></i><div><b>Questions stay lightweight</b> Session-level notes stay in Questions for Coach, while set-level notes capture specific gym-floor observations.</div></div>  
+        <div class="insight"><i class="dot"></i><div><b>${esc(m.primary[0])} is the largest loaded category</b> ${m.primary[1].toLocaleString()} historical training sets are in the current snapshot.</div></div>  
+      </article>  
+    </section>  
+  `;
+
+  bindGo();  
+  $$('[data-start]').forEach(b => b.onclick = () => startPlan(b.dataset.start));
+
+  const homeResumeWorkout = $('#homeResumeWorkout');  
+  if (homeResumeWorkout) {  
+    homeResumeWorkout.onclick = () => {  
+      show('log');  
+    };  
+  }
+
+  const homeOpenPlan = $('#homeOpenPlan');  
+  if (homeOpenPlan) {  
+    homeOpenPlan.onclick = () => {  
+      show('today');  
+    };  
+  }
+
+  const homeStartQueuedWorkout = $('#homeStartQueuedWorkout');  
+  if (homeStartQueuedWorkout && next) {  
+    homeStartQueuedWorkout.onclick = () => {  
+      startPlan(next.id);  
+    };  
+  }
+
+  const homeCreatePlan = $('#homeCreatePlan');  
+  if (homeCreatePlan) {  
+    homeCreatePlan.onclick = () => {  
+      editor = MomentumPlanner.blankWorkout();  
+      renderToday();  
+      show('today');  
+      renderEditor('builder');  
+    };  
+  }
+
+  const homePastePlan = $('#homePastePlan');  
+  if (homePastePlan) {  
+    homePastePlan.onclick = () => {  
+      editor = MomentumPlanner.blankWorkout();  
+      editor.sourceType = 'chatgpt';  
+      renderToday();  
+      show('today');  
+      renderEditor('paste');  
+    };  
+  }
+
+  const homeEmptyPastePlan = $('#homeEmptyPastePlan');  
+  if (homeEmptyPastePlan) {  
+    homeEmptyPastePlan.onclick = () => {  
+      editor = MomentumPlanner.blankWorkout();  
+      editor.sourceType = 'chatgpt';  
+      renderToday();  
+      show('today');  
+      renderEditor('paste');  
+    };  
+  }  
+}  
 
   function renderToday() {  
     const list = queued();  
