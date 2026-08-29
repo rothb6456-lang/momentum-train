@@ -1816,10 +1816,12 @@ function debrief(session) {
     return all;  
   }, {});
 
-  const mins = Math.max(  
-    1,  
-    Math.round((new Date(session.completedAt || Date.now()) - new Date(session.startedAt || Date.now())) / 60000)  
+  const elapsedMs = Math.max(  
+    0,  
+    new Date(session.completedAt || Date.now()) - new Date(session.startedAt || Date.now())  
   );
+
+  const mins = Math.max(1, Math.ceil(elapsedMs / 60000));
 
   return `Phase: ${session.phase || '—'} | Week: ${session.week || '—'} | Day: ${session.day || '—'}  
 Date: ${dateIso(session.completedAt || session.startedAt)}  
@@ -1849,44 +1851,44 @@ QUESTIONS FOR COACH
 ${session.coachQuestions || 'None recorded'}`;  
 }    
 
-  function csv(session) {  
-    const fields = [  
-      'Routine_Name',  
-      'Activity_Date',  
-      'Exercise_Name',  
-      'Exercise_Muscle_Groups',  
-      'Exercise_Equipment',  
-      'Exercise_Date_Time',  
-      'Repetitions_Or_Duration',  
-      'Weight_Or_Distance',  
-      'Use_Metric',  
-      'Note',  
-      'Superset'  
-    ];
+function csv(session) {  
+  const fields = [  
+    'Routine_Name',  
+    'Activity_Date',  
+    'Exercise_Name',  
+    'Exercise_Muscle_Groups',  
+    'Exercise_Equipment',  
+    'Exercise_Date_Time',  
+    'Repetitions_Or_Duration',  
+    'Weight_Or_Distance',  
+    'Use_Metric',  
+    'Note',  
+    'Superset'  
+  ];
 
-    const q = v => `"${String(v ?? '').replaceAll('"', '""')}"`;
+  const q = v => `"${String(v ?? '').replaceAll('"', '""')}"`;
 
-const rows = session.sets.map((s, i) => ({  
-  Routine_Name: session.workoutName,  
-  Activity_Date: dateIso(session.completedAt || session.startedAt),  
-  Exercise_Name: s.exercise || s.exerciseName || s.name || '',  
-  Exercise_Muscle_Groups: '',  
-  Exercise_Equipment: '',  
-  Exercise_Date_Time: s.at || new Date(new Date(session.startedAt).getTime() + i * 1000).toISOString(),  
-  Repetitions_Or_Duration: s.result || s.repsOrDuration || s.actualRepsOrDuration || '',  
-  Weight_Or_Distance: normalizeLoadValue(s.load || s.actualLoad || ''),  
-  Use_Metric: 'FALSE',  
-  Note: [  
-    s.tempo && `Tempo ${s.tempo}`,  
-    s.rir && `RIR ${s.rir}`,  
-    s.checkpoint,  
-    s.note  
-  ].filter(Boolean).join('; '),  
-  Superset: ''  
-}));    
+  const rows = (session.sets || []).map((s, i) => ({  
+    Routine_Name: session.workoutName || '',  
+    Activity_Date: dateIso(session.completedAt || session.startedAt),  
+    Exercise_Name: s.exercise || s.exerciseName || s.name || '',  
+    Exercise_Muscle_Groups: '',  
+    Exercise_Equipment: '',  
+    Exercise_Date_Time: s.at || new Date(new Date(session.startedAt).getTime() + i * 1000).toISOString(),  
+    Repetitions_Or_Duration: s.result || s.repsOrDuration || s.actualRepsOrDuration || '',  
+    Weight_Or_Distance: normalizeLoadValue(s.load || s.actualLoad || ''),  
+    Use_Metric: 'FALSE',  
+    Note: [  
+      s.tempo && `Tempo ${s.tempo}`,  
+      s.rir && `RIR ${s.rir}`,  
+      s.checkpoint,  
+      s.note  
+    ].filter(Boolean).join('; '),  
+    Superset: ''  
+  }));
 
-    return [fields.join(','), ...rows.map(row => fields.map(key => q(row[key])).join(','))].join('\r\n');  
-  }
+  return [fields.join(','), ...rows.map(row => fields.map(key => q(row[key])).join(','))].join('\r\n');  
+}  
 
   function comparison(session) {  
   const plan = session.plannedWorkout?.exerciseBlocks || [];
