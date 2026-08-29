@@ -691,7 +691,7 @@ const persist = () => {
   function show(view) {  
     $$('.view').forEach(x => x.classList.toggle('active', x.id === view));  
     $$('[data-view]').forEach(x => x.classList.toggle('active', x.dataset.view === view));  
-    const title = { home: 'Execution & Planning', today: 'Today', log: 'Log workout', review: 'Review', history: 'History' }[view];  
+    const title = { home: 'Today', today: 'Plan', log: 'Log workout', review: 'Review', history: 'History' }[view];  
     if ($('#mobileTitle')) $('#mobileTitle').textContent = title;  
     window.scrollTo({ top: 0, behavior: 'smooth' });  
   }
