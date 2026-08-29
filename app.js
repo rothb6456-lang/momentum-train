@@ -1088,18 +1088,17 @@ function builderBlock(block, index) {
             placeholder="Type to search known exercises"  
           >  
         </label>  
-        ${field('Sets', 'targetSets', block.targetSets, '', 'inputmode="numeric" pattern="[0-9]*" oninput="this.value = this.value.replace(/[^0-9]/g, \'\')"')}  
+        ${field('Sets', 'targetSets', block.targetSets, '', `inputmode="numeric" pattern="[0-9]*" oninput="this.value = this.value.replace(/[^0-9]/g, '')"`)}  
         ${field('Reps / duration', 'targetRepsOrDuration', block.targetRepsOrDuration)}  
-        ${field('Load (lbs)', 'targetWeightOrLoad', block.targetWeightOrLoad, '', 'inputmode="decimal" pattern="[0-9]*[.]?[0-9]*" oninput="this.value = this.value.replace(/[^0-9.]/g, \'\').replace(/^([^.]*\\.)|\\./g, \'$1\')"')}  
+        ${field('Load (lbs)', 'targetWeightOrLoad', block.targetWeightOrLoad, '', `inputmode="decimal" pattern="[0-9]*[.]?[0-9]*" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/^([^.]*\\.)|\\./g, '$1')"`)}  
         ${field('Tempo', 'tempo', block.tempo)}  
-        ${field('RIR', 'rir', block.rir, '', 'inputmode="text" pattern="[0-9+\\-]*" oninput="this.value = this.value.replace(/[^0-9+\\-]/g, \'\')"')}  
+        ${field('RIR', 'rir', block.rir, '', `inputmode="text" pattern="[0-9+\\-]*" oninput="this.value = this.value.replace(/[^0-9+\\-]/g, '')"`)}  
         ${field('Notes', 'notes', block.notes, 'full')}  
         ${field('Checkpoint', 'checkpoints', block.checkpoints, 'full')}  
       </div>  
     </div>  
   `;  
-}
-function startPlan(id) {  
+}  function startPlan(id) {  
   const plan = MomentumPlanner.load().find(x => x.id === id);  
   if (!plan) return;
 
@@ -2127,11 +2126,13 @@ function reviewDetail(session) {
 
     <div class="export-box">  
       ${isStaged ? `<button class="secondary" id="undoFinish">Return to Log for revisions</button>` : ''}  
-      <button class="primary" id="copyDebrief">Finalize workout · Create/copy Coach-ready debrief</button>  
+      <button class="primary" id="copyDebrief">Finalize workout - Create/copy Coach-ready debrief</button>  
       <button class="secondary" id="exportCsv">Export CSV</button>  
     </div>  
   `;  
-}  function bindReview(session) {  
+}  
+
+function bindReview(session) {  
   const reviewQuestions = $('#reviewQuestions');  
   if (reviewQuestions) {  
     reviewQuestions.oninput = () => {  
