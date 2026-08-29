@@ -1420,11 +1420,7 @@ root.innerHTML = `
           <article class="card section">  
             <h2>Session context</h2>  
             <div class="set-form" style="margin-top:11px">  
-              <label class="field">Shoulder pre-session<textarea data-context="pre">${esc(active.shoulder.pre)}</textarea></label>  
-              <label class="field">During pressing<textarea data-context="during">${esc(active.shoulder.during)}</textarea></label>  
-              <label class="field">Post-session<textarea data-context="post">${esc(active.shoulder.post)}</textarea></label>  
-              <label class="field">Grip status<textarea data-context="gripNotes">${esc(active.gripNotes)}</textarea></label>  
-              <label class="field full">Questions for Coach<textarea data-context="coachQuestions">${esc(active.coachQuestions)}</textarea></label>  
+                            <label class="field full">Questions for Coach<textarea data-context="coachQuestions">${esc(active.coachQuestions)}</textarea></label>  
             </div>  
           </article>  
         </section>  
@@ -1672,14 +1668,6 @@ ${sets.map((s, i) => {
 
   return parts.join(' | ');  
 }).join('\n')}`).join('\n\n')}
-
-SHOULDER STATUS  
-Pre-session: ${session.shoulder?.pre || 'Not recorded'}  
-During pressing: ${session.shoulder?.during || 'Not recorded'}  
-Post-session: ${session.shoulder?.post || 'Not recorded'}
-
-GRIP STATUS  
-${session.gripNotes || 'Not recorded'}
 
 QUESTIONS FOR COACH  
 ${session.coachQuestions || 'None recorded'}`;  
