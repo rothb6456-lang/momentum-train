@@ -964,7 +964,7 @@ function bindToday() {
       editor[input.dataset.plan] = input.value;  
     });
 
-        $$('[data-block]').forEach(input => input.oninput = () => {  
+    $$('[data-block]').forEach(input => input.oninput = () => {  
       const block = editor.exerciseBlocks.find(x => x.id === input.dataset.block);  
       if (!block) return;
 
@@ -987,8 +987,20 @@ function bindToday() {
       }
 
       block[field] = value;  
-    });  
+    });
 
+    $$('[data-block][data-field="exerciseName"]').forEach(input => {  
+      input.onchange = () => {  
+        const block = editor.exerciseBlocks.find(x => x.id === input.dataset.block);  
+        if (!block) return;
+
+        const canon = canonicalExerciseName(input.value);  
+        if (canon) {  
+          input.value = canon;  
+          block.exerciseName = canon;  
+        }  
+      };  
+    });  
     $$('[data-remove-block]').forEach(b => b.onclick = () => {  
       editor.exerciseBlocks = editor.exerciseBlocks.filter(x => x.id !== b.dataset.removeBlock);  
       if (!editor.exerciseBlocks.length) editor.exerciseBlocks = [MomentumPlanner.blankBlock()];  
@@ -1000,23 +1012,21 @@ function bindToday() {
       renderEditor('builder');  
     };
 
-    $('#saveQueue').onclick = () => {  
-      const invalidBlock = editor.exerciseBlocks.find(block =>  
-        !isKnownExerciseName(block.exerciseName)  
-      );
-
-      if (invalidBlock) {  
-        toast('Choose exercise names from the known exercise list');  
-        return;  
-      }
-
+$('#saveQueue').onclick = () => {  
       editor.exerciseBlocks.forEach((x, i) => {  
         x.order = i + 1;  
-        x.exerciseName = String(x.exerciseName || '').trim();  
+        x.exerciseName = canonicalExerciseName(String(x.exerciseName || '').trim());  
         x.targetSets = normalizeNumericEntry(x.targetSets, false);  
         x.targetWeightOrLoad = normalizeNumericEntry(x.targetWeightOrLoad, true);  
         x.rir = normalizeNumericEntry(x.rir, false);  
       });
+
+      const invalidBlock = editor.exerciseBlocks.find(block => !String(block.exerciseName || '').trim());
+
+      if (invalidBlock) {  
+        toast('Each exercise needs a name');  
+        return;  
+      }
 
       editor.status = 'queued';  
       MomentumPlanner.upsert(editor);  
@@ -1024,8 +1034,7 @@ function bindToday() {
       renderToday();  
       renderHome();  
       toast('Workout saved to queue');  
-    };  
-
+    };
     $('#cancelEditor').onclick = () => {  
       editor = null;  
       root.innerHTML = '';  
@@ -1103,25 +1112,53 @@ function allExercises() {
   return knownExerciseNames();  
 }  
 
+function normalizeExerciseLookupName(name) {  
+  return String(name || '')  
+    .toLowerCase()  
+    .replace(/[‐‑–—-]/g, ' ')  
+    .replace(/[/]/g, ' ')  
+    .replace(/[^a-z0-9\s]/g, '')  
+    .replace(/\s+/g, ' ')  
+    .trim();  
+}
+
 function knownExerciseNames() {  
-  return [...new Set([  
+  const sources = [  
     ...(planForActive().exerciseBlocks || []).map(x => x.exerciseName),  
+    ...(editor?.exerciseBlocks || []).map(x => x.exerciseName),  
     ...MomentumData.recentExercises(),  
     ...data.core.map(x => x.ExerciseName).filter(Boolean)  
-  ].map(x => String(x || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));  
-}
+  ]  
+    .map(x => String(x || '').trim())  
+    .filter(Boolean);
+
+  const seen = new Map();
+
+  for (const name of sources) {  
+    const key = normalizeExerciseLookupName(name);  
+    if (!key) continue;  
+    if (!seen.has(key)) seen.set(key, name);  
+  }
+
+  return [...seen.values()].sort((a, b) => a.localeCompare(b));  
+} 
 
 function isKnownExerciseName(name) {  
-  const value = String(name || '').trim().toLowerCase();  
+  const value = normalizeExerciseLookupName(name);  
   if (!value) return false;  
-  return knownExerciseNames().some(x => x.toLowerCase() === value);  
-}
-
+  return knownExerciseNames().some(x => normalizeExerciseLookupName(x) === value);  
+}  
 function exerciseOptionsMarkup(selected = '') {  
   return knownExerciseNames().map(name =>  
     `<option value="${esc(name)}"${name === selected ? ' selected' : ''}>${esc(name)}</option>`  
   ).join('');  
 }
+
+function canonicalExerciseName(name) {  
+  const value = normalizeExerciseLookupName(name);  
+  if (!value) return '';  
+  return knownExerciseNames().find(x => normalizeExerciseLookupName(x) === value) || String(name || '').trim();  
+}  
 
 function exerciseDatalistMarkup() {  
   return knownExerciseNames().map(name =>  
