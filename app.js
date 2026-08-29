@@ -2125,12 +2125,166 @@ function reviewDetail(session) {
     <label class="field" style="margin-top:12px">Questions for Coach<textarea id="reviewQuestions">${esc(session.coachQuestions || '')}</textarea></label>
 
     <div class="export-box">  
-      ${isStaged ? `<button class="secondary" id="undoFinish">Return to Log for revisions</button>` : ''}  
+      ${isStaged ? '<button class="secondary" id="undoFinish">Return to Log for revisions</button>' : ''}  
       <button class="primary" id="copyDebrief">Finalize workout - Create/copy Coach-ready debrief</button>  
       <button class="secondary" id="exportCsv">Export CSV</button>  
     </div>  
   `;  
-}  
+}
+
+function bindReview(session) {  
+  const reviewQuestions = $('#reviewQuestions');  
+  if (reviewQuestions) {  
+    reviewQuestions.oninput = () => {  
+      const all = getDone();  
+      const item = all.find(x => x.id === session.id);  
+      if (!item) return;  
+      item.coachQuestions = reviewQuestions.value;  
+      saveDone(all);  
+    };  
+  }
+
+  const undoFinishBtn = $('#undoFinish');  
+  if (undoFinishBtn) {  
+    undoFinishBtn.onclick = () => {  
+      restoreStagedSession(session.id);  
+    };  
+  }
+
+  const copyDebriefBtn = $('#copyDebrief');  
+  if (copyDebriefBtn) {  
+    copyDebriefBtn.onclick = async () => {  
+      const reviewQuestionsEl = $('#reviewQuestions');  
+      const questions = reviewQuestionsEl && typeof reviewQuestionsEl.value === 'string'  
+        ? reviewQuestionsEl.value  
+        : (session.coachQuestions || '');
+
+      const payload = {  
+        ...session,  
+        coachQuestions: questions  
+      };
+
+      await copy(debrief(payload));
+
+      const all = getDone();  
+      const item = all.find(x => x.id === session.id);  
+      if (item) {  
+        item.coachQuestions = questions;  
+        if (item.status === 'staged') item.status = 'shared';  
+        saveDone(all);  
+      }
+
+      renderReview();  
+    };  
+  }
+
+  const exportCsvBtn = $('#exportCsv');  
+  if (exportCsvBtn) {  
+    exportCsvBtn.onclick = () => {  
+      const reviewQuestionsEl = $('#reviewQuestions');  
+      const questions = reviewQuestionsEl && typeof reviewQuestionsEl.value === 'string'  
+        ? reviewQuestionsEl.value  
+        : (session.coachQuestions || '');
+
+      download(  
+        `momentum-${dateIso(session.completedAt)}.csv`,  
+        'text/csv;charset=utf-8',  
+        csv({  
+          ...session,  
+          coachQuestions: questions  
+        })  
+      );  
+    };  
+  }  
+}
+
+function renderHistory() {  
+  const historical = MomentumData.sessions();  
+  const done = getDone();
+
+  $('#history').innerHTML = `  
+    <article class="card">  
+      <div class="eyebrow">Training history</div>  
+      <h1 style="font-size:27px">Patterns in context</h1>  
+      <p class="quiet">Historical Markdown data and locally completed Momentum sessions.</p>
+
+      <div class="history-filters">  
+        <label class="field">Movement<input class="input" id="historyMove" placeholder="Filter sessions"></label>  
+        <label class="field">Source  
+          <select id="historySource">  
+            <option value="all">All data</option>  
+            <option value="momentum">Momentum only</option>  
+            <option value="historical">Historical only</option>  
+          </select>  
+        </label>  
+      </div>
+
+      <div id="historyRows"></div>  
+    </article>  
+  `;
+
+  const draw = () => {  
+    const q = $('#historyMove').value.toLowerCase();  
+    const source = $('#historySource').value;
+
+    const rows = [  
+      ...(source !== 'momentum'  
+        ? historical.map(x => ({ date: x.date, name: x.name, sets: x.sets, source: 'Historical' }))  
+        : []),  
+      ...(source !== 'historical'  
+        ? done.map(x => ({ date: x.completedAt, name: x.workoutName, sets: x.sets.length, source: 'Momentum', id: x.id }))  
+        : [])  
+    ]  
+      .filter(x => (x.name || '').toLowerCase().includes(q))  
+      .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+
+    $('#historyRows').innerHTML = rows.length  
+      ? `  
+        <table class="table">  
+          <thead><tr><th>Date</th><th>Session</th><th>Sets</th><th>Source</th></tr></thead>  
+          <tbody>  
+            ${rows.slice(0, 100).map(x => `  
+              <tr>  
+                <td>${dateText(x.date)}</td>  
+                <td><b>${esc(x.name || 'Untitled')}</b></td>  
+                <td>${x.sets}</td>  
+                <td>${x.source}</td>  
+              </tr>  
+            `).join('')}  
+          </tbody>  
+        </table>  
+      `  
+      : '<div class="empty">No sessions match this filter.</div>';  
+  };
+
+  $('#historyMove').oninput = draw;  
+  $('#historySource').oninput = draw;  
+  draw();  
+}
+
+renderHome();  
+renderToday();  
+renderLog();  
+renderReview();  
+renderHistory();
+
+setInterval(() => {  
+  const el = $('#timer');  
+  if (el) {  
+    el.textContent = clock(  
+      Math.max(0, Math.floor((Date.now() - new Date(active.startedAt)) / 1000))  
+    );  
+  }  
+}, 1000);
+
+const m = MomentumData.metrics();  
+if ($('#dataStatus')) {  
+  $('#dataStatus').textContent = m.lastDate  
+    ? `Data through ${m.lastDate}`  
+    : 'Local-first mode';  
+}
+
+})();  
 
 function bindReview(session) {  
   const reviewQuestions = $('#reviewQuestions');  
