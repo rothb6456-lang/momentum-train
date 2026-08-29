@@ -733,13 +733,13 @@ const persist = () => {
     const primaryCtaView = active.sets.length ? 'log' : 'today';  
     const primaryCtaLabel = active.sets.length  
       ? 'Resume in-progress session'  
-      : (next ? 'Open next workout' : 'Queue a workout');  
-    const secondaryCtaLabel = next ? 'View queue' : 'Paste workout card';
+      : (next ? 'Open plan' : 'Create plan';  
+    const secondaryCtaLabel = next ? 'Open plan' : 'Build today';
 
     $('#home').innerHTML = `  
       <div class="hero">  
         <article class="card hero-main">  
-          <div class="eyebrow">Momentum / command center</div>  
+          <div class="eyebrow">Today / command center</div>  
           <h1>${active.sets.length ? 'Your session is in progress.' : 'Know what changed. Capture what matters.'}</h1>  
           <p class="quiet">  
             ${active.sets.length  
@@ -781,7 +781,7 @@ const persist = () => {
       <section class="metrics">  
         ${metric('Historical sessions', m.sessions, 'Markdown source data')}  
         ${metric('Historical sets', m.sets.toLocaleString(), 'Loaded training rows')}  
-        ${metric('Queued workouts', queued().length, next ? 'Next card ready' : 'Nothing scheduled')}  
+        ${metric('Planned workouts', queued().length, next ? 'Next plan ready' : 'Nothing scheduled')}  
         ${metric('Completed locally', done.length, done[0] ? dateText(done[0].completedAt) : 'On this device')}  
       </section>
 
@@ -825,9 +825,9 @@ const persist = () => {
 
     $('#today').innerHTML = `  
       <div class="today-layout">  
-        <div class="eyebrow">Planning + execution</div>  
-        <h1>Today starts in the queue.</h1>  
-        <p class="quiet">Paste the card from Coach, make practical edits, then launch the planned structure directly into Log.</p>
+        <div class="eyebrow">Plan + prepare</div>  
+         <h1>Build and queue the workout.</h1>  
+          <p class="quiet">Paste the card from Coach, make practical edits, then launch the planned structure directly into Log.</p>  
 
         <article class="card">  
           ${  
@@ -847,13 +847,13 @@ const persist = () => {
               </div>  
             ` : `  
               <div class="empty">  
-                <b style="color:var(--ink)">No next workout is queued.</b><br>  
-                Paste a Coach card or create a blank workout below.  
+                <b style="color:var(--ink)">No workout planned yet.</b><br>  
+                Paste a Coach card or create a custom workout below.  
               </div>  
             `}  
           <div class="actions">  
             <button class="primary" id="pasteCard">Paste workout card</button>  
-            <button class="secondary" id="blankCard">Create blank workout</button>  
+            <button class="secondary" id="blankCard">Create custom workout</button>  
           </div>  
         </article>
 
