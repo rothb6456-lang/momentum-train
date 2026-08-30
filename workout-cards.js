@@ -19,3 +19,295 @@ const WorkoutCards = {
     ]
   }
 };
+window.MomentumWorkoutCards = window.MomentumWorkoutCards || {};
+
+Object.assign(window.MomentumWorkoutCards, {  
+  starterCards: [  
+    {  
+      key: 'control',  
+      title: 'Control',  
+      descriptor: 'Learn movement quality and controlled reps.',  
+      purpose: 'Learn what controlled resistance training feels like.',  
+      equipment: 'Dumbbells + cable',  
+      duration: '35–45 min',  
+      sourceType: 'starter',  
+      lesson: 'Learn the movement.',  
+      coachFocus: 'Do not increase weight because the exercise feels easy. Your first objective is consistent movement.',  
+      loadGuidance: 'Choose a weight that allows you to complete every prescribed repetition with clean technique while feeling you could perform approximately 2-4 additional repetitions.',  
+      exerciseBlocks: [  
+        {  
+          exerciseName: 'Goblet Squat',  
+          targetSets: '3',  
+          targetReps: '8',  
+          targetWeightOrLoad: 'Light',  
+          tempo: '3-1-2',  
+          rir: '4',  
+          rest: '90 sec',  
+          notes: 'Intent: Learn the squat pattern. Cues: Hold the dumbbell close. Sit between your hips. Keep the whole foot planted. Stand smoothly. Checkpoint: Could you stop the movement at any point without losing position?'  
+        },  
+        {  
+          exerciseName: 'Neutral-Grip Dumbbell Floor Press',  
+          targetSets: '3',  
+          targetReps: '8',  
+          targetWeightOrLoad: 'Light',  
+          tempo: '3-1-2',  
+          rir: '4',  
+          rest: '90 sec',  
+          notes: 'Intent: Learn controlled pressing. Cues: Lower slowly. Pause gently. Press without bouncing. Checkpoint: Feel the chest and triceps working rather than simply moving the dumbbells.'  
+        },  
+        {  
+          exerciseName: 'Seated Neutral-Grip Cable Row',  
+          targetSets: '3',  
+          targetReps: '10',  
+          targetWeightOrLoad: 'Light-moderate',  
+          tempo: '2-1-3',  
+          rir: '3-4',  
+          rest: '90 sec',  
+          notes: 'Intent: Learn to pull with the upper back. Cues: Keep the torso stable. Pull toward the lower ribs. Pause. Return slowly. Checkpoint: Your torso should not rock backward to finish repetitions.'  
+        },  
+        {  
+          exerciseName: 'Cable Triceps Pushdown',  
+          targetSets: '2',  
+          targetReps: '12',  
+          targetWeightOrLoad: 'Light',  
+          tempo: '2-1-3',  
+          rir: '3',  
+          rest: '60 sec',  
+          notes: 'Intent: Learn isolated elbow extension. Cues: Keep elbows relatively fixed. Extend completely without swinging.'  
+        },  
+        {  
+          exerciseName: 'Seated Alternating Dumbbell Curl',  
+          targetSets: '2',  
+          targetReps: '10/arm',  
+          targetWeightOrLoad: 'Light',  
+          tempo: '2-1-3',  
+          rir: '3',  
+          rest: '60 sec',  
+          notes: 'Intent: Learn to identify biceps contraction. Cues: Keep upper arm quiet. Curl smoothly. Squeeze briefly. Lower under control.'  
+        }  
+      ]  
+    },  
+    {  
+      key: 'strength',  
+      title: 'Strength',  
+      descriptor: 'Learn to produce force safely.',  
+      purpose: 'Introduce heavier resistance without turning the session into a testing session.',  
+      equipment: 'Machines + dumbbells',  
+      duration: '40–50 min',  
+      sourceType: 'starter',  
+      lesson: 'Learn to produce force.',  
+      coachFocus: 'Strength training does not mean lifting the heaviest weight you see. For a novice, strength starts with learning to produce force repeatedly while maintaining technique.',  
+      loadGuidance: 'Choose a weight that allows you to complete every prescribed repetition with clean technique while feeling you could perform approximately 2-4 additional repetitions.',  
+      exerciseBlocks: [  
+        {  
+          exerciseName: 'Leg Press',  
+          targetSets: '3',  
+          targetReps: '6-8',  
+          targetWeightOrLoad: 'Moderate',  
+          tempo: '2-1-2',  
+          rir: '2-3',  
+          rest: '2 min',  
+          notes: 'Intent: Build lower-body strength with a stable machine. Cues: Control the descent. Keep your feet planted. Drive evenly through the foot.'  
+        },  
+        {  
+          exerciseName: 'Machine Row',  
+          targetSets: '3',  
+          targetReps: '6-8',  
+          targetWeightOrLoad: 'Moderate',  
+          tempo: '2-1-2',  
+          rir: '2',  
+          rest: '2 min',  
+          notes: 'Intent: Develop upper-back pulling strength. Cues: Establish your chest position first. Pull smoothly. Do not use momentum.'  
+        },  
+        {  
+          exerciseName: 'Neutral-Grip Dumbbell Floor Press',  
+          targetSets: '3',  
+          targetReps: '6-8',  
+          targetWeightOrLoad: 'Moderate',  
+          tempo: '2-1-2',  
+          rir: '2',  
+          rest: '2 min',  
+          notes: 'Intent: Develop horizontal pressing strength. Cues: Set your shoulders. Lower under control. Press evenly.'  
+        },  
+        {  
+          exerciseName: 'Bulgarian Split Squat',  
+          targetSets: '2',  
+          targetReps: '8/side',  
+          targetWeightOrLoad: 'Light-moderate',  
+          tempo: '2-1-2',  
+          rir: '2-3',  
+          rest: '90 sec',  
+          notes: 'Intent: Introduce unilateral strength and balance. Cues: Descend under control. Keep the front foot stable. Drive through the front leg.'  
+        },  
+        {  
+          exerciseName: 'Rope Pushdown',  
+          targetSets: '2',  
+          targetReps: '8-10',  
+          targetWeightOrLoad: 'Moderate',  
+          tempo: '2-1-2',  
+          rir: '2',  
+          rest: '75 sec',  
+          notes: 'Intent: Basic arm strength.'  
+        }  
+      ]  
+    },  
+    {  
+      key: 'endurance',  
+      title: 'Endurance',  
+      descriptor: 'Learn to sustain useful work.',  
+      purpose: 'Teach the novice to sustain useful work without chasing exhaustion.',  
+      equipment: 'Cable + dumbbells + treadmill',  
+      duration: '35–45 min',  
+      sourceType: 'starter',  
+      lesson: 'Learn to sustain work.',  
+      coachFocus: 'Endurance means maintaining output and movement quality. It does not require leaving the gym exhausted.',  
+      loadGuidance: 'Choose a weight that allows you to complete every prescribed repetition with clean technique while feeling you could perform approximately 2-4 additional repetitions.',  
+      exerciseBlocks: [  
+        {  
+          exerciseName: 'Treadmill Walk',  
+          targetSets: '1',  
+          targetReps: '8 min',  
+          targetWeightOrLoad: 'Easy-moderate',  
+          tempo: '',  
+          rir: '',  
+          rest: '',  
+          notes: 'Intent: Raise body temperature and begin cardiovascular work. Target: Conversational pace.'  
+        },  
+        {  
+          exerciseName: 'Goblet Squat',  
+          targetSets: '2',  
+          targetReps: '12',  
+          targetWeightOrLoad: 'Light',  
+          tempo: '2-1-2',  
+          rir: '3',  
+          rest: '60 sec',  
+          notes: ''  
+        },  
+        {  
+          exerciseName: 'Cable Row',  
+          targetSets: '2',  
+          targetReps: '12-15',  
+          targetWeightOrLoad: 'Light-moderate',  
+          tempo: '2-1-2',  
+          rir: '3',  
+          rest: '60 sec',  
+          notes: ''  
+        },  
+        {  
+          exerciseName: 'Dumbbell Floor Press',  
+          targetSets: '2',  
+          targetReps: '12',  
+          targetWeightOrLoad: 'Light',  
+          tempo: '2-1-2',  
+          rir: '3',  
+          rest: '60 sec',  
+          notes: ''  
+        },  
+        {  
+          exerciseName: "Farmer's Hold",  
+          targetSets: '3',  
+          targetReps: '30-45 sec',  
+          targetWeightOrLoad: 'Moderate',  
+          tempo: '',  
+          rir: 'Stop before grip failure',  
+          rest: '60-90 sec',  
+          notes: 'Intent: Grip and whole-body endurance. Cues: Stand tall. Crush the handles. Keep the shoulders organized. Breathe normally.'  
+        },  
+        {  
+          exerciseName: 'Treadmill or Rower',  
+          targetSets: '1',  
+          targetReps: '10 min',  
+          targetWeightOrLoad: 'Moderate',  
+          tempo: '',  
+          rir: '',  
+          rest: '',  
+          notes: 'Intent: Build aerobic capacity without sprinting. Effort: Approximately 5-6/10.'  
+        }  
+      ]  
+    },  
+    {  
+      key: 'longevity',  
+      title: 'Longevity',  
+      descriptor: 'Build a broad physical base.',  
+      purpose: 'Build the movement patterns and physical capacities that remain useful over decades.',  
+      equipment: 'Dumbbells + machine + cable + cardio',  
+      duration: '40–55 min',  
+      sourceType: 'starter',  
+      lesson: 'Build a broad physical base.',  
+      coachFocus: 'Longevity training is not a collection of corrective exercises. It is exposure to major movement patterns, resistance training, grip, control, and aerobic work.',  
+      loadGuidance: 'Choose a weight that allows you to complete every prescribed repetition with clean technique while feeling you could perform approximately 2-4 additional repetitions.',  
+      exerciseBlocks: [  
+        {  
+          exerciseName: 'Treadmill Walk',  
+          targetSets: '1',  
+          targetReps: '5-8 min',  
+          targetWeightOrLoad: 'Easy-moderate',  
+          tempo: '',  
+          rir: '',  
+          rest: '',  
+          notes: 'Intent: General warm-up and aerobic exposure.'  
+        },  
+        {  
+          exerciseName: 'Romanian Dumbbell Deadlift',  
+          targetSets: '3',  
+          targetReps: '8',  
+          targetWeightOrLoad: 'Light-moderate',  
+          tempo: '3-1-2',  
+          rir: '3',  
+          rest: '90 sec',  
+          notes: 'Intent: Learn the hip-hinge pattern and train the posterior chain. Cues: Push the hips backward. Keep the dumbbells close to your legs. Maintain a neutral spine. Stand by driving the hips forward. Checkpoint: You should feel the hamstrings lengthen during the descent.'  
+        },  
+        {  
+          exerciseName: 'Goblet Squat',  
+          targetSets: '3',  
+          targetReps: '8-10',  
+          targetWeightOrLoad: 'Light-moderate',  
+          tempo: '3-1-2',  
+          rir: '3',  
+          rest: '90 sec',  
+          notes: 'Intent: Build knee-dominant lower-body strength.'  
+        },  
+        {  
+          exerciseName: 'Machine Row',  
+          targetSets: '2',  
+          targetReps: '10-12',  
+          targetWeightOrLoad: 'Moderate',  
+          tempo: '2-1-2',  
+          rir: '3',  
+          rest: '90 sec',  
+          notes: 'Intent: Upper-back strength and posture-supporting musculature.'  
+        },  
+        {  
+          exerciseName: 'Cable Pallof Press',  
+          targetSets: '2',  
+          targetReps: '10/side',  
+          targetWeightOrLoad: 'Light',  
+          tempo: '2-1-2',  
+          rir: '3',  
+          rest: '60 sec',  
+          notes: 'Intent: Develop trunk stability and resistance to rotation.'  
+        },  
+        {  
+          exerciseName: "Farmer's Carry",  
+          targetSets: '3',  
+          targetReps: '30-45 sec',  
+          targetWeightOrLoad: 'Moderate',  
+          tempo: '',  
+          rir: '2',  
+          rest: '90 sec',  
+          notes: 'Intent: Grip, trunk stability, and loaded locomotion. Cues: Tall torso. Controlled steps. Do not allow the weight to pull you sideways.'  
+        },  
+        {  
+          exerciseName: 'Easy Cardio',  
+          targetSets: '1',  
+          targetReps: '10-15 min',  
+          targetWeightOrLoad: 'Easy-moderate',  
+          tempo: '',  
+          rir: '',  
+          rest: '',  
+          notes: 'Intent: Aerobic capacity and recovery. Treadmill, bike, or rower.'  
+        }  
+      ]  
+    }  
+  ]  
+});  
