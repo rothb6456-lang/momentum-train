@@ -2972,10 +2972,17 @@ if ($('#dataStatus')) {
     : 'Local-first mode';  
 }
 
-window.addEventListener('beforeunload', persist);  
-window.addEventListener('pagehide', persist);  
-document.addEventListener('visibilitychange', () => {  
-  if (document.visibilityState === 'hidden') if (typeof persist === 'function') persist();  
+window.addEventListener('beforeunload', () => {  
+  if (typeof persist === 'function') persist();  
+});    
+window.addEventListener('pagehide', () => {  
+  if (typeof persist === 'function') persist();  
 });
+
+document.addEventListener('visibilitychange', () => {  
+  if (document.visibilityState === 'hidden' && typeof persist === 'function') {  
+    persist();  
+  }  
+});  
 
 })();  
