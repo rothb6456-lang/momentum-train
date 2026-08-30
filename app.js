@@ -1098,7 +1098,8 @@ function renderHome() {
   const phases = MomentumData.phases();  
   const max = Math.max(...phases.map(x => x.sets), 1);
 
-  const hasActiveSession = !!active.sets.length;  
+  const hasActiveSession = !!(typeof active !== 'undefined' && active && Array.isArray(active.sets) && active.sets.length);
+  const activeSetCount = (typeof active !== 'undefined' && active && Array.isArray(active.sets)) ? active.sets.length : 0;
   const hasQueuedPlan = !!next;  
   const mobile = isMobileHomeLayout();
 
