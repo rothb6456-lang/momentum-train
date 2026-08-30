@@ -124,9 +124,8 @@ function persistCockpit() {
 }
 
 function persistEditor() {  
-  saveJson(EDITOR_KEY, editor || null);  
-}
-
+  saveJson(EDITOR_KEY, (typeof editor !== 'undefined' ? editor : null));  
+}  
 function clearCockpitPersisted() {  
   localStorage.removeItem(COCKPIT_KEY);  
 }
@@ -243,11 +242,16 @@ function normalizePerformedReps(value) {
 function discardActiveWorkout() {  
   if (!confirm('Discard this active session?')) return;
 
+  if (typeof active === 'undefined') return;
+
   active = newSession();  
   state.cockpit = null;  
   state.cockpitEditOpen = false;  
-  state.restTimer = null;  
-  persist();  
+  state.cockpitEditingLastSet = null;  
+  state.restTimer = null;
+
+  if (typeof persist === 'function') if (typeof persist === 'function') persist();
+
   renderLog();  
   renderToday();  
   renderHome();  
@@ -255,6 +259,11 @@ function discardActiveWorkout() {
 }    
 
 function finishWorkoutAction() {  
+  if (typeof active === 'undefined' || !active) {  
+    toast('No active workout.');  
+    return;  
+  }
+  
   const cockpit = state.cockpit;
 
   if (!cockpit || !Array.isArray(cockpit.exercises)) {  
@@ -315,7 +324,7 @@ function finishWorkoutAction() {
   }
 
   active.sets = loggedSets;  
-  persist();  
+  if (typeof persist === 'function') persist();  
   finish();  
 }  
 function cockpitHasLoggedSets(cockpit) {  
@@ -343,7 +352,7 @@ function deleteLastCockpitSet() {
   sets.pop();  
   ex.completedSets = sets;
 
-  persist();  
+  if (typeof persist === 'function') persist();  
   renderLog();  
   toast('Last set removed');  
 }  
@@ -408,7 +417,7 @@ function editLastCockpitSet() {
     extra: !!lastSet.extra  
   };
 
-  persist();  
+  if (typeof persist === 'function') persist();  
   renderLog();  
   toast('Editing last set');  
 }
@@ -482,7 +491,7 @@ function logCockpitSetAction() {
       '90 sec'  
     ));
 
-    persist();  
+    if (typeof persist === 'function') persist();  
     renderLog();  
     toast('Set logged');  
   } catch (err) {  
@@ -546,14 +555,14 @@ function formatLoadLbs(value) {
 function startOptionalExercise() {  
   if (!state.cockpit) return;  
   state.cockpit = MomentumPlanner.startOptionalCockpitExercise(state.cockpit, state.cockpit.exerciseIndex);  
-  persist();  
+  if (typeof persist === 'function') persist();  
   renderLog();  
 }  
 
 function skipOptionalExercise() {  
   if (!state.cockpit) return;  
   state.cockpit = MomentumPlanner.skipCockpitExercise(state.cockpit, state.cockpit.exerciseIndex);  
-  persist();  
+  if (typeof persist === 'function') persist();  
   renderLog();  
 }  
 
@@ -561,7 +570,7 @@ function cockpitPrev() {
   if (!state.cockpit) return;  
   state.cockpit.exerciseIndex = Math.max(0, state.cockpit.exerciseIndex - 1);  
   state.cockpitEditOpen = false;  
-  persist();  
+  if (typeof persist === 'function') persist();  
   renderLog();  
 }  
 
@@ -569,7 +578,7 @@ function cockpitNext() {
   if (!state.cockpit) return;  
   state.cockpit.exerciseIndex = Math.min(state.cockpit.exercises.length - 1, state.cockpit.exerciseIndex + 1);  
   state.cockpitEditOpen = false;  
-  persist();  
+  if (typeof persist === 'function') persist();  
   renderLog();  
 }  
 
@@ -596,7 +605,7 @@ function bindSessionContext() {
       const key = el.dataset.context;  
       if (key === 'coachQuestions') {  
         active.coachQuestions = el.value;  
-        persist();  
+        if (typeof persist === 'function') persist();  
       }  
     };  
   });  
@@ -784,11 +793,12 @@ function renderCockpitDifferentToday(ex) {
           <input  
             id="cockpitEditReps"  
             class="input"  
-            inputmode="numeric"  
+            inputmode="text"  
             pattern="[0-9]*"  
             placeholder="${ex.timed ? 'e.g. 65' : 'e.g. 10'}"  
             value="${esc(editing ? getCockpitEditPrefillReps(ex) : '')}"  
-            oninput="this.value = this.value.replace(/[^0-9]/g, '')"  
+            oninput="this.value = this.value.replace(/[^0-9a-zA-Z/ ,.-]/g, '')"
+  
           >  
         </label>
 
@@ -834,7 +844,8 @@ function renderCockpitDifferentToday(ex) {
   `;  
 }  
   function show(view) {  
-  persistCurrentView(view);  
+  if (typeof persistCurrentView === 'function') persistCurrentView(view);
+  
   $$('.tab').forEach(x => x.classList.toggle('active', x.dataset.view === view));  
   $$('.view').forEach(x => x.classList.toggle('active', x.id === view));  
   const title = { home: 'Today', today: 'Plan', log: 'Log workout', review: 'Review', history: 'History' }[view];  
@@ -1720,7 +1731,8 @@ function builderBlock(block, index) {
             placeholder="Type to search known exercises"  
           >  
         </label>  
-        ${field('Sets', 'targetSets', block.targetSets, '', `inputmode="numeric" pattern="[0-9]*" oninput="this.value = this.value.replace(/[^0-9]/g, '')"`)}  
+        ${field('Sets', 'targetSets', block.targetSets, '', `inputmode="numeric" pattern="[0-9]*" oninput="this.value = this.value.replace(/[^0-9a-zA-Z/ ,.-]/g, '')"
+`)}  
         ${field('Reps / duration', 'targetRepsOrDuration', block.targetRepsOrDuration)}  
         ${field('Load (lbs)', 'targetWeightOrLoad', block.targetWeightOrLoad, '', `inputmode="decimal" pattern="[0-9]*[.]?[0-9]*" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/^([^.]*\\.)|\\./g, '$1')"`)}  
         ${field('Tempo', 'tempo', block.tempo)}  
@@ -1740,7 +1752,7 @@ function startPlan(id) {
   state.cockpit = MomentumPlanner.buildCockpitWorkout(plan);
 
   MomentumPlanner.mark(plan.id, 'active');  
-  persist();  
+  if (typeof persist === 'function') persist();  
   renderHome();  
   renderToday();  
   renderLog();  
@@ -2037,7 +2049,7 @@ function saveDifferentTodayAndLogSet() {
       )  
     );
 
-    persist();  
+    if (typeof persist === 'function') persist();  
     renderLog();  
     toast(editing ? 'Last set updated' : 'Set logged');  
   } catch (err) {  
@@ -2192,10 +2204,11 @@ function renderLog() {
                 <input  
                   id="result"  
                   class="input"  
-                  inputmode="numeric"  
+                  inputmode="text"  
                   pattern="[0-9]*"  
                   placeholder="0"  
-                  oninput="this.value = this.value.replace(/[^0-9]/g, '')"  
+                  oninput="this.value = this.value.replace(/[^0-9a-zA-Z/ ,.-]/g, '')"
+  
                 >  
               </label>
 
@@ -2278,7 +2291,7 @@ function renderPicker(query = '') {
 
   $$('[data-pick]', root).forEach(b => b.onclick = () => {  
     active.activeExercise = b.dataset.pick;  
-    persist();  
+    if (typeof persist === 'function') persist();  
     renderLog();  
   });  
 }  
@@ -2339,7 +2352,7 @@ function bindLog() {
         at: new Date().toISOString()  
       });
 
-      persist();  
+      if (typeof persist === 'function') persist();  
       renderLog();  
       toast('Set saved locally');  
     };  
@@ -2358,7 +2371,7 @@ function bindLog() {
         id: momentumUid(),  
         at: new Date().toISOString()  
       });  
-      persist();  
+      if (typeof persist === 'function') persist();  
       renderLog();  
       toast('Previous set duplicated');  
     };  
@@ -2372,7 +2385,7 @@ function bindLog() {
 
   $$('[data-delete-set]').forEach(b => b.onclick = () => {  
     active.sets = active.sets.filter(x => x.id !== b.dataset.deleteSet);  
-    persist();  
+    if (typeof persist === 'function') persist();  
     renderLog();  
   });  
 }  
@@ -2434,7 +2447,7 @@ function finish() {
   state.cockpit = null;  
   state.cockpitEditOpen = false;  
   state.restTimer = null;  
-  persist();
+  if (typeof persist === 'function') persist();
   toast('Workout complete. Review before sharing.');  
 }  
 window.startCockpitForWorkout = startCockpitForWorkout;  
@@ -2700,7 +2713,7 @@ function restoreStagedSession(sessionId) {
   state.cockpit = hydrateCockpitFromSession(rebuiltCockpit, active);  
   state.cockpitEditOpen = false;  
   state.restTimer = null;  
-  persist();
+  if (typeof persist === 'function') persist();
 
   if (active.planId) {  
     MomentumPlanner.mark(active.planId, 'active');  
@@ -2962,7 +2975,7 @@ if ($('#dataStatus')) {
 window.addEventListener('beforeunload', persist);  
 window.addEventListener('pagehide', persist);  
 document.addEventListener('visibilitychange', () => {  
-  if (document.visibilityState === 'hidden') persist();  
+  if (document.visibilityState === 'hidden') if (typeof persist === 'function') persist();  
 });
 
 })();  
