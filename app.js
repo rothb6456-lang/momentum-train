@@ -1,28 +1,35 @@
 /* =========================  
    MOMENTUM STABILITY + UX PATCH  
-   Replace your existing matching blocks with this single patch.  
    ========================= */
 
 /* ---------- escaping helpers ---------- */  
 const esc = value =>  
   String(value ?? '').replace(/[&<>'"]/g, ch => ({  
-    '&': '&amp',  
-    '<': '&lt',  
-    '>': '&gt',  
-    "'": '&#39',  
+    '&': '&amp;',  
+    '<': '&lt;',  
+    '>': '&gt;',  
+    "'": '&#39;',  
     '"': '&quot;'  
   }[ch]));
 
 function escapeHtml(value) {  
   return String(value ?? '')  
-    .replace(/&/g, '&amp')  
-    .replace(/</g, '&lt')  
-    .replace(/>/g, '&gt')  
-    .replace(/"/g, '&#39')  
-    .replace(/'/g, '&quot;');  
-}  
+    .replace(/&/g, '&amp;')  
+    .replace(/</g, '&lt;')  
+    .replace(/>/g, '&gt;')  
+    .replace(/"/g, '&quot;')  
+    .replace(/'/g, '&#39;');  
+}
 
 /* ---------- state + init ---------- */
+
+const STORAGE_KEYS = {  
+  active: 'momentum.active.v3',  
+  done: 'momentum.sessions.v3',  
+  cockpit: 'momentum.cockpit.v1',  
+  editor: 'momentum.editor.v1',  
+  lastView: 'momentum:lastView'  
+};
 
 function loadJson(key, fallback = null) {  
   try {  
@@ -37,6 +44,26 @@ function saveJson(key, value) {
   localStorage.setItem(key, JSON.stringify(value));  
 }
 
+function fallbackSession() {  
+  const now = new Date().toISOString();  
+  return {  
+    id: `session_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,  
+    status: 'draft',  
+    planId: '',  
+    plannedWorkout: null,  
+    phase: '',  
+    week: '',  
+    day: '',  
+    workoutName: 'Ad hoc workout',  
+    startedAt: now,  
+    updatedAt: now,  
+    activeExercise: '',  
+    sets: [],  
+    tags: [],  
+    coachQuestions: ''  
+  };  
+}
+
 const state = {  
   cockpit: null,  
   cockpitEditOpen: false,  
@@ -45,44 +72,51 @@ const state = {
 };
 
 function persistCockpit() {  
-  saveJson(COCKPIT_KEY, state.cockpit || null);  
+  saveJson(STORAGE_KEYS.cockpit, state.cockpit || null);  
 }
 
 function persistEditor() {  
-  saveJson(EDITOR_KEY, (typeof editor !== 'undefined' ? editor : null));  
+  saveJson(STORAGE_KEYS.editor, (typeof editor !== 'undefined' ? editor : null));  
 }
 
 function clearCockpitPersisted() {  
-  localStorage.removeItem(COCKPIT_KEY);  
+  localStorage.removeItem(STORAGE_KEYS.cockpit);  
 }
 
 function clearEditorPersisted() {  
-  localStorage.removeItem(EDITOR_KEY);  
+  localStorage.removeItem(STORAGE_KEYS.editor);  
 }
 
-let active = loadJson(ACTIVE_KEY, null);  
+let active = loadJson(STORAGE_KEYS.active, null);  
 if (!active || !Array.isArray(active.sets)) {  
-  active = newSession();  
+  active = fallbackSession();  
 }
 
-let editor = loadJson(EDITOR_KEY, null);  
+let editor = loadJson(STORAGE_KEYS.editor, null);  
 let selectedReviewId = '';
 
-const restoredCockpit = loadJson(COCKPIT_KEY, null);  
+const restoredCockpit = loadJson(STORAGE_KEYS.cockpit, null);  
 if (restoredCockpit && Array.isArray(restoredCockpit.exercises)) {  
   state.cockpit = restoredCockpit;  
 } else {  
   state.cockpit = null;  
 }
 
-function persist() {  
-  if (active) {  
-    active.updatedAt = new Date().toISOString();  
-    saveJson(ACTIVE_KEY, active);  
+function ensureActiveSession() {  
+  if (!active || !Array.isArray(active.sets)) {  
+    active = (typeof newSession === 'function') ? newSession() : fallbackSession();  
   }  
+  return active;  
+}
+
+function persist() {  
+  ensureActiveSession();  
+  active.updatedAt = new Date().toISOString();  
+  saveJson(STORAGE_KEYS.active, active);  
   persistCockpit();  
   persistEditor();  
-}  
+}
+
 /* ---------- safer planner shell helpers ---------- */  
 function newWorkoutShell(sourceType) {  
   if (typeof MomentumPlanner !== 'undefined' && typeof MomentumPlanner.blankWorkout === 'function') {  
