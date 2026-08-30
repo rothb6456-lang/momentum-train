@@ -2964,3 +2964,4 @@ window.addEventListener('pagehide', persist);
 document.addEventListener('visibilitychange', () => {  
   if (document.visibilityState === 'hidden') persist();  
 });  
+}
