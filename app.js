@@ -588,14 +588,119 @@ function renderCockpitWorkingLoad(ex) {
   `;  
 }  
 
+function getCockpitTargetSets(ex) {  
+  return Number(ex.prescribedSets ?? ex.targetSets ?? ex.setsTarget ?? ex.sets ?? 0);  
+}
+
+function getCockpitCompletedCount(ex) {  
+  return Array.isArray(ex.completedSets) ? ex.completedSets.length : 0;  
+}
+
+function getCockpitCurrentSetNumber(ex) {  
+  return getCockpitCompletedCount(ex) + 1;  
+}
+
+function cockpitExerciseComplete(ex) {  
+  const targetSets = getCockpitTargetSets(ex);  
+  const completedCount = getCockpitCompletedCount(ex);  
+  return targetSets > 0 && completedCount >= targetSets;  
+}
+
+function cockpitHasNextExercise() {  
+  const cockpit = state.cockpit;  
+  return !!(cockpit && Array.isArray(cockpit.exercises) && cockpit.exerciseIndex < cockpit.exercises.length - 1);  
+}
+
+function getNextCockpitExerciseName() {  
+  const cockpit = state.cockpit;  
+  if (!cockpit || !Array.isArray(cockpit.exercises)) return '';  
+  const next = cockpit.exercises[cockpit.exerciseIndex + 1];  
+  return next ? (next.name || next.exerciseName || next.title || 'Next exercise') : '';  
+}
+
+function getUnilateralSuffix(prescribedValue) {  
+  const value = String(prescribedValue || '').toLowerCase().trim();  
+  if (!value) return '';  
+  if (value.includes('/side')) return '/side';  
+  if (value.includes('/arm')) return '/arm';  
+  if (value.includes('/leg')) return '/leg';  
+  if (value.includes('/hand')) return '/hand';  
+  if (value.includes('/foot')) return '/foot';  
+  return '';  
+}
+
+function looksLikeExplicitCustomSideInput(value) {  
+  const v = String(value || '').toLowerCase().trim();  
+  if (!v) return false;  
+  return (  
+    v.includes('left') ||  
+    v.includes('right') ||  
+    v.includes(' l') ||  
+    v.includes(' r') ||  
+    /[0-9]+\s*\/\s*[0-9]+/.test(v)  
+  );  
+}
+
+function normalizeAdjustedRepOrDurationValue(rawValue, prescribedValue, timed) {  
+  const raw = String(rawValue || '').trim();  
+  const prescribed = String(prescribedValue || '').trim();
+
+  if (!raw) {  
+    return timed  
+      ? (prescribed || '')  
+      : normalizeRepValue('', prescribed);  
+  }
+
+  if (timed) {  
+    const n = normalizeNumericEntry(raw, false);  
+    const suffix = getUnilateralSuffix(prescribed);  
+    if (suffix && !looksLikeExplicitCustomSideInput(raw)) return `${n}${suffix}`;  
+    return `${n} sec`;  
+  }
+
+  if (looksLikeExplicitCustomSideInput(raw)) return raw;
+
+  const normalized = normalizeNumericEntry(raw, false);  
+  const suffix = getUnilateralSuffix(prescribed);  
+  if (suffix) return `${normalized}${suffix}`;
+
+  return normalizeRepValue(raw, prescribed);  
+}
+
+function renderCockpitCompletionState(ex) {  
+  if (!cockpitExerciseComplete(ex)) return '';
+
+  const targetSets = getCockpitTargetSets(ex);  
+  const nextName = getNextCockpitExerciseName();  
+  const hasNext = cockpitHasNextExercise();
+
+  return `  
+    <div class="signal-card cockpit-complete" style="margin-top:14px">  
+      <b>Exercise complete</b><br>  
+      ${targetSets} of ${targetSets} prescribed sets logged.  
+      ${hasNext ? `<div class="quiet" style="margin-top:6px">Next: ${escapeHtml(nextName)}</div>` : `<div class="quiet" style="margin-top:6px">This is the final exercise in the workout.</div>`}  
+      <div class="actions" style="margin-top:12px">  
+        ${hasNext ? `<button class="primary" onclick="cockpitNext()">Next exercise</button>` : ''}  
+        <button class="secondary" onclick="logExtraCockpitSet()">Log extra set</button>  
+      </div>  
+    </div>  
+  `;  
+}
+
+function logExtraCockpitSet() {  
+  state.cockpitEditOpen = false;  
+  logCockpitSetAction();  
+}  
+
 function renderCockpitDifferentToday(ex) {  
   if (!state.cockpitEditOpen) return '';
 
-  const d = getCockpitEditDefaults(ex);
+  const d = getCockpitEditDefaults(ex);  
+  const setNumber = getCockpitCurrentSetNumber(ex);
 
   return `  
     <div class="card section">  
-      <div class="eyebrow">Different today</div>
+      <div class="eyebrow">Adjust Set ${setNumber}</div>
 
       <div class="set-form" style="margin-top:10px">  
         <label class="field">  
@@ -656,40 +761,12 @@ function renderCockpitDifferentToday(ex) {
       </div>
 
       <div class="actions">  
-        <button class="primary" onclick="saveDifferentTodayAndLogSet()">Save & Log Set</button>  
+        <button class="primary" onclick="saveDifferentTodayAndLogSet()">Log Adjusted Set ${setNumber}</button>  
         <button class="secondary" onclick="cancelCockpitDifferentToday()">Cancel</button>  
       </div>  
     </div>  
   `;  
 }  
-
-let active = loadJson(ACTIVE_KEY, null);  
-if (!active || !Array.isArray(active.sets)) {  
-  active = newSession();  
-}
-
-let editor = loadJson(EDITOR_KEY, null);  
-let selectedReviewId = '';
-
-const restoredCockpit = loadJson(COCKPIT_KEY, null);  
-if (restoredCockpit && Array.isArray(restoredCockpit.exercises)) {  
-  state.cockpit = restoredCockpit;  
-} else if (active?.plannedWorkout?.exerciseBlocks?.length && active.planId) {  
-  state.cockpit = MomentumPlanner.buildCockpitWorkout(active.plannedWorkout);  
-} else {  
-  state.cockpit = null;  
-}  
-
-const persist = () => {  
-  if (active) {  
-    active.updatedAt = new Date().toISOString();  
-    saveJson(ACTIVE_KEY, active);  
-  }  
-  persistCockpit();  
-  persistEditor();  
-};  
-
-
   function show(view) {  
   persistCurrentView(view);  
   $$('.tab').forEach(x => x.classList.toggle('active', x.dataset.view === view));  
@@ -1766,16 +1843,19 @@ function renderCockpitExercise(ex) {
   const cockpit = state.cockpit;  
   const title = ex.name || ex.exerciseName || ex.title || 'Exercise';
 
-  const targetSets = Number(  
-    ex.prescribedSets ?? ex.targetSets ?? ex.setsTarget ?? ex.sets ?? 0  
-  );  
-  const completedCount = Array.isArray(ex.completedSets) ? ex.completedSets.length : 0;  
-  const complete = targetSets > 0 && completedCount >= targetSets;
+  const targetSets = getCockpitTargetSets(ex);  
+  const completedCount = getCockpitCompletedCount(ex);  
+  const complete = cockpitExerciseComplete(ex);  
+  const currentSetNumber = getCockpitCurrentSetNumber(ex);
 
   return `  
     <div class="card section">  
       <div class="eyebrow">Exercise ${cockpit.exerciseIndex + 1} of ${cockpit.exercises.length}</div>  
       <h2>${escapeHtml(title)}</h2>
+
+      <div class="quiet" style="margin-top:4px">  
+        ${complete ? `Completed ${completedCount} of ${targetSets} prescribed sets` : `Set ${currentSetNumber} of ${targetSets || '—'}`}  
+      </div>
 
       ${renderCockpitPrescription(ex)}
 
@@ -1789,13 +1869,17 @@ function renderCockpitExercise(ex) {
       ` : `  
         <div class="actions">  
           <button class="primary" onclick="logCockpitSetAction()">  
-            ${complete ? 'Log extra set' : 'Log Set'}  
+            ${complete ? 'Log extra set' : `Log Set ${currentSetNumber}`}  
           </button>  
-          <button class="secondary" onclick="openCockpitDifferentToday()">Different today</button>  
+          <button class="secondary" onclick="openCockpitDifferentToday()">  
+            ${complete ? 'Adjust extra set' : `Adjust Set ${currentSetNumber}`}  
+          </button>  
         </div>  
       `}
 
       ${renderCockpitDifferentToday(ex)}
+
+      ${renderCockpitCompletionState(ex)}
 
       <div class="session-log">  
         <h3>Completed sets</h3>  
@@ -1804,7 +1888,7 @@ function renderCockpitExercise(ex) {
 
       <div class="actions" style="margin-top:18px">  
         <button class="secondary" onclick="cockpitPrev()">Previous exercise</button>  
-        <button class="secondary" onclick="cockpitNext()">Next exercise</button>  
+        <button class="secondary cockpit-next-btn" onclick="cockpitNext()">Next exercise</button>  
         <button class="secondary" onclick="deleteLastCockpitSet()">Delete last set</button>  
       </div>
 
@@ -1817,8 +1901,7 @@ function renderCockpitExercise(ex) {
       </div>  
     </div>  
   `;  
-}
-
+}  
 function saveDifferentTodayAndLogSet() {  
   const cockpit = state.cockpit;  
   if (!cockpit || !Array.isArray(cockpit.exercises)) return;
@@ -1845,13 +1928,11 @@ function saveDifferentTodayAndLogSet() {
     const actualLoad =  
       loadValue || normalizeLoadValue(current.workingLoad || current.prescribedLoad || '');
 
-    const actualRepsOrDuration = repsRaw  
-      ? (  
-          current.timed  
-            ? `${normalizeNumericEntry(repsRaw, false)} sec`  
-            : normalizeRepValue(repsRaw, current.prescribedRepsOrDuration || '')  
-        )  
-      : normalizeRepValue('', current.prescribedRepsOrDuration || '');
+    const actualRepsOrDuration = normalizeAdjustedRepOrDurationValue(  
+      repsRaw,  
+      current.prescribedRepsOrDuration || '',  
+      !!current.timed  
+    );
 
     const actualTempo = tempoValue || current.prescribedTempo || '';  
     const actualRir = rirValue || normalizeRirValue('', current.prescribedRir || '');
@@ -1884,8 +1965,6 @@ function saveDifferentTodayAndLogSet() {
     toast(err.message || 'Could not save changes.');  
   }  
 }  
-
-
 function selectedReviewedSession() {  
   const sessions = getDone();  
   if (!sessions.length) return null;  
@@ -1978,7 +2057,8 @@ function renderLog() {
         <div>  
           <div class="eyebrow">${active.planId ? 'Planned session · autosaved' : 'Ad hoc session · autosaved'}</div>  
           <h1>${esc(active.workoutName)}</h1>  
-          <div id="timer">${clock(Math.max(0, Math.floor((Date.now() - new Date(active.startedAt)) / 1000)))}</div>  
+          <div class="quiet" style="margin-top:6px">Session time</div>  
+<div id="timer">${clock(Math.max(0, Math.floor((Date.now() - new Date(active.startedAt)) / 1000)))}</div>    
         </div>  
         <div class="session-tools">  
           <button class="secondary" id="finish">Finish</button>  
