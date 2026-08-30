@@ -872,13 +872,37 @@ function renderStarterPreview(cardKey) {
       </div>
 
       <div class="actions" style="margin-top:14px">  
-        <button class="primary" id="useStarterCard">Use this card</button>  
+        <button class="primary" id="startStarterCard">Start workout</button>  
+        <button class="secondary" id="saveStarterCard">Save to queue</button>  
+        <button class="secondary" id="editStarterCard">Edit first</button>  
         <button class="secondary" id="cancelStarterPreview">Cancel</button>  
       </div>  
     </article>  
   `;
 
-  $('#useStarterCard').onclick = () => {  
+  $('#startStarterCard').onclick = () => {  
+    const workout = starterCardToWorkout(card);  
+    workout.status = 'queued';  
+    MomentumPlanner.upsert(workout);  
+    starterPreviewKey = null;  
+    editor = null;  
+    renderToday();  
+    renderHome();  
+    startPlan(workout.id);  
+  };
+
+  $('#saveStarterCard').onclick = () => {  
+    const workout = starterCardToWorkout(card);  
+    workout.status = 'queued';  
+    MomentumPlanner.upsert(workout);  
+    starterPreviewKey = null;  
+    editor = null;  
+    renderToday();  
+    renderHome();  
+    toast('Workout saved to queue');  
+  };
+
+  $('#editStarterCard').onclick = () => {  
     editor = starterCardToWorkout(card);  
     starterPreviewKey = null;  
     renderToday();  
@@ -893,8 +917,7 @@ function renderStarterPreview(cardKey) {
     starterPreviewKey = null;  
     root.innerHTML = '';  
   };  
-}
-
+}  
 function plannerTeachingCopy(currentEditor) {  
   const novice = currentEditor && currentEditor.sourceType === 'starter';
 
@@ -1135,21 +1158,39 @@ function renderToday() {
         <div class="card-head">  
           <div><h2>Choose a training focus</h2>Starter workout cards for novice-friendly, low-friction training.</div>  
           ${cards.length}  
-        </div>  
-        <div class="stack">  
+        </div>
+
+        <div class="starter-grid">  
           ${cards.map(card => `  
-            <div class="exercise-card">  
-              <div class="exercise-title">  
+            <div class="starter-tile">  
+              <div class="starter-head">  
                 <div>  
                   <b>${esc(card.title)}</b>  
                   <div class="target">${esc(card.descriptor)}</div>  
-                  <div class="quiet">${esc(card.equipment)} · ${esc(card.duration)}</div>  
                 </div>  
-                <span class="pill">${esc(card.lesson)}</span>  
-              </div>  
-              <div class="quiet" style="margin-top:8px">${esc(card.purpose)}</div>  
-              <div class="actions" style="margin-top:12px">  
-                <button class="primary" data-preview-starter="${card.key}">Preview card</button>  
+              </div>
+
+              <div class="starter-mini-table">  
+                <div class="starter-mini-row">  
+                  <span class="quiet">Equipment</span>  
+                  <b>${esc(card.equipment)}</b>  
+                </div>  
+                <div class="starter-mini-row">  
+                  <span class="quiet">Duration</span>  
+                  <b>${esc(card.duration)}</b>  
+                </div>  
+                <div class="starter-mini-row">  
+                  <span class="quiet">Lesson</span>  
+                  <b>${esc(card.lesson)}</b>  
+                </div>  
+                <div class="starter-mini-row">  
+                  <span class="quiet">Exercises</span>  
+                  <b>${(card.exerciseBlocks || []).length}</b>  
+                </div>  
+              </div>
+
+              <div class="actions starter-actions">  
+                <button class="primary" data-use-starter="${card.key}">Use this card</button>  
               </div>  
             </div>  
           `).join('')}  
@@ -1252,9 +1293,9 @@ function renderToday() {
 
   bindToday();
 
-  $$('[data-preview-starter]').forEach(button => {  
+  $$('[data-use-starter]').forEach(button => {  
     button.onclick = () => {  
-      starterPreviewKey = button.dataset.previewStarter;  
+      starterPreviewKey = button.dataset.useStarter;  
       editor = null;  
       renderStarterPreview(starterPreviewKey);  
       setTimeout(() => {  
