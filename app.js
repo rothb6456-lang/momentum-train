@@ -325,6 +325,14 @@ function bindGo() {
     b.onclick = () => show(b.dataset.go);  
   });  
 }  
+function isMobileHomeLayout() {  
+  return window.matchMedia('(max-width: 760px)').matches;  
+}
+
+function starterCards() {  
+  return (window.MomentumWorkoutCards && window.MomentumWorkoutCards.starterCards) || [];  
+}  
+
 /* ---------- renderHome ---------- */  
 function renderHome() {  
   const m = MomentumData.metrics();  
