@@ -282,6 +282,35 @@ function openTrainingFocus() {
   }, 40);  
 }
 
+/* ----------renderHelpers--------- */
+function queued() {  
+  if (typeof MomentumPlanner === 'undefined' || typeof MomentumPlanner.load !== 'function') {  
+    return [];  
+  }
+
+  return MomentumPlanner.load().filter(x => x.status === 'queued' || x.status === 'active');  
+}
+
+function nextPlan() {  
+  return queued()[0] || null;  
+}
+
+function planSummary(plan) {  
+  if (!plan) return 'No phase metadata';
+
+  return [  
+    plan.phaseId ? `Phase ${plan.phaseId}` : '',  
+    plan.week ? `Week ${plan.week}` : '',  
+    plan.day ? `Day ${plan.day}` : '',  
+    plan.sourceType || ''  
+  ].filter(Boolean).join(' · ') || 'No phase metadata';  
+}
+
+function bindGo() {  
+  $$('[data-go]').forEach(b => {  
+    b.onclick = () => show(b.dataset.go);  
+  });  
+}  
 /* ---------- renderHome ---------- */  
 function renderHome() {  
   const m = MomentumData.metrics();  
