@@ -282,7 +282,21 @@ function openTrainingFocus() {
   }, 40);  
 }
 
+
+
 /* ----------renderHelpers--------- */
+function getDone() {  
+  try {  
+    return JSON.parse(localStorage.getItem('momentum.sessions.v3') || '[]');  
+  } catch {  
+    return [];  
+  }  
+}
+
+function saveDone(sessions) {  
+  localStorage.setItem('momentum.sessions.v3', JSON.stringify(sessions));  
+}
+
 function queued() {  
   if (typeof MomentumPlanner === 'undefined' || typeof MomentumPlanner.load !== 'function') {  
     return [];  
