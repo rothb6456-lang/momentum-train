@@ -1759,10 +1759,11 @@ function startPlan(id) {
   show('log');  
   toast('Planned workout started');  
 }  
-  function planForActive() {  
-    return active.plannedWorkout || basePlan();  
-  }
-
+function planForActive() {  
+  if (typeof active === 'undefined' || !active || !active.planId) return null;  
+  if (typeof MomentumPlanner === 'undefined' || typeof MomentumPlanner.load !== 'function') return null;  
+  return MomentumPlanner.load().find(x => x.id === active.planId) || null;  
+}  
   function activeBlock() {  
     return planForActive().exerciseBlocks?.find(x => x.exerciseName === active.activeExercise) || {  
       exerciseName: active.activeExercise,  
@@ -1789,26 +1790,27 @@ function normalizeExerciseLookupName(name) {
 }
 
 function knownExerciseNames() {  
-  const sources = [  
-    ...(planForActive().exerciseBlocks || []).map(x => x.exerciseName),  
-    ...(editor?.exerciseBlocks || []).map(x => x.exerciseName),  
-    ...MomentumData.recentExercises(),  
-    ...data.core.map(x => x.ExerciseName).filter(Boolean)  
-  ]  
-    .map(x => String(x || '').trim())  
-    .filter(Boolean);
+  const names = new Set();
 
-  const seen = new Map();
-
-  for (const name of sources) {  
-    const key = normalizeExerciseLookupName(name);  
-    if (!key) continue;  
-    if (!seen.has(key)) seen.set(key, name);  
+  const activePlan = planForActive();  
+  if (activePlan && Array.isArray(activePlan.exerciseBlocks)) {  
+    activePlan.exerciseBlocks.forEach(block => {  
+      const name = String(block?.exerciseName || '').trim();  
+      if (name) names.add(name);  
+    });  
   }
 
-  return [...seen.values()].sort((a, b) => a.localeCompare(b));  
-} 
+  if (typeof MomentumPlanner !== 'undefined' && typeof MomentumPlanner.load === 'function') {  
+    MomentumPlanner.load().forEach(workout => {  
+      (workout.exerciseBlocks || []).forEach(block => {  
+        const name = String(block?.exerciseName || '').trim();  
+        if (name) names.add(name);  
+      });  
+    });  
+  }
 
+  return Array.from(names).sort((a, b) => a.localeCompare(b));  
+}
 function isKnownExerciseName(name) {  
   const value = normalizeExerciseLookupName(name);  
   if (!value) return false;  
@@ -1827,10 +1829,13 @@ function canonicalExerciseName(name) {
 }  
 
 function exerciseDatalistMarkup() {  
-  return knownExerciseNames().map(name =>  
-    `<option value="${esc(name)}"></option>`  
-  ).join('');  
-}  
+  const names = Array.isArray(knownExerciseNames()) ? knownExerciseNames() : [];  
+  return `  
+    <datalist id="exerciseNameSuggestions">  
+      ${names.map(name => `<option value="${esc(name)}"></option>`).join('')}  
+    </datalist>  
+  `;  
+}    
 
 function getActiveCockpitExercise() {  
   if (!state.cockpit || !state.cockpit.exercises?.length) return null;  
