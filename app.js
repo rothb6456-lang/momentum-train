@@ -2586,11 +2586,27 @@ function csv(session) {
 }  
 
 function renderReview() {  
+  const root = $('#review');  
+  if (!root) return;
+
+  if (typeof selectedReviewId === 'undefined') {  
+    root.innerHTML = `  
+      <div class="review-grid">  
+        <section class="card">  
+          <div class="eyebrow">Review</div>  
+          <h2 style="margin-top:6px">Loading review…</h2>  
+          <div class="empty">Review state is still initializing.</div>  
+        </section>  
+      </div>  
+    `;  
+    return;  
+  }
+
   const sessions = getDone();  
   if (!selectedReviewId && sessions[0]) selectedReviewId = sessions[0].id;  
   const selected = sessions.find(x => x.id === selectedReviewId) || sessions[0] || null;
 
-  $('#review').innerHTML = `  
+  root.innerHTML = `  
     <div class="review-grid">  
       <aside class="card">  
         <div class="eyebrow">Review queue</div>  
@@ -2621,7 +2637,7 @@ function renderReview() {
   });
 
   if (selected) bindReview(selected);  
-}
+}  
 
 function hydrateCockpitFromSession(cockpit, session) {  
   if (!cockpit || !Array.isArray(cockpit.exercises)) return cockpit;
@@ -2901,12 +2917,14 @@ function renderHistory() {
   draw();  
 }
 
-renderHome();  
-renderToday();  
-renderLog();  
-renderReview();  
-renderHistory();  
-show(restoreCurrentView());  
+window.addEventListener('load', () => {  
+  renderHome();  
+  renderToday();  
+  renderLog();  
+  renderReview();  
+  renderHistory();  
+  show(restoreCurrentView());  
+});
 
 let touchStartY = 0;
 
@@ -2922,15 +2940,16 @@ document.addEventListener('touchmove', e => {
   if (atTop && pullingDown) {  
     e.preventDefault();  
   }  
-}, { passive: false });  
+}, { passive: false });
 
 setInterval(() => {  
   const el = $('#timer');  
-  if (el) {  
-    el.textContent = clock(  
-      Math.max(0, Math.floor((Date.now() - new Date(active.startedAt)) / 1000))  
-    );  
-  }  
+  if (!el) return;  
+  if (typeof active === 'undefined' || !active || !active.startedAt) return;
+
+  el.textContent = clock(  
+    Math.max(0, Math.floor((Date.now() - new Date(active.startedAt)) / 1000))  
+  );  
 }, 1000);
 
 const m = MomentumData.metrics();  
@@ -2945,6 +2964,3 @@ window.addEventListener('pagehide', persist);
 document.addEventListener('visibilitychange', () => {  
   if (document.visibilityState === 'hidden') persist();  
 });  
-
-})();  
-
