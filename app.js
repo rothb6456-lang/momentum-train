@@ -158,8 +158,9 @@ function clearEditorPersisted() {
 const state = {  
   cockpit: null,  
   cockpitEditOpen: false,  
-  restTimer: null
-};    
+  cockpitEditingLastSet: null,  
+  restTimer: null  
+};  
 
 function parseRestSeconds(value) {  
   const raw = String(value || '').trim().toLowerCase();  
@@ -370,7 +371,65 @@ function normalizeNumericEntry(value, allowDecimal = false) {
   return parts.length <= 1 ? cleaned : `${parts[0]}.${parts.slice(1).join('')}`;  
 }  
 
+function getCockpitLastCompletedSet(ex) {  
+  const sets = Array.isArray(ex?.completedSets) ? ex.completedSets : [];  
+  return sets.length ? sets[sets.length - 1] : null;  
+}
 
+function renderEditLastSetButton(ex) {  
+  const lastSet = getCockpitLastCompletedSet(ex);  
+  if (!lastSet) return '';  
+  return `<button class="secondary" onclick="editLastCockpitSet()">Edit last set</button>`;  
+}
+
+function editLastCockpitSet() {  
+  const cockpit = state.cockpit;  
+  if (!cockpit || !Array.isArray(cockpit.exercises)) return;
+
+  const ex = cockpit.exercises[cockpit.exerciseIndex];  
+  if (!ex) return;
+
+  const sets = Array.isArray(ex.completedSets) ? ex.completedSets : [];  
+  if (!sets.length) {  
+    toast('No completed set to edit.');  
+    return;  
+  }
+
+  const lastSet = sets.pop();  
+  ex.completedSets = sets;
+
+  state.cockpitEditOpen = true;  
+  state.cockpitEditingLastSet = {  
+    actualLoad: lastSet.actualLoad || '',  
+    actualRepsOrDuration: lastSet.actualRepsOrDuration || '',  
+    actualTempo: lastSet.actualTempo || '',  
+    actualRir: lastSet.actualRir || '',  
+    note: lastSet.note || '',  
+    extra: !!lastSet.extra  
+  };
+
+  persist();  
+  renderLog();  
+  toast('Editing last set');  
+}
+
+function clearCockpitEditingLastSet() {  
+  state.cockpitEditingLastSet = null;  
+}
+
+function getCockpitEditPrefillReps(ex) {  
+  const editing = state.cockpitEditingLastSet;  
+  if (!editing) return '';  
+  const raw = String(editing.actualRepsOrDuration || '').trim();  
+  if (!raw) return '';  
+  if (ex.timed) return raw.replace(/\s*sec$/i, '').trim();
+
+  const suffix = getUnilateralSuffix(ex.prescribedRepsOrDuration || '');  
+  if (suffix && raw.toLowerCase().endsWith(suffix)) {  
+    return raw.slice(0, raw.length - suffix.length).trim();  
+  }  
+  return raw;  
+}  
 
 function logCockpitSetAction() {  
   const cockpit = state.cockpit;  
@@ -413,7 +472,8 @@ function logCockpitSetAction() {
     }
 
     state.cockpit = next;  
-    state.cockpitEditOpen = false;
+    state.cockpitEditOpen = false;  
+    clearCockpitEditingLastSet();
 
     startRestTimer(parseRestSeconds(  
       ex.prescribedRest ||  
@@ -424,11 +484,11 @@ function logCockpitSetAction() {
 
     persist();  
     renderLog();  
+    toast('Set logged');  
   } catch (err) {  
     toast(err.message || 'Could not log set.');  
   }  
-}   
-
+}  
 function normalizeLoadValue(value) {  
   const raw = String(value || '').trim();  
   if (!raw) return '';  
@@ -559,11 +619,12 @@ function getCockpitEditDefaults(ex) {
 }      
 
 function openCockpitDifferentToday() {  
+  clearCockpitEditingLastSet();  
   state.cockpitEditOpen = true;  
   renderLog();  
-}
-
+}  
 function cancelCockpitDifferentToday() {  
+  clearCockpitEditingLastSet();  
   state.cockpitEditOpen = false;  
   renderLog();  
 }  
@@ -696,11 +757,13 @@ function renderCockpitDifferentToday(ex) {
   if (!state.cockpitEditOpen) return '';
 
   const d = getCockpitEditDefaults(ex);  
-  const setNumber = getCockpitCurrentSetNumber(ex);
+  const setNumber = getCockpitCurrentSetNumber(ex);  
+  const editing = state.cockpitEditingLastSet;  
+  const heading = editing ? 'Edit last set' : `Adjust Set ${setNumber}`;
 
   return `  
     <div class="card section">  
-      <div class="eyebrow">Adjust Set ${setNumber}</div>
+      <div class="eyebrow">${heading}</div>
 
       <div class="set-form" style="margin-top:10px">  
         <label class="field">  
@@ -711,7 +774,7 @@ function renderCockpitDifferentToday(ex) {
             inputmode="decimal"  
             pattern="[0-9]*[.]?[0-9]*"  
             placeholder="e.g. 85"  
-            value="${esc(normalizeLoadValue(ex.workingLoad || ex.prescribedLoad || ''))}"  
+            value="${esc(normalizeLoadValue(editing ? editing.actualLoad : (ex.workingLoad || ex.prescribedLoad || '')))}"  
             oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/^([^.]*\.)|\./g, '$1')"  
           >  
         </label>
@@ -724,7 +787,7 @@ function renderCockpitDifferentToday(ex) {
             inputmode="numeric"  
             pattern="[0-9]*"  
             placeholder="${ex.timed ? 'e.g. 65' : 'e.g. 10'}"  
-            value=""  
+            value="${esc(editing ? getCockpitEditPrefillReps(ex) : '')}"  
             oninput="this.value = this.value.replace(/[^0-9]/g, '')"  
           >  
         </label>
@@ -734,7 +797,7 @@ function renderCockpitDifferentToday(ex) {
           <input  
             id="cockpitEditTempo"  
             class="input"  
-            value="${escapeHtml(d.tempo)}"  
+            value="${escapeHtml(editing ? editing.actualTempo : d.tempo)}"  
             placeholder="Tempo"  
           >  
         </label>
@@ -746,22 +809,25 @@ function renderCockpitDifferentToday(ex) {
             class="input"  
             inputmode="text"  
             pattern="[0-9+\-]*"  
-            value="${escapeHtml(d.rir)}"  
+            value="${escapeHtml(editing ? editing.actualRir : d.rir)}"  
             placeholder="e.g. 1-2 or 2+"  
             oninput="this.value = this.value.replace(/[^0-9+\-]/g, '')"  
           >  
-        </label>  
+        </label>
+
         <label class="field full">  
           <span>Set note</span>  
           <textarea  
             id="cockpitEditNote"  
             placeholder="Deviation, side-to-side note, pain/symptom, technique change"  
-          ></textarea>  
+          >${escapeHtml(editing ? editing.note : '')}</textarea>  
         </label>  
       </div>
 
       <div class="actions">  
-        <button class="primary" onclick="saveDifferentTodayAndLogSet()">Log Adjusted Set ${setNumber}</button>  
+        <button class="primary" onclick="saveDifferentTodayAndLogSet()">  
+          ${editing ? 'Save edited set' : `Log Adjusted Set ${setNumber}`}  
+        </button>  
         <button class="secondary" onclick="cancelCockpitDifferentToday()">Cancel</button>  
       </div>  
     </div>  
@@ -1509,17 +1575,18 @@ function bindToday() {
       </div>
 
       <div class="set-form" style="margin-top:12px">  
-        <label class="field full">Workout title<input class="input" data-plan="title" value="${esc(editor.title || '')}"></label>  
-        <label class="field">Scheduled date<input class="input" type="date" data-plan="scheduledDate" value="${esc(editor.scheduledDate || '')}"></label>  
-        <label class="field">Source  
-          <select data-plan="sourceType">  
-            ${['chatgpt', 'manual', 'duplicate', 'history', 'reference', 'starter'].map(x => `<option ${editor.sourceType === x ? 'selected' : ''}>${x}</option>`).join('')}  
-          </select>  
-        </label>  
-        <label class="field">Phase<input class="input" inputmode="numeric" data-plan="phaseId" value="${esc(editor.phaseId || '')}"></label>  
-        <label class="field">Week<input class="input" inputmode="numeric" data-plan="week" value="${esc(editor.week || '')}"></label>  
-        <label class="field">Day<input class="input" inputmode="numeric" data-plan="day" value="${esc(editor.day || '')}"></label>  
-      </div>
+  <label class="field full">Workout title<input class="input" data-plan="title" value="${esc(editor.title || '')}"></label>  
+  <label class="field full">Workout subtitle<input class="input" data-plan="subtitle" value="${esc(editor.subtitle || '')}"></label>  
+  <label class="field">Scheduled date<input class="input" type="date" data-plan="scheduledDate" value="${esc(editor.scheduledDate || '')}"></label>  
+  <label class="field">Source  
+    <select data-plan="sourceType">  
+      ${['chatgpt', 'manual', 'duplicate', 'history', 'reference', 'starter'].map(x => `<option ${editor.sourceType === x ? 'selected' : ''}>${x}</option>`).join('')}  
+    </select>  
+  </label>  
+  <label class="field">Phase<input class="input" inputmode="numeric" data-plan="phaseId" value="${esc(editor.phaseId || '')}"></label>  
+  <label class="field">Week<input class="input" inputmode="numeric" data-plan="week" value="${esc(editor.week || '')}"></label>  
+  <label class="field">Day<input class="input" inputmode="numeric" data-plan="day" value="${esc(editor.day || '')}"></label>  
+</div>  
 
       <datalist id="knownExerciseList">  
         ${exerciseDatalistMarkup()}  
@@ -1757,12 +1824,17 @@ function getActiveCockpitExercise() {
 }
 
 function renderCockpitHeader(cockpit) {  
+  const sessionSeconds = Math.max(0, Math.floor((Date.now() - new Date(active.startedAt)) / 1000));
+
   return `  
-    <div class="active-session" style="margin-bottom:14px">  
-      <div class="quiet">  
-        ${cockpit.phaseId ? `Phase ${escapeHtml(cockpit.phaseId)} • ` : ''}  
-        ${cockpit.week ? `Week ${escapeHtml(cockpit.week)} • ` : ''}  
-        ${cockpit.day ? `Day ${escapeHtml(cockpit.day)}` : ''}  
+    <div class="active-session cockpit-header" style="margin-bottom:14px">  
+      <div>  
+        <div class="quiet">  
+          ${cockpit.phaseId ? `Phase ${escapeHtml(cockpit.phaseId)} • ` : ''}  
+          ${cockpit.week ? `Week ${escapeHtml(cockpit.week)} • ` : ''}  
+          ${cockpit.day ? `Day ${escapeHtml(cockpit.day)}` : ''}  
+        </div>  
+        <div class="quiet" style="margin-top:4px">Session time ${clock(sessionSeconds)}</div>  
       </div>  
       <div class="pill" style="margin-left:12px">  
         Exercise ${cockpit.exerciseIndex + 1} of ${cockpit.exercises.length}  
@@ -1874,6 +1946,7 @@ function renderCockpitExercise(ex) {
           <button class="secondary" onclick="openCockpitDifferentToday()">  
             ${complete ? 'Adjust extra set' : `Adjust Set ${currentSetNumber}`}  
           </button>  
+          ${renderEditLastSetButton(ex)}  
         </div>  
       `}
 
@@ -1937,16 +2010,20 @@ function saveDifferentTodayAndLogSet() {
     const actualTempo = tempoValue || current.prescribedTempo || '';  
     const actualRir = rirValue || normalizeRirValue('', current.prescribedRir || '');
 
-    current.completedSets = Array.isArray(current.completedSets) ? current.completedSets : [];  
+    current.completedSets = Array.isArray(current.completedSets) ? current.completedSets : [];
+
+    const editing = state.cockpitEditingLastSet;  
     current.completedSets.push({  
       actualLoad,  
       actualRepsOrDuration,  
       actualTempo,  
       actualRir,  
       note: noteValue,  
+      extra: !!editing?.extra,  
       at: new Date().toISOString()  
     });
 
+    clearCockpitEditingLastSet();  
     state.cockpitEditOpen = false;
 
     startRestTimer(  
@@ -1960,7 +2037,7 @@ function saveDifferentTodayAndLogSet() {
 
     persist();  
     renderLog();  
-    toast('Set logged');  
+    toast(editing ? 'Last set updated' : 'Set logged');  
   } catch (err) {  
     toast(err.message || 'Could not save changes.');  
   }  

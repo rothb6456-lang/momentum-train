@@ -57,30 +57,36 @@ const MomentumPlanner = (() => {
 
   const workout = blankWorkout();  
   workout.title = parsed.title || 'Pasted workout card';  
+  workout.subtitle = parsed.subtitle || '';  
   workout.phaseId = parsed.phase || '';  
   workout.week = parsed.week || '';  
   workout.day = parsed.day || '';  
   workout.sourceType = parsed.source || 'chatgpt';  
   workout.sourceRawText = rawText || '';  
+  workout.primaryTargets = Array.isArray(parsed.primaryTargets) ? parsed.primaryTargets : [];  
+  workout.secondaryTargets = Array.isArray(parsed.secondaryTargets) ? parsed.secondaryTargets : [];  
+  workout.programNotes = Array.isArray(parsed.programNotes) ? parsed.programNotes : [];  
+  workout.targetDuration = parsed.targetDuration || '';  
+  workout.confidence = parsed.confidence || '';
+
   workout.exerciseBlocks = (parsed.exercises || []).length  
     ? parsed.exercises.map((ex, index) => ({  
-              ...blankBlock(index + 1),  
-      exerciseName: ex.name || '',  
-      targetSets: ex.sets || '',  
-      targetRepsOrDuration: ex.reps || '',  
-      targetWeightOrLoad: ex.load || '',  
-      tempo: ex.tempo || '',  
-      rir: ex.rir || '',  
-      rest: ex.rest || '',  
-      notes: ex.notes || '',  
-      checkpoints: '',  
-      tags: []  
+        ...blankBlock(index + 1),  
+        exerciseName: ex.name || '',  
+        targetSets: ex.sets || '',  
+        targetRepsOrDuration: ex.reps || '',  
+        targetWeightOrLoad: ex.load || '',  
+        tempo: ex.tempo || '',  
+        rir: ex.rir || '',  
+        rest: ex.rest || '',  
+        notes: ex.notes || '',  
+        checkpoints: '',  
+        tags: []  
       }))  
     : [blankBlock(1)];
 
   return workout;  
 }  
-  
   function parseWorkoutCardText(rawText) {  
   const text = normalizeWorkoutText(rawText || '');
 
@@ -92,10 +98,16 @@ const MomentumPlanner = (() => {
 
   return {  
     title: meta.title || 'Pasted workout card',  
+    subtitle: meta.subtitle || '',  
     source: 'chatgpt',  
     phase: meta.phase || '',  
     week: meta.week || '',  
     day: meta.day || '',  
+    primaryTargets: meta.primaryTargets || [],  
+    secondaryTargets: meta.secondaryTargets || [],  
+    programNotes: meta.programNotes || [],  
+    targetDuration: meta.targetDuration || '',  
+    confidence: meta.confidence || '',  
     exercises: exercises.map((ex, i) => ({  
       id: ex.id || `planned-${Date.now()}-${i + 1}`,  
       name: ex.name || '',  
@@ -109,8 +121,7 @@ const MomentumPlanner = (() => {
     })),  
     warnings: buildParseWarnings(meta, exercises)  
   };  
-}
-
+}  
 function normalizeWorkoutText(input) {  
   return String(input || '')  
     .replace(/\r/g, '')  
@@ -139,11 +150,11 @@ function parseWorkoutMeta(text) {
   if (weekDayMatch) {  
     const wdLineIndex = lines.findIndex(line => /\bWEEK\s+\d+.*\bDAY\s+\d+\b/i.test(line));  
     if (wdLineIndex >= 0) {  
-      for (let i = wdLineIndex + 1; i < Math.min(wdLineIndex + 4, lines.length); i++) {  
+      for (let i = wdLineIndex + 1; i < Math.min(wdLineIndex + 5, lines.length); i++) {  
         const line = lines[i];  
         if (  
           line &&  
-          !/^(primary targets:?|session target:?|confidence:?|\d+\.)/i.test(line) &&  
+          !/^(primary targets:?|secondary:?|session target:?|confidence:?|target duration:?|\d+\.)/i.test(line) &&  
           !line.includes('|')  
         ) {  
           title = line;  
@@ -165,13 +176,178 @@ function parseWorkoutMeta(text) {
     title = fallback || '';  
   }
 
+  const headerMeta = parseHeaderMeta(lines);
+
   return {  
     phase: phaseMatch ? phaseMatch[1] : '',  
     week: weekDayMatch ? weekDayMatch[1] : '',  
     day: weekDayMatch ? weekDayMatch[2] : '',  
-    title  
+    title,  
+    subtitle: buildWorkoutSubtitle(headerMeta.primaryTargets, headerMeta.secondaryTargets),  
+    primaryTargets: headerMeta.primaryTargets,  
+    secondaryTargets: headerMeta.secondaryTargets,  
+    programNotes: headerMeta.programNotes,  
+    targetDuration: headerMeta.targetDuration,  
+    confidence: headerMeta.confidence  
+  };  
+}  
+
+function parseHeaderMeta(lines) {  
+  const primaryTargets = [];  
+  const secondaryTargets = [];  
+  const programNotes = [];  
+  let targetDuration = '';  
+  let confidence = '';
+
+  const firstExerciseIndex = lines.findIndex(line => /^\d+\.\s+/.test(line));  
+  const headerLines = firstExerciseIndex >= 0 ? lines.slice(0, firstExerciseIndex) : lines.slice();
+
+  let mode = '';
+
+  for (let i = 0; i < headerLines.length; i++) {  
+    const line = String(headerLines[i] || '').trim();  
+    if (!line) continue;
+
+    if (/^primary targets?:?/i.test(line)) {  
+      mode = 'primary';  
+      continue;  
+    }
+
+    if (/^secondary:?/i.test(line)) {  
+      mode = 'secondary';  
+      continue;  
+    }
+
+    const durationMatch = line.match(/^target duration:\s*(.+)$/i);  
+    if (durationMatch) {  
+      targetDuration = clean(durationMatch[1]).replace(/\.$/, '');  
+      mode = '';  
+      continue;  
+    }
+
+    const confidenceMatch = line.match(/^confidence:\s*([0-9.]+)/i);  
+    if (confidenceMatch) {  
+      confidence = clean(confidenceMatch[1]);  
+      mode = '';  
+      continue;  
+    }
+
+    if (/^\d+\.\s+/.test(line)) {  
+      mode = '';  
+      break;  
+    }
+
+    if (/^(phase|week)\b/i.test(line)) continue;  
+    if (line.includes('|')) continue;
+
+    const cleanedLine = cleanHeaderBullet(line);  
+    if (!cleanedLine) continue;
+
+    if (mode === 'primary') {  
+      if (!isLikelyHeaderMetaLine(cleanedLine)) mode = '';  
+      else {  
+        primaryTargets.push(cleanedLine);  
+        continue;  
+      }  
+    }
+
+    if (mode === 'secondary') {  
+      if (!isLikelyHeaderMetaLine(cleanedLine)) mode = '';  
+      else {  
+        secondaryTargets.push(cleanedLine);  
+        continue;  
+      }  
+    }
+
+    if (  
+      /^[A-Z][A-Za-z0-9 +\/,-]{6,}$/.test(cleanedLine) &&  
+      cleanedLine !== cleanedLine.toUpperCase()  
+    ) {  
+      continue;  
+    }
+
+    if (looksLikeProgramNote(cleanedLine)) {  
+      programNotes.push(cleanedLine);  
+    }  
+  }
+
+  return {  
+    primaryTargets: uniqueCleanList(primaryTargets),  
+    secondaryTargets: uniqueCleanList(secondaryTargets),  
+    programNotes: uniqueCleanList(programNotes),  
+    targetDuration,  
+    confidence  
   };  
 }
+
+function cleanHeaderBullet(line) {  
+  return String(line || '')  
+    .replace(/^\d+\.\s*/, '')  
+    .replace(/^[-•]\s*/, '')  
+    .trim()  
+    .replace(/\.$/, '');  
+}
+
+function uniqueCleanList(items) {  
+  const seen = new Set();  
+  const out = [];
+
+  items.forEach(item => {  
+    const value = clean(item);  
+    if (!value) return;  
+    const key = value.toLowerCase();  
+    if (seen.has(key)) return;  
+    seen.add(key);  
+    out.push(value);  
+  });
+
+  return out;  
+}
+
+function isLikelyHeaderMetaLine(line) {  
+  const value = String(line || '').trim();  
+  if (!value) return false;  
+  if (/^(no\s|target duration:|confidence:|phase\b|week\b)/i.test(value)) return false;  
+  if (/^\d+\.\s+/.test(value)) return false;  
+  if (value.includes('|')) return false;  
+  return value.length <= 80;  
+}
+
+function looksLikeProgramNote(line) {  
+  const value = String(line || '').trim();  
+  if (!value) return false;  
+  return (  
+    /^no\s/i.test(value) ||  
+    /\bdo not\b/i.test(value) ||  
+    /\bonly\b/i.test(value) ||  
+    /\bavoid\b/i.test(value)  
+  );  
+}
+
+function simplifyTargetText(value) {  
+  const v = String(value || '').trim();  
+  if (!v) return '';
+
+  return v  
+    .replace(/strength and hypertrophy/ig, 'strength/hypertrophy')  
+    .replace(/strength\/endurance/ig, 'strength/endurance')  
+    .replace(/scapular\/shoulder capacity/ig, 'scapular support')  
+    .replace(/grip strength\/endurance/ig, 'grip endurance')  
+    .replace(/\s+/g, ' ')  
+    .trim();  
+}
+
+function buildWorkoutSubtitle(primaryTargets, secondaryTargets) {  
+  const items = []  
+    .concat(Array.isArray(primaryTargets) ? primaryTargets : [])  
+    .concat(Array.isArray(secondaryTargets) ? secondaryTargets : [])  
+    .map(simplifyTargetText)  
+    .filter(Boolean);
+
+  if (!items.length) return '';
+
+  return items.slice(0, 5).join(' · ');  
+}  
 
 function parseMarkdownWorkoutTable(text) {  
   const lines = text.split('\n').map(s => s.trim()).filter(Boolean);  
@@ -272,12 +448,13 @@ function parseNarrativeWorkout(text) {
   const lines = text.split('\n');  
   const exercises = [];
 
-  let i = 0;  
+  let i = 0;
+
   while (i < lines.length) {  
     const line = (lines[i] || '').trim();
 
     const headingMatch = line.match(/^(\d+)\.\s+(.+)$/);  
-    if (!headingMatch) {  
+    if (!headingMatch || !isLikelyExerciseHeading(headingMatch[2])) {  
       i++;  
       continue;  
     }
@@ -297,7 +474,19 @@ function parseNarrativeWorkout(text) {
   }
 
   return exercises;  
-}
+}  
+
+function isLikelyExerciseHeading(value) {  
+  const line = String(value || '').trim();  
+  if (!line) return false;
+
+  if (/^(primary|secondary|target duration|confidence)\b/i.test(line)) return false;  
+  if (/^rear delts$/i.test(line)) return false;  
+  if (/^scapular\/shoulder capacity$/i.test(line)) return false;  
+  if (/^no horizontal pressing\.?$/i.test(line)) return false;
+
+  return true;  
+}  
 
 function parseNarrativeExerciseBlock(number, rawName, blockLines) {  
   const nonEmpty = blockLines.map(s => s.trim()).filter(Boolean);
@@ -324,16 +513,23 @@ function parseNarrativeExerciseBlock(number, rawName, blockLines) {
   const shortNotes = [];  
   for (const line of nonEmpty) {  
     if (line === prescriptionLine) continue;  
-    if (/^(confidence|w\d+d\d+|progression|target|technical requirements?|technical cues?|tomorrow|therefore|do not|stop if|only perform)/i.test(line)) continue;  
-    if (line.length <= 120 && !/^\d+\s*x\s*/i.test(line) && !line.includes('|')) {  
+    if (/^(confidence|w\d+d\d+|progression|target|technical requirements?|technical cues?|tomorrow|therefore|stop if|only perform)/i.test(line)) continue;  
+    if (/^\d+\s*x\s*/i.test(line)) continue;  
+    if (line.includes('|')) continue;
+
+    if (rawName.toLowerCase() === 'warm-up') {  
+      if (line.length <= 80) shortNotes.push(line);  
+      continue;  
+    }
+
+    if (line.length <= 120) {  
       shortNotes.push(line);  
     }  
   }
 
-  parsed.notes = joinNotes([parsed.notes, shortNotes.slice(0, 3).join(' ')]);  
+  parsed.notes = joinNotes([parsed.notes, shortNotes.slice(0, rawName.toLowerCase() === 'warm-up' ? 6 : 3).join(' | ')]);  
   return parsed;  
-}
-
+}  
 function parseNarrativePrescriptionLine(name, line) {  
   const parts = line.split('|').map(s => s.trim()).filter(Boolean);  
   if (!parts.length) {  
@@ -501,6 +697,7 @@ function buildParseWarnings(meta, exercises) {
   if (!meta.phase) warnings.push('Phase not detected.');  
   if (!meta.week) warnings.push('Week not detected.');  
   if (!meta.day) warnings.push('Day not detected.');  
+  if (!meta.title) warnings.push('Workout title not detected.');  
   if (!exercises.length) warnings.push('No exercises were parsed.');  
   if (exercises.some(ex => !ex.name)) warnings.push('One or more exercises have no detected name.');  
   if (exercises.some(ex => !ex.sets && !ex.reps)) warnings.push('One or more exercises are missing sets/reps.');  
@@ -509,7 +706,7 @@ function buildParseWarnings(meta, exercises) {
   }
 
   return warnings;  
-}
+}  
 
 function upsert(workout) {  
   const all = load();  
