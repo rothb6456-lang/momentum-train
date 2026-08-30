@@ -22,13 +22,43 @@ function escapeHtml(value) {
     .replace(/'/g, '&quot;');  
 }  
 
-/* ---------- state + init ---------- */  
+/* ---------- state + init ---------- */
+
+function loadJson(key, fallback = null) {  
+  try {  
+    const raw = localStorage.getItem(key);  
+    return raw ? JSON.parse(raw) : fallback;  
+  } catch {  
+    return fallback;  
+  }  
+}
+
+function saveJson(key, value) {  
+  localStorage.setItem(key, JSON.stringify(value));  
+}
+
 const state = {  
   cockpit: null,  
   cockpitEditOpen: false,  
   cockpitEditingLastSet: null,  
   restTimer: null  
 };
+
+function persistCockpit() {  
+  saveJson(COCKPIT_KEY, state.cockpit || null);  
+}
+
+function persistEditor() {  
+  saveJson(EDITOR_KEY, (typeof editor !== 'undefined' ? editor : null));  
+}
+
+function clearCockpitPersisted() {  
+  localStorage.removeItem(COCKPIT_KEY);  
+}
+
+function clearEditorPersisted() {  
+  localStorage.removeItem(EDITOR_KEY);  
+}
 
 let active = loadJson(ACTIVE_KEY, null);  
 if (!active || !Array.isArray(active.sets)) {  
@@ -52,8 +82,7 @@ function persist() {
   }  
   persistCockpit();  
   persistEditor();  
-}
-
+}  
 /* ---------- safer planner shell helpers ---------- */  
 function newWorkoutShell(sourceType) {  
   if (typeof MomentumPlanner !== 'undefined' && typeof MomentumPlanner.blankWorkout === 'function') {  
