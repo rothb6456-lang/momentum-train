@@ -370,6 +370,8 @@ function normalizeNumericEntry(value, allowDecimal = false) {
   return parts.length <= 1 ? cleaned : `${parts[0]}.${parts.slice(1).join('')}`;  
 }  
 
+
+
 function logCockpitSetAction() {  
   const cockpit = state.cockpit;  
   if (!cockpit || !Array.isArray(cockpit.exercises)) return;
@@ -689,12 +691,12 @@ const persist = () => {
 
 
   function show(view) {  
-    $$('.view').forEach(x => x.classList.toggle('active', x.id === view));  
-    $$('[data-view]').forEach(x => x.classList.toggle('active', x.dataset.view === view));  
-    const title = { home: 'Today', today: 'Plan', log: 'Log workout', review: 'Review', history: 'History' }[view];  
-    if ($('#mobileTitle')) $('#mobileTitle').textContent = title;  
-    window.scrollTo({ top: 0, behavior: 'smooth' });  
-  }
+  persistCurrentView(view);  
+  $$('.tab').forEach(x => x.classList.toggle('active', x.dataset.view === view));  
+  $$('.view').forEach(x => x.classList.toggle('active', x.id === view));  
+  const title = { home: 'Today', today: 'Plan', log: 'Log workout', review: 'Review', history: 'History' }[view];  
+  if ($('#mobileTitle')) $('#mobileTitle').textContent = title || 'Momentum';  
+}  
 
   $$('[data-view]').forEach(b => b.onclick = () => show(b.dataset.view));
 
@@ -929,6 +931,21 @@ function plannerTeachingCopy(currentEditor) {
     rirLine: 'RIR 3 — finish knowing you had about 3 good reps left.',  
     scienceLine: 'Why this matters: autoregulation methods like RIR are widely used in evidence-based coaching and supported in the training literature for helping lifters select appropriate loads and manage effort as fatigue changes.'  
   };  
+}  
+
+function persistCurrentView(view) {  
+  try {  
+    localStorage.setItem('momentum:lastView', view);  
+  } catch (e) {}  
+}
+
+function restoreCurrentView() {  
+  try {  
+    if (active && Array.isArray(active.sets) && active.sets.length) return 'log';  
+    return localStorage.getItem('momentum:lastView') || 'home';  
+  } catch (e) {  
+    return (active && Array.isArray(active.sets) && active.sets.length) ? 'log' : 'home';  
+  }  
 }  
 
 function renderHome() {  
@@ -2728,7 +2745,8 @@ renderHome();
 renderToday();  
 renderLog();  
 renderReview();  
-renderHistory();
+renderHistory();  
+show(restoreCurrentView());  
 
 let touchStartY = 0;
 
@@ -2737,15 +2755,11 @@ document.addEventListener('touchstart', e => {
 }, { passive: true });
 
 document.addEventListener('touchmove', e => {  
-  const activeLogging =  
-    !!state.cockpit ||  
-    (active && Array.isArray(active.sets) && active.sets.length > 0);
-
   const currentY = e.touches[0] ? e.touches[0].clientY : 0;  
   const pullingDown = currentY > touchStartY;  
   const atTop = window.scrollY <= 0;
 
-  if (activeLogging && atTop && pullingDown) {  
+  if (atTop && pullingDown) {  
     e.preventDefault();  
   }  
 }, { passive: false });  
