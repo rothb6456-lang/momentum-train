@@ -138,7 +138,7 @@ function clearEditorPersisted() {
   function newSession(plan = null) {  
   const source = plan || basePlan();  
   return {  
-    id: uid(),  
+    id: momentumUid(),  
     status: 'draft',  
     planId: source.status === 'reference' ? '' : source.id,  
     plannedWorkout: clone(source),  
@@ -282,7 +282,7 @@ function finishWorkoutAction() {
     const sets = Array.isArray(ex.completedSets) ? ex.completedSets : [];
 
     return sets.map((set, setIndex) => ({  
-      id: uid(),  
+      id: momentumUid(),  
       exercise: exerciseName,  
       name: exerciseName,  
       exerciseName,  
@@ -723,10 +723,6 @@ const persist = () => {
     $$('[data-go]').forEach(b => b.onclick = () => show(b.dataset.go));  
   }
 
-function isMobileHomeLayout() {  
-  return window.matchMedia('(max-width: 760px)').matches;  
-}  
-
 let starterPreviewKey = null;
 
 function isMobileHomeLayout() {  
@@ -741,9 +737,10 @@ function getStarterCard(key) {
   return starterCards().find(card => card.key === key) || null;  
 }
 
-function uid(prefix) {  
+function momentumUid(prefix) {  
+  if (typeof uid === 'function') return uid(prefix);  
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;  
-}
+}  
 
 function newWorkoutShell(sourceType) {  
   if (MomentumPlanner && typeof MomentumPlanner.blankWorkout === 'function') {  
@@ -754,7 +751,7 @@ function newWorkoutShell(sourceType) {
   }
 
   return {  
-    id: uid('plan'),  
+    id: momentumUid('plan'),  
     title: '',  
     scheduledDate: '',  
     sourceType: sourceType || 'manual',  
@@ -770,25 +767,25 @@ function newWorkoutShell(sourceType) {
 function newBlockFromTemplate(template, order) {  
   const base = MomentumPlanner && typeof MomentumPlanner.blankBlock === 'function'  
     ? MomentumPlanner.blankBlock(order)  
-    : { id: uid('block'), order: order };
+    : { id: momentumUid('block'), order: order };
 
   return Object.assign(base, {  
-    id: base.id || uid('block'),  
+    id: base.id || momentumUid('block'),  
     order: order,  
     exerciseName: template.exerciseName || '',  
     targetSets: template.targetSets || '',  
-    targetReps: template.targetReps || '',  
+    targetRepsOrDuration: template.targetRepsOrDuration || '',  
     targetWeightOrLoad: template.targetWeightOrLoad || '',  
     tempo: template.tempo || '',  
     rir: template.rir || '',  
-    rest: template.rest || '',  
-    notes: template.notes || ''  
+    notes: template.notes || '',  
+    checkpoints: template.checkpoints || ''  
   });  
 }
 
 function starterCardToWorkout(card) {  
   const workout = newWorkoutShell(card.sourceType || 'starter');  
-  workout.id = uid('plan');  
+  workout.id = momentumUid('plan');  
   workout.title = card.title;  
   workout.status = 'draft';  
   workout.sourceType = card.sourceType || 'starter';  
@@ -852,12 +849,12 @@ function renderStarterPreview(cardKey) {
                 <b>${index + 1}. ${esc(block.exerciseName)}</b>  
                 <div class="target">  
                   ${esc(block.targetSets)} set${String(block.targetSets) === '1' ? '' : 's'}  
-                  ${block.targetReps ? ` · ${esc(block.targetReps)} reps` : ''}  
+                  ${block.targetRepsOrDuration ? ` · ${esc(block.targetRepsOrDuration)}` : ''}  
                   ${block.tempo ? ` · tempo ${esc(block.tempo)}` : ''}  
                   ${block.rir ? ` · RIR ${esc(block.rir)}` : ''}  
-                  ${block.rest ? ` · rest ${esc(block.rest)}` : ''}  
                 </div>  
                 ${block.notes ? `<div class="quiet" style="margin-top:6px">${esc(block.notes)}</div>` : ''}  
+                ${block.checkpoints ? `<div class="quiet" style="margin-top:6px"><b>Checkpoint:</b> ${esc(block.checkpoints)}</div>` : ''}  
               </div>  
             </div>  
           </div>  
@@ -2112,7 +2109,7 @@ function bindLog() {
       const tempo = [$('#tempoE').value.trim(), $('#tempoP').value.trim(), $('#tempoC').value.trim()].filter(Boolean).join('-');
 
       active.sets.push({  
-        id: uid(),  
+        id: momentumUid(),  
         exercise: active.activeExercise,  
         load,  
         result,  
@@ -2140,7 +2137,7 @@ function bindLog() {
       }  
       active.sets.push({  
         ...prior,  
-        id: uid(),  
+        id: momentumUid(),  
         at: new Date().toISOString()  
       });  
       persist();  
@@ -2203,7 +2200,7 @@ function finish() {
 
   const complete = {  
     ...clone(active),  
-    id: uid(),  
+    id: momentumUid(),  
     status: 'staged',  
     completedAt: new Date().toISOString()  
   };

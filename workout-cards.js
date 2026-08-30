@@ -38,52 +38,52 @@ Object.assign(window.MomentumWorkoutCards, {
         {  
           exerciseName: 'Goblet Squat',  
           targetSets: '3',  
-          targetReps: '8',  
+          targetRepsOrDuration: '8 reps',  
           targetWeightOrLoad: 'Light',  
           tempo: '3-1-2',  
           rir: '4',  
-          rest: '90 sec',  
-          notes: 'Intent: Learn the squat pattern. Cues: Hold the dumbbell close. Sit between your hips. Keep the whole foot planted. Stand smoothly. Checkpoint: Could you stop the movement at any point without losing position?'  
+          notes: 'Intent: Learn the squat pattern. Cues: Hold the dumbbell close. Sit between your hips. Keep the whole foot planted. Stand smoothly.',  
+          checkpoints: 'Could you stop the movement at any point without losing position?'  
         },  
         {  
           exerciseName: 'Neutral-Grip Dumbbell Floor Press',  
           targetSets: '3',  
-          targetReps: '8',  
+          targetRepsOrDuration: '8 reps',  
           targetWeightOrLoad: 'Light',  
           tempo: '3-1-2',  
           rir: '4',  
-          rest: '90 sec',  
-          notes: 'Intent: Learn controlled pressing. Cues: Lower slowly. Pause gently. Press without bouncing. Checkpoint: Feel the chest and triceps working rather than simply moving the dumbbells.'  
+          notes: 'Intent: Learn controlled pressing. Cues: Lower slowly. Pause gently. Press without bouncing.',  
+          checkpoints: 'Feel the chest and triceps working rather than simply moving the dumbbells.'  
         },  
         {  
           exerciseName: 'Seated Neutral-Grip Cable Row',  
           targetSets: '3',  
-          targetReps: '10',  
+          targetRepsOrDuration: '10 reps',  
           targetWeightOrLoad: 'Light-moderate',  
           tempo: '2-1-3',  
           rir: '3-4',  
-          rest: '90 sec',  
-          notes: 'Intent: Learn to pull with the upper back. Cues: Keep the torso stable. Pull toward the lower ribs. Pause. Return slowly. Checkpoint: Your torso should not rock backward to finish repetitions.'  
+          notes: 'Intent: Learn to pull with the upper back. Cues: Keep the torso stable. Pull toward the lower ribs. Pause. Return slowly.',  
+          checkpoints: 'Your torso should not rock backward to finish repetitions.'  
         },  
         {  
           exerciseName: 'Cable Triceps Pushdown',  
           targetSets: '2',  
-          targetReps: '12',  
+          targetRepsOrDuration: '12 reps',  
           targetWeightOrLoad: 'Light',  
           tempo: '2-1-3',  
           rir: '3',  
-          rest: '60 sec',  
-          notes: 'Intent: Learn isolated elbow extension. Cues: Keep elbows relatively fixed. Extend completely without swinging.'  
+          notes: 'Intent: Learn isolated elbow extension. Cues: Keep elbows relatively fixed. Extend completely without swinging.',  
+          checkpoints: ''  
         },  
         {  
           exerciseName: 'Seated Alternating Dumbbell Curl',  
           targetSets: '2',  
-          targetReps: '10/arm',  
+          targetRepsOrDuration: '10 reps/arm',  
           targetWeightOrLoad: 'Light',  
           tempo: '2-1-3',  
           rir: '3',  
-          rest: '60 sec',  
-          notes: 'Intent: Learn to identify biceps contraction. Cues: Keep upper arm quiet. Curl smoothly. Squeeze briefly. Lower under control.'  
+          notes: 'Intent: Learn to identify biceps contraction. Cues: Keep upper arm quiet. Curl smoothly. Squeeze briefly. Lower under control.',  
+          checkpoints: ''  
         }  
       ]  
     },  
@@ -102,52 +102,52 @@ Object.assign(window.MomentumWorkoutCards, {
         {  
           exerciseName: 'Leg Press',  
           targetSets: '3',  
-          targetReps: '6-8',  
+          targetRepsOrDuration: '6-8 reps',  
           targetWeightOrLoad: 'Moderate',  
           tempo: '2-1-2',  
           rir: '2-3',  
-          rest: '2 min',  
-          notes: 'Intent: Build lower-body strength with a stable machine. Cues: Control the descent. Keep your feet planted. Drive evenly through the foot.'  
+          notes: 'Intent: Build lower-body strength with a stable machine. Cues: Control the descent. Keep your feet planted. Drive evenly through the foot.',  
+          checkpoints: ''  
         },  
         {  
           exerciseName: 'Machine Row',  
           targetSets: '3',  
-          targetReps: '6-8',  
+          targetRepsOrDuration: '6-8 reps',  
           targetWeightOrLoad: 'Moderate',  
           tempo: '2-1-2',  
           rir: '2',  
-          rest: '2 min',  
-          notes: 'Intent: Develop upper-back pulling strength. Cues: Establish your chest position first. Pull smoothly. Do not use momentum.'  
+          notes: 'Intent: Develop upper-back pulling strength. Cues: Establish your chest position first. Pull smoothly. Do not use momentum.',  
+          checkpoints: ''  
         },  
         {  
           exerciseName: 'Neutral-Grip Dumbbell Floor Press',  
           targetSets: '3',  
-          targetReps: '6-8',  
+          targetRepsOrDuration: '6-8 reps',  
           targetWeightOrLoad: 'Moderate',  
           tempo: '2-1-2',  
           rir: '2',  
-          rest: '2 min',  
-          notes: 'Intent: Develop horizontal pressing strength. Cues: Set your shoulders. Lower under control. Press evenly.'  
+          notes: 'Intent: Develop horizontal pressing strength. Cues: Set your shoulders. Lower under control. Press evenly.',  
+          checkpoints: ''  
         },  
         {  
           exerciseName: 'Bulgarian Split Squat',  
           targetSets: '2',  
-          targetReps: '8/side',  
+          targetRepsOrDuration: '8 reps/side',  
           targetWeightOrLoad: 'Light-moderate',  
           tempo: '2-1-2',  
           rir: '2-3',  
-          rest: '90 sec',  
-          notes: 'Intent: Introduce unilateral strength and balance. Cues: Descend under control. Keep the front foot stable. Drive through the front leg.'  
+          notes: 'Intent: Introduce unilateral strength and balance. Cues: Descend under control. Keep the front foot stable. Drive through the front leg.',  
+          checkpoints: ''  
         },  
         {  
           exerciseName: 'Rope Pushdown',  
           targetSets: '2',  
-          targetReps: '8-10',  
+          targetRepsOrDuration: '8-10 reps',  
           targetWeightOrLoad: 'Moderate',  
           tempo: '2-1-2',  
           rir: '2',  
-          rest: '75 sec',  
-          notes: 'Intent: Basic arm strength.'  
+          notes: 'Intent: Basic arm strength.',  
+          checkpoints: ''  
         }  
       ]  
     },  
@@ -166,62 +166,62 @@ Object.assign(window.MomentumWorkoutCards, {
         {  
           exerciseName: 'Treadmill Walk',  
           targetSets: '1',  
-          targetReps: '8 min',  
+          targetRepsOrDuration: '8 min',  
           targetWeightOrLoad: 'Easy-moderate',  
           tempo: '',  
           rir: '',  
-          rest: '',  
-          notes: 'Intent: Raise body temperature and begin cardiovascular work. Target: Conversational pace.'  
+          notes: 'Intent: Raise body temperature and begin cardiovascular work. Target: Conversational pace.',  
+          checkpoints: ''  
         },  
         {  
           exerciseName: 'Goblet Squat',  
           targetSets: '2',  
-          targetReps: '12',  
+          targetRepsOrDuration: '12 reps',  
           targetWeightOrLoad: 'Light',  
           tempo: '2-1-2',  
           rir: '3',  
-          rest: '60 sec',  
-          notes: ''  
+          notes: '',  
+          checkpoints: ''  
         },  
         {  
           exerciseName: 'Cable Row',  
           targetSets: '2',  
-          targetReps: '12-15',  
+          targetRepsOrDuration: '12-15 reps',  
           targetWeightOrLoad: 'Light-moderate',  
           tempo: '2-1-2',  
           rir: '3',  
-          rest: '60 sec',  
-          notes: ''  
+          notes: '',  
+          checkpoints: ''  
         },  
         {  
           exerciseName: 'Dumbbell Floor Press',  
           targetSets: '2',  
-          targetReps: '12',  
+          targetRepsOrDuration: '12 reps',  
           targetWeightOrLoad: 'Light',  
           tempo: '2-1-2',  
           rir: '3',  
-          rest: '60 sec',  
-          notes: ''  
+          notes: '',  
+          checkpoints: ''  
         },  
         {  
           exerciseName: "Farmer's Hold",  
           targetSets: '3',  
-          targetReps: '30-45 sec',  
+          targetRepsOrDuration: '30-45 sec',  
           targetWeightOrLoad: 'Moderate',  
           tempo: '',  
-          rir: 'Stop before grip failure',  
-          rest: '60-90 sec',  
-          notes: 'Intent: Grip and whole-body endurance. Cues: Stand tall. Crush the handles. Keep the shoulders organized. Breathe normally.'  
+          rir: '',  
+          notes: 'Intent: Grip and whole-body endurance. Stop before grip failure. Cues: Stand tall. Crush the handles. Keep the shoulders organized. Breathe normally.',  
+          checkpoints: ''  
         },  
         {  
           exerciseName: 'Treadmill or Rower',  
           targetSets: '1',  
-          targetReps: '10 min',  
+          targetRepsOrDuration: '10 min',  
           targetWeightOrLoad: 'Moderate',  
           tempo: '',  
           rir: '',  
-          rest: '',  
-          notes: 'Intent: Build aerobic capacity without sprinting. Effort: Approximately 5-6/10.'  
+          notes: 'Intent: Build aerobic capacity without sprinting. Effort: Approximately 5-6/10.',  
+          checkpoints: ''  
         }  
       ]  
     },  
@@ -240,72 +240,72 @@ Object.assign(window.MomentumWorkoutCards, {
         {  
           exerciseName: 'Treadmill Walk',  
           targetSets: '1',  
-          targetReps: '5-8 min',  
+          targetRepsOrDuration: '5-8 min',  
           targetWeightOrLoad: 'Easy-moderate',  
           tempo: '',  
           rir: '',  
-          rest: '',  
-          notes: 'Intent: General warm-up and aerobic exposure.'  
+          notes: 'Intent: General warm-up and aerobic exposure.',  
+          checkpoints: ''  
         },  
         {  
           exerciseName: 'Romanian Dumbbell Deadlift',  
           targetSets: '3',  
-          targetReps: '8',  
+          targetRepsOrDuration: '8 reps',  
           targetWeightOrLoad: 'Light-moderate',  
           tempo: '3-1-2',  
           rir: '3',  
-          rest: '90 sec',  
-          notes: 'Intent: Learn the hip-hinge pattern and train the posterior chain. Cues: Push the hips backward. Keep the dumbbells close to your legs. Maintain a neutral spine. Stand by driving the hips forward. Checkpoint: You should feel the hamstrings lengthen during the descent.'  
+          notes: 'Intent: Learn the hip-hinge pattern and train the posterior chain. Cues: Push the hips backward. Keep the dumbbells close to your legs. Maintain a neutral spine. Stand by driving the hips forward.',  
+          checkpoints: 'You should feel the hamstrings lengthen during the descent.'  
         },  
         {  
           exerciseName: 'Goblet Squat',  
           targetSets: '3',  
-          targetReps: '8-10',  
+          targetRepsOrDuration: '8-10 reps',  
           targetWeightOrLoad: 'Light-moderate',  
           tempo: '3-1-2',  
           rir: '3',  
-          rest: '90 sec',  
-          notes: 'Intent: Build knee-dominant lower-body strength.'  
+          notes: 'Intent: Build knee-dominant lower-body strength.',  
+          checkpoints: ''  
         },  
         {  
           exerciseName: 'Machine Row',  
           targetSets: '2',  
-          targetReps: '10-12',  
+          targetRepsOrDuration: '10-12 reps',  
           targetWeightOrLoad: 'Moderate',  
           tempo: '2-1-2',  
           rir: '3',  
-          rest: '90 sec',  
-          notes: 'Intent: Upper-back strength and posture-supporting musculature.'  
+          notes: 'Intent: Upper-back strength and posture-supporting musculature.',  
+          checkpoints: ''  
         },  
         {  
           exerciseName: 'Cable Pallof Press',  
           targetSets: '2',  
-          targetReps: '10/side',  
+          targetRepsOrDuration: '10 reps/side',  
           targetWeightOrLoad: 'Light',  
           tempo: '2-1-2',  
           rir: '3',  
-          rest: '60 sec',  
-          notes: 'Intent: Develop trunk stability and resistance to rotation.'  
+          notes: 'Intent: Develop trunk stability and resistance to rotation.',  
+          checkpoints: ''  
         },  
         {  
           exerciseName: "Farmer's Carry",  
           targetSets: '3',  
-          targetReps: '30-45 sec',  
+          targetRepsOrDuration: '30-45 sec',  
           targetWeightOrLoad: 'Moderate',  
           tempo: '',  
           rir: '2',  
-          rest: '90 sec',  
-          notes: 'Intent: Grip, trunk stability, and loaded locomotion. Cues: Tall torso. Controlled steps. Do not allow the weight to pull you sideways.'  
+          notes: 'Intent: Grip, trunk stability, and loaded locomotion. Cues: Tall torso. Controlled steps. Do not allow the weight to pull you sideways.',  
+          checkpoints: ''  
         },  
         {  
           exerciseName: 'Easy Cardio',  
           targetSets: '1',  
-          targetReps: '10-15 min',  
+          targetRepsOrDuration: '10-15 min',  
           targetWeightOrLoad: 'Easy-moderate',  
           tempo: '',  
           rir: '',  
-          rest: '',  
-          notes: 'Intent: Aerobic capacity and recovery. Treadmill, bike, or rower.'  
+          notes: 'Intent: Aerobic capacity and recovery. Treadmill, bike, or rower.',  
+          checkpoints: ''  
         }  
       ]  
     }  
