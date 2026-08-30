@@ -953,6 +953,18 @@ function renderPicker(query = '') {
     renderLog();  
   });  
 }
+/* ---------renderLog Helpers----- */
+function selectedReviewedSession() {  
+  const sessions = typeof getDone === 'function' ? getDone() : [];  
+  if (!Array.isArray(sessions) || !sessions.length) return null;
+
+  if (typeof selectedReviewId !== 'undefined' && selectedReviewId) {  
+    return sessions.find(x => x && x.id === selectedReviewId) || null;  
+  }
+
+  return sessions.find(Boolean) || null;  
+}  
+
 
 /* ---------- renderLog ---------- */  
 function renderLog() {  
