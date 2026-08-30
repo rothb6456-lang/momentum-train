@@ -1,6 +1,11 @@
 /* =========================  
-   MOMENTUM STABILITY + UX PATCH  
+   MOMENTUM STABILITY + CORE HELPERS  
+   Place this block before renderHome()  
    ========================= */
+
+/* ---------- dom helpers ---------- */  
+const $ = (selector, root = document) => root.querySelector(selector);  
+const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
 /* ---------- escaping helpers ---------- */  
 const esc = value =>  
@@ -18,11 +23,10 @@ function escapeHtml(value) {
     .replace(/</g, '&lt;')  
     .replace(/>/g, '&gt;')  
     .replace(/"/g, '&quot;')  
-    .replace(/'/g, '&#39;');  
+    .replace(/'/g, '&#39');  
 }
 
-/* ---------- state + init ---------- */
-
+/* ---------- storage keys ---------- */  
 const STORAGE_KEYS = {  
   active: 'momentum.active.v3',  
   done: 'momentum.sessions.v3',  
@@ -31,6 +35,7 @@ const STORAGE_KEYS = {
   lastView: 'momentum:lastView'  
 };
 
+/* ---------- json storage ---------- */  
 function loadJson(key, fallback = null) {  
   try {  
     const raw = localStorage.getItem(key);  
@@ -44,6 +49,15 @@ function saveJson(key, value) {
   localStorage.setItem(key, JSON.stringify(value));  
 }
 
+function getDone() {  
+  return loadJson(STORAGE_KEYS.done, []);  
+}
+
+function saveDone(sessions) {  
+  saveJson(STORAGE_KEYS.done, Array.isArray(sessions) ? sessions : []);  
+}
+
+/* ---------- session fallback ---------- */  
 function fallbackSession() {  
   const now = new Date().toISOString();  
   return {  
@@ -64,28 +78,13 @@ function fallbackSession() {
   };  
 }
 
+/* ---------- app state ---------- */  
 const state = {  
   cockpit: null,  
   cockpitEditOpen: false,  
   cockpitEditingLastSet: null,  
   restTimer: null  
 };
-
-function persistCockpit() {  
-  saveJson(STORAGE_KEYS.cockpit, state.cockpit || null);  
-}
-
-function persistEditor() {  
-  saveJson(STORAGE_KEYS.editor, (typeof editor !== 'undefined' ? editor : null));  
-}
-
-function clearCockpitPersisted() {  
-  localStorage.removeItem(STORAGE_KEYS.cockpit);  
-}
-
-function clearEditorPersisted() {  
-  localStorage.removeItem(STORAGE_KEYS.editor);  
-}
 
 let active = loadJson(STORAGE_KEYS.active, null);  
 if (!active || !Array.isArray(active.sets)) {  
@@ -98,8 +97,23 @@ let selectedReviewId = '';
 const restoredCockpit = loadJson(STORAGE_KEYS.cockpit, null);  
 if (restoredCockpit && Array.isArray(restoredCockpit.exercises)) {  
   state.cockpit = restoredCockpit;  
-} else {  
-  state.cockpit = null;  
+}
+
+/* ---------- persistence ---------- */  
+function persistCockpit() {  
+  saveJson(STORAGE_KEYS.cockpit, state.cockpit || null);  
+}
+
+function persistEditor() {  
+  saveJson(STORAGE_KEYS.editor, typeof editor !== 'undefined' ? editor : null);  
+}
+
+function clearCockpitPersisted() {  
+  localStorage.removeItem(STORAGE_KEYS.cockpit);  
+}
+
+function clearEditorPersisted() {  
+  localStorage.removeItem(STORAGE_KEYS.editor);  
 }
 
 function ensureActiveSession() {  
@@ -117,186 +131,7 @@ function persist() {
   persistEditor();  
 }
 
-/* ---------- safer planner shell helpers ---------- */  
-function newWorkoutShell(sourceType) {  
-  if (typeof MomentumPlanner !== 'undefined' && typeof MomentumPlanner.blankWorkout === 'function') {  
-    const workout = MomentumPlanner.blankWorkout();  
-    workout.sourceType = sourceType || workout.sourceType || 'manual';  
-    workout.exerciseBlocks = Array.isArray(workout.exerciseBlocks) ? workout.exerciseBlocks : [];  
-    return workout;  
-  }
-
-  return {  
-    id: momentumUid('plan'),  
-    title: '',  
-    subtitle: '',  
-    scheduledDate: '',  
-    sourceType: sourceType || 'manual',  
-    phaseId: '',  
-    week: '',  
-    day: '',  
-    status: 'draft',  
-    sourceRawText: '',  
-    exerciseBlocks: []  
-  };  
-}
-
-function newBlockFromTemplate(template, order) {  
-  const base = typeof MomentumPlanner !== 'undefined' && typeof MomentumPlanner.blankBlock === 'function'  
-    ? MomentumPlanner.blankBlock(order)  
-    : { id: momentumUid('block'), order };
-
-  return Object.assign(base, {  
-    id: base.id || momentumUid('block'),  
-    order,  
-    exerciseName: template.exerciseName || '',  
-    targetSets: template.targetSets || '',  
-    targetRepsOrDuration: template.targetRepsOrDuration || '',  
-    targetWeightOrLoad: template.targetWeightOrLoad || '',  
-    tempo: template.tempo || '',  
-    rir: template.rir || '',  
-    notes: template.notes || '',  
-    checkpoints: template.checkpoints || ''  
-  });  
-}
-
-/* ---------- startup view restore ---------- */  
-function persistCurrentView(view) {  
-  try {  
-    localStorage.setItem('momentum:lastView', view);  
-  } catch (e) {}  
-}
-
-function restoreCurrentView() {  
-  try {  
-    const hasActive =  
-      active &&  
-      (  
-        (Array.isArray(active.sets) && active.sets.length) ||  
-        (state.cockpit && Array.isArray(state.cockpit.exercises) && state.cockpit.exercises.length)  
-      );
-
-    if (hasActive) return 'log';
-
-    const saved = localStorage.getItem('momentum:lastView') || 'today';  
-    return ['home', 'today', 'log', 'review', 'history'].includes(saved) ? saved : 'today';  
-  } catch (e) {  
-    return 'today';  
-  }  
-}
-
-/* ---------- active plan helpers ---------- */  
-function planForActive() {  
-  if (typeof active === 'undefined' || !active || !active.planId) return null;  
-  if (typeof MomentumPlanner === 'undefined' || typeof MomentumPlanner.load !== 'function') return null;  
-  return MomentumPlanner.load().find(x => x.id === active.planId) || null;  
-}
-
-function activeBlock() {  
-  const plan = planForActive();  
-  return plan?.exerciseBlocks?.find(x => x.exerciseName === active.activeExercise) || {  
-    exerciseName: active?.activeExercise || '',  
-    targetRepsOrDuration: '',  
-    tempo: '',  
-    rir: '',  
-    notes: '',  
-    checkpoints: ''  
-  };  
-}
-
-function knownExerciseNames() {  
-  const names = new Set();
-
-  const activePlan = planForActive();  
-  if (activePlan && Array.isArray(activePlan.exerciseBlocks)) {  
-    activePlan.exerciseBlocks.forEach(block => {  
-      const name = String(block?.exerciseName || '').trim();  
-      if (name) names.add(name);  
-    });  
-  }
-
-  if (typeof MomentumPlanner !== 'undefined' && typeof MomentumPlanner.load === 'function') {  
-    MomentumPlanner.load().forEach(workout => {  
-      (workout.exerciseBlocks || []).forEach(block => {  
-        const name = String(block?.exerciseName || '').trim();  
-        if (name) names.add(name);  
-      });  
-    });  
-  }
-
-  return Array.from(names).sort((a, b) => a.localeCompare(b));  
-}
-
-function allExercises() {  
-  return knownExerciseNames();  
-}
-
-function exerciseOptionsMarkup(selected = '') {  
-  return knownExerciseNames().map(name =>  
-    `<option value="${esc(name)}"${name === selected ? ' selected' : ''}>${esc(name)}</option>`  
-  ).join('');  
-}
-
-function canonicalExerciseName(name) {  
-  const value = normalizeExerciseLookupName(name);  
-  if (!value) return '';  
-  return knownExerciseNames().find(x => normalizeExerciseLookupName(x) === value) || String(name || '').trim();  
-}
-
-function exerciseDatalistMarkup() {  
-  const names = Array.isArray(knownExerciseNames()) ? knownExerciseNames() : [];  
-  return names.map(name => `<option value="${esc(name)}"></option>`).join('');  
-}
-
-/* ---------- today / home UX helpers ---------- */  
-function openPlannerBuilder() {  
-  starterPreviewKey = null;  
-  editor = newWorkoutShell('manual');  
-  show('today');  
-  renderToday();  
-  setTimeout(() => {  
-    renderEditor('builder');  
-    $('#plannerEditor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });  
-  }, 30);  
-}
-
-function openPlannerPaste() {  
-  starterPreviewKey = null;  
-  editor = newWorkoutShell('chatgpt');  
-  show('today');  
-  renderToday();  
-  setTimeout(() => {  
-    renderEditor('paste');  
-    $('#plannerEditor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });  
-  }, 30);  
-}
-
-function openTrainingFocus() {  
-  starterPreviewKey = null;  
-  editor = null;  
-  renderToday();  
-  show('today');  
-  setTimeout(() => {  
-    const node = $('#trainingFocus');  
-    if (node && node.scrollIntoView) node.scrollIntoView({ behavior: 'smooth', block: 'start' });  
-  }, 40);  
-}
-
-
-
-/* ----------renderHelpers--------- */
-function getDone() {  
-  try {  
-    return JSON.parse(localStorage.getItem('momentum.sessions.v3') || '[]');  
-  } catch {  
-    return [];  
-  }  
-}
-
-function saveDone(sessions) {  
-  localStorage.setItem('momentum.sessions.v3', JSON.stringify(sessions));  
-}
-
+/* ---------- planner / queue helpers ---------- */  
 function queued() {  
   if (typeof MomentumPlanner === 'undefined' || typeof MomentumPlanner.load !== 'function') {  
     return [];  
@@ -320,17 +155,83 @@ function planSummary(plan) {
   ].filter(Boolean).join(' · ') || 'No phase metadata';  
 }
 
+/* ---------- navigation helpers ---------- */  
 function bindGo() {  
   $$('[data-go]').forEach(b => {  
     b.onclick = () => show(b.dataset.go);  
   });  
-}  
+}
+
+function persistCurrentView(view) {  
+  try {  
+    localStorage.setItem(STORAGE_KEYS.lastView, view);  
+  } catch {}  
+}
+
+function restoreCurrentView() {  
+  try {  
+    const hasActive =  
+      active &&  
+      (  
+        (Array.isArray(active.sets) && active.sets.length > 0) ||  
+        (state.cockpit && Array.isArray(state.cockpit.exercises) && state.cockpit.exercises.length > 0)  
+      );
+
+    if (hasActive) return 'log';
+
+    const saved = localStorage.getItem(STORAGE_KEYS.lastView) || 'today';  
+    return ['home', 'today', 'log', 'review', 'history'].includes(saved) ? saved : 'today';  
+  } catch {  
+    return 'today';  
+  }  
+}
+
+/* ---------- ui helpers ---------- */  
 function isMobileHomeLayout() {  
   return window.matchMedia('(max-width: 760px)').matches;  
 }
 
 function starterCards() {  
   return (window.MomentumWorkoutCards && window.MomentumWorkoutCards.starterCards) || [];  
+}
+
+function metric(label, value, detail) {  
+  return `<article class="card metric"><div class="label">${esc(label)}</div><div class="value">${esc(value)}</div><div class="delta">${esc(detail)}</div></article>`;  
+}
+
+/* ---------- plan entry helpers ---------- */  
+let starterPreviewKey = null;
+
+function openPlannerBuilder() {  
+  starterPreviewKey = null;  
+  editor = (typeof newWorkoutShell === 'function') ? newWorkoutShell('manual') : null;  
+  show('today');  
+  if (typeof renderToday === 'function') renderToday();  
+  setTimeout(() => {  
+    if (typeof renderEditor === 'function') renderEditor('builder');  
+    $('#plannerEditor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });  
+  }, 30);  
+}
+
+function openPlannerPaste() {  
+  starterPreviewKey = null;  
+  editor = (typeof newWorkoutShell === 'function') ? newWorkoutShell('chatgpt') : null;  
+  show('today');  
+  if (typeof renderToday === 'function') renderToday();  
+  setTimeout(() => {  
+    if (typeof renderEditor === 'function') renderEditor('paste');  
+    $('#plannerEditor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });  
+  }, 30);  
+}
+
+function openTrainingFocus() {  
+  starterPreviewKey = null;  
+  editor = null;  
+  if (typeof renderToday === 'function') renderToday();  
+  show('today');  
+  setTimeout(() => {  
+    $('#trainingFocus')?.scrollIntoView({ behavior: 'smooth', block: 'start' });  
+  }, 40);  
 }  
 
 /* ---------- renderHome ---------- */  
