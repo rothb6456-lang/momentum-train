@@ -1084,10 +1084,11 @@ function persistCurrentView(view) {
 
 function restoreCurrentView() {  
   try {  
-    if (active && Array.isArray(active.sets) && active.sets.length) return 'log';  
+    const hasActive = typeof active !== 'undefined' && active && Array.isArray(active.sets) && active.sets.length;  
+    if (hasActive) return 'log';  
     return localStorage.getItem('momentum:lastView') || 'home';  
   } catch (e) {  
-    return (active && Array.isArray(active.sets) && active.sets.length) ? 'log' : 'home';  
+    return 'home';  
   }  
 }  
 
@@ -2053,17 +2054,18 @@ function renderLog() {
   const root = document.getElementById('log');  
   if (!root) return;
 
-  if (state.cockpit && state.cockpit.exercises?.length) {  
-    const ex = getActiveCockpitExercise();
-
+  if (typeof active === 'undefined' || !active) {  
     root.innerHTML = `  
       <div class="log-shell">  
-        ${renderCockpitHeader(state.cockpit)}  
-        ${renderCockpitExercise(ex)}  
+        <article class="card section">  
+          <div class="eyebrow">Log workout</div>  
+          <h1 style="margin-top:6px">Loading session…</h1>  
+          <p class="quiet">Active workout state is still initializing.</p>  
+        </article>  
       </div>  
     `;  
     return;  
-  }
+  }  
 
   const reviewed = selectedReviewedSession();  
   const showCompletedState =  
@@ -2433,12 +2435,6 @@ function finish() {
   state.cockpitEditOpen = false;  
   state.restTimer = null;  
   persist();
-
-  renderHome();  
-  renderToday();  
-  renderReview();  
-  renderLog();  
-  show('review');  
   toast('Workout complete. Review before sharing.');  
 }  
 window.startCockpitForWorkout = startCockpitForWorkout;  
@@ -2454,6 +2450,12 @@ window.startCurrentExerciseRestTimer = startCurrentExerciseRestTimer;
 window.stopRestTimer = stopRestTimer;
 window.finishWorkoutAction = finishWorkoutAction;  
 window.deleteLastCockpitSet = deleteLastCockpitSet;      
+
+  renderHome();  
+  renderToday();  
+  renderReview();  
+  renderLog();  
+  show('review');  
 
 function debrief(session) {  
   const groups = (session.sets || []).reduce((all, set) => {  
