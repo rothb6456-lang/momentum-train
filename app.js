@@ -1458,7 +1458,18 @@ function renderReview() {
 }
 /* -----------renderHistory---------------- */
 
+function renderHistory() {  
+  const root = $('#history');  
+  if (!root) return;
 
+  root.innerHTML = `  
+    <div class="card section">  
+      <div class="eyebrow">History</div>  
+      <h2 style="margin-top:6px">History view</h2>  
+      <p class="quiet">History is not available yet.</p>  
+    </div>  
+  `;  
+}  
 
 
 
@@ -1468,13 +1479,20 @@ function renderReview() {
 
 /* ---------- startup render: keep only this startup block ---------- */  
 window.addEventListener('load', () => {  
-  renderHome();  
-  renderToday();  
-  renderLog();  
-  renderReview();  
-  renderHistory();  
-  show(restoreCurrentView());  
-});
+  try { if (typeof renderHome === 'function') renderHome(); } catch (e) { console.error('renderHome failed', e); }  
+  try { if (typeof renderToday === 'function') renderToday(); } catch (e) { console.error('renderToday failed', e); }  
+  try { if (typeof renderLog === 'function') renderLog(); } catch (e) { console.error('renderLog failed', e); }  
+  try { if (typeof renderReview === 'function') renderReview(); } catch (e) { console.error('renderReview failed', e); }  
+  try { if (typeof renderHistory === 'function') renderHistory(); } catch (e) { console.error('renderHistory failed', e); }
+
+  try {  
+    if (typeof show === 'function') {  
+      show(typeof restoreCurrentView === 'function' ? restoreCurrentView() : 'today');  
+    }  
+  } catch (e) {  
+    console.error('show failed', e);  
+  }  
+});  
 
 /* ---------- unload persistence ---------- */  
 window.addEventListener('beforeunload', () => {  
