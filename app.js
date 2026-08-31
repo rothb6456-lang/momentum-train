@@ -1518,10 +1518,6 @@ function renderLog() {
   if (typeof bindLog === 'function') bindLog();
   if (typeof bindSessionContext === 'function') bindSessionContext();
 }
-  renderPicker();  
-  if (typeof bindLog === 'function') bindLog();  
-  bindSessionContext();  
-}  
 
 /* ---------- single bindReview (keep only this one) ---------- */  
 function bindReview(session) {  
