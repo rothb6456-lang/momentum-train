@@ -1256,6 +1256,13 @@ function renderEditor(mode) {
   });
 
   $$('[data-block][data-field="exerciseName"]').forEach(input => {
+    input.oninput = () => {
+      const block = editor.exerciseBlocks.find(x => x.id === input.dataset.block);
+      if (block) block.exerciseName = input.value;
+      const card = input.closest('[data-block-card]');
+      const h2 = card && card.querySelector('h2');
+      if (h2) h2.textContent = input.value || 'Untitled exercise';
+    };
     input.onchange = () => {
       const block = editor.exerciseBlocks.find(x => x.id === input.dataset.block);
       if (!block) return;
@@ -1728,3 +1735,411 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
+/* =========================
+   MISSING CORE FUNCTIONS
+   app.js references these helpers but none are defined in app.js / planner.js.
+   Each is assigned only if not already present, so existing definitions in
+   data.js / workout-cards.js always win and we only fill the gaps.
+   ========================= */
+(function () {
+  const has = name => typeof window[name] === 'function';
+  const uid = (prefix = 'id') => `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+  if (!has('momentumUid')) window.momentumUid = function momentumUid(prefix) { return uid(prefix); };
+
+  if (!has('toast')) {
+    window.toast = function toast(msg) {
+      const el = document.getElementById('toast');
+      if (!el) return;
+      el.textContent = msg == null ? '' : String(msg);
+      el.style.opacity = '1';
+      el.style.transform = 'translateY(0)';
+      clearTimeout(toast._t);
+      toast._t = setTimeout(() => {
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(10px)';
+      }, 2200);
+    };
+  }
+
+  if (!has('clock')) {
+    window.clock = function clock(total) {
+      const s = Math.max(0, Math.floor(Number(total) || 0));
+      const pad = n => String(n).padStart(2, '0');
+      const h = Math.floor(s / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      const sec = s % 60;
+      return h > 0 ? `${h}:${pad(m)}:${pad(sec)}` : `${pad(m)}:${pad(sec)}`;
+    };
+  }
+
+  if (!has('dateIso')) {
+    window.dateIso = function dateIso(value) {
+      const d = value ? new Date(value) : new Date();
+      if (isNaN(d)) return '';
+      return d.toISOString().slice(0, 10);
+    };
+  }
+  if (!has('dateText')) {
+    window.dateText = function dateText(value) {
+      const d = value ? new Date(value) : new Date();
+      if (isNaN(d)) return '';
+      return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    };
+  }
+
+  if (!has('canonicalExerciseName')) {
+    window.canonicalExerciseName = function canonicalExerciseName(name) {
+      return String(name == null ? '' : name).trim().replace(/\s+/g, ' ');
+    };
+  }
+
+  if (!has('normalizeNumericEntry')) {
+    window.normalizeNumericEntry = function normalizeNumericEntry(value, isLoad) {
+      const raw = String(value == null ? '' : value).trim();
+      if (!raw) return '';
+      // keep digits, decimals, ranges, and unit letters; drop the rest
+      const cleaned = raw.replace(/[^0-9.\-–\s/a-zA-Z]/g, '').replace(/\s+/g, ' ').trim();
+      return cleaned || raw;
+    };
+  }
+
+  if (!has('newWorkoutShell')) {
+    window.newWorkoutShell = function newWorkoutShell(source) {
+      if (typeof MomentumPlanner !== 'undefined' && typeof MomentumPlanner.blankWorkout === 'function') {
+        const w = MomentumPlanner.blankWorkout();
+        w.sourceType = source || 'manual';
+        return w;
+      }
+      return {
+        id: uid('plan'), title: 'Untitled workout', subtitle: '', scheduledDate: '',
+        phaseId: '', week: '', day: '', sourceType: source || 'manual', sourceRawText: '',
+        status: 'queued', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+        exerciseBlocks: []
+      };
+    };
+  }
+
+  if (!has('basePlan')) {
+    window.basePlan = function basePlan() { return newWorkoutShell('reference'); };
+  }
+
+  if (!has('newSession')) {
+    window.newSession = function newSession(plan) {
+      const now = new Date().toISOString();
+      const session = fallbackSession();
+      session.id = uid('session');
+      session.startedAt = now;
+      session.updatedAt = now;
+      if (plan) {
+        session.status = 'active';
+        session.planId = plan.id || '';
+        session.plannedWorkout = plan;
+        session.phase = plan.phaseId || '';
+        session.week = plan.week || '';
+        session.day = plan.day || '';
+        session.workoutName = plan.title || 'Planned workout';
+        session.activeExercise = (Array.isArray(plan.exerciseBlocks) && plan.exerciseBlocks[0] && plan.exerciseBlocks[0].exerciseName) || '';
+        if (typeof MomentumPlanner !== 'undefined' && typeof MomentumPlanner.buildCockpitWorkout === 'function') {
+          state.cockpit = MomentumPlanner.buildCockpitWorkout(plan);
+        }
+      }
+      return session;
+    };
+  }
+
+  if (!has('allExercises')) {
+    window.allExercises = function allExercises() {
+      const names = new Set();
+      const add = b => { if (b && b.exerciseName) names.add(String(b.exerciseName).trim()); };
+      const cards = (typeof starterCards === 'function') ? starterCards() : [];
+      cards.forEach(c => (Array.isArray(c.exerciseBlocks) ? c.exerciseBlocks : []).forEach(add));
+      if (typeof MomentumPlanner !== 'undefined' && typeof MomentumPlanner.load === 'function') {
+        MomentumPlanner.load().forEach(p => (Array.isArray(p.exerciseBlocks) ? p.exerciseBlocks : []).forEach(add));
+      }
+      if (state.cockpit && Array.isArray(state.cockpit.exercises)) {
+        state.cockpit.exercises.forEach(add);
+      }
+      return [...names].filter(Boolean).sort();
+    };
+  }
+
+  if (!has('exerciseDatalistMarkup')) {
+    window.exerciseDatalistMarkup = function exerciseDatalistMarkup() {
+      const list = (typeof allExercises === 'function') ? allExercises() : [];
+      return list.map(name => `<option value="${esc(name)}"></option>`).join('');
+    };
+  }
+
+  if (!has('plannerTeachingCopy')) {
+    window.plannerTeachingCopy = function plannerTeachingCopy(editor) {
+      return {
+        tempoLabel: 'Tempo (eccentric · pause · concentric)',
+        tempoExample: 'Example: 3-1-2 = lower 3s, pause 1s, lift 2s',
+        rirLine: 'RIR (Reps in Reserve)',
+        scienceLine: 'RIR helps autoregulate load as fatigue changes.'
+      };
+    };
+  }
+
+  // Editable exercise block for the Workout Builder. Inputs carry data-block +
+  // data-field so renderEditor's existing handlers keep them in sync.
+  if (!has('builderBlock')) {
+    window.builderBlock = function builderBlock(block, index) {
+      block = block || { id: uid('block'), exerciseName: '' };
+      if (!block.id) block.id = uid('block');
+      const bid = esc(block.id);
+      const input = (field, label, attrs = '') =>
+        `<label class="field">${esc(label)}<input class="input" data-block="${bid}" data-field="${esc(field)}" value="${esc(block[field] ?? '')}" ${attrs}></label>`;
+      const area = (field, label) =>
+        `<label class="field full">${esc(label)}<textarea data-block="${bid}" data-field="${esc(field)}">${esc(block[field] ?? '')}</textarea></label>`;
+      return `<div class="exercise-card" data-block-card="${bid}">
+        <div class="card-head"><div><div class="eyebrow">Exercise ${index + 1}</div><h2 style="margin-top:4px">${esc(block.exerciseName || 'Untitled exercise')}</h2></div></div>
+        <div class="set-form" style="margin-top:10px">
+          ${input('exerciseName', 'Exercise name')}
+          ${input('targetSets', 'Target sets', 'inputmode="numeric"')}
+          ${input('targetRepsOrDuration', 'Reps / duration')}
+          ${input('targetWeightOrLoad', 'Load (lbs)', 'inputmode="decimal"')}
+          ${input('tempo', 'Tempo')}
+          ${input('rir', 'RIR')}
+          ${input('rest', 'Rest')}
+          ${area('notes', 'Notes')}
+          ${area('checkpoints', 'Technical checkpoint')}
+        </div>
+        <div class="actions"><button class="danger" data-remove-block="${bid}">Remove exercise</button></div>
+      </div>`;
+    };
+  }
+
+  // Preview a starter card in the planner editor with a "Use this card" action.
+  if (!has('renderStarterPreview')) {
+    window.renderStarterPreview = function renderStarterPreview(key) {
+      const root = $('#plannerEditor');
+      if (!root) return;
+      const cards = (typeof starterCards === 'function') ? starterCards() : [];
+      const card = cards.find(c => c && c.key === key);
+      if (!card) {
+        root.innerHTML = '<div class="empty">That starter card could not be found.</div>';
+        return;
+      }
+      const blocks = Array.isArray(card.exerciseBlocks) ? card.exerciseBlocks : [];
+      root.innerHTML = `
+        <article class="card">
+          <div class="eyebrow">Starter card preview</div>
+          <h2 style="margin-top:6px">${esc(card.title)}</h2>
+          <p class="quiet">${esc(card.descriptor || '')} · ${esc(card.equipment || '—')} · ${esc(card.duration || '—')}</p>
+          <div class="workout-card" style="margin-top:12px">
+            ${blocks.length ? blocks.map((b, i) => `
+              <div class="exercise-card">
+                <div class="exercise-title"><b>${esc(b.exerciseName || ('Exercise ' + (i + 1)))}</b></div>
+                <div class="quiet">${esc([b.targetSets && (b.targetSets + ' sets'), b.targetRepsOrDuration, b.targetWeightOrLoad && (b.targetWeightOrLoad + ' lbs'), b.tempo && ('Tempo ' + b.tempo), b.rir && ('RIR ' + b.rir)].filter(Boolean).join(' · ') || 'No target')}</div>
+              </div>`).join('') : '<div class="empty">No exercises in this card.</div>'}
+          </div>
+          <div class="actions" style="margin-top:14px">
+            <button class="primary" id="useStarterCard">Use this card</button>
+            <button class="secondary" id="cancelStarterPreview">Cancel</button>
+          </div>
+        </article>`;
+
+      const use = $('#useStarterCard');
+      if (use) use.onclick = () => {
+        const workout = newWorkoutShell('starter');
+        workout.title = card.title || 'Starter workout';
+        workout.subtitle = card.descriptor || '';
+        workout.sourceType = 'starter';
+        const mkBlock = (i) => {
+          const base = (typeof MomentumPlanner !== 'undefined' && typeof MomentumPlanner.blankBlock === 'function')
+            ? MomentumPlanner.blankBlock(i + 1) : { id: uid('block'), order: i + 1, exerciseName: '' };
+          const src = blocks[i] || {};
+          return { ...base, ...src, id: uid('block') };
+        };
+        workout.exerciseBlocks = blocks.map((_, i) => mkBlock(i));
+        if (typeof MomentumPlanner !== 'undefined' && typeof MomentumPlanner.upsert === 'function') {
+          MomentumPlanner.upsert(workout);
+        }
+        editor = null;
+        starterPreviewKey = null;
+        if (typeof renderToday === 'function') renderToday();
+        if (typeof renderHome === 'function') renderHome();
+        if (typeof toast === 'function') toast('Starter card added to queue');
+      };
+      const cancel = $('#cancelStarterPreview');
+      if (cancel) cancel.onclick = () => { editor = null; starterPreviewKey = null; root.innerHTML = ''; };
+    };
+  }
+
+  if (!has('debrief')) {
+    window.debrief = function debrief(session) {
+      const sets = Array.isArray(session.sets) ? session.sets : [];
+      const lines = [
+        `Workout: ${session.workoutName || 'Workout'}`,
+        `Date: ${dateText(session.completedAt)}`,
+        `Sets: ${sets.length}`
+      ];
+      if (session.coachQuestions) lines.push(`Questions for Coach: ${session.coachQuestions}`);
+      lines.push('');
+      sets.forEach((s, i) => {
+        lines.push(`Set ${i + 1}: ${s.exerciseName || s.exercise || '—'} — ${s.load || '—'} lbs × ${s.reps || '—'} reps${s.rir ? ' (RIR ' + s.rir + ')' : ''}${s.notes ? ' — ' + s.notes : ''}`);
+      });
+      return lines.join('\n');
+    };
+  }
+
+  if (!has('csv')) {
+    window.csv = function csv(session) {
+      const sets = Array.isArray(session.sets) ? session.sets : [];
+      const header = ['Set', 'Exercise', 'Load', 'Reps', 'RIR', 'Notes'];
+      const rows = sets.map((s, i) => [i + 1, s.exerciseName || s.exercise || '', s.load || '', s.reps || '', s.rir || '', s.notes || '']);
+      const q = v => `"${String(v).replace(/"/g, '""')}"`;
+      return [header, ...rows].map(r => r.map(q).join(',')).join('\n');
+    };
+  }
+
+  if (!has('copy')) {
+    window.copy = async function copy(text) {
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(String(text));
+        } else {
+          const ta = document.createElement('textarea');
+          ta.value = String(text);
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          ta.remove();
+        }
+      } catch (_) { /* ignore */ }
+    };
+  }
+
+  if (!has('download')) {
+    window.download = function download(filename, mime, content) {
+      const blob = new Blob([content], { type: (mime || 'text/plain') });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename || 'download';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 120);
+    };
+  }
+
+  if (!has('reviewDetail')) {
+    window.reviewDetail = function reviewDetail(session) {
+      if (!session) return '<div class="empty">No session selected.</div>';
+      const sets = Array.isArray(session.sets) ? session.sets : [];
+      return `
+        <div class="card-head"><div><div class="eyebrow">Review</div><h2 style="margin-top:6px">${esc(session.workoutName || 'Workout')}</h2></div>${esc(session.status || '')}</div>
+        <p class="quiet">${dateText(session.completedAt)} · ${sets.length} set${sets.length === 1 ? '' : 's'}</p>
+        <div class="stack" style="margin-top:12px">
+          ${sets.length ? sets.map((s, i) => `
+            <div class="exercise-card">
+              <div class="exercise-title"><b>Set ${i + 1}</b> <span class="quiet">${esc(s.exerciseName || s.exercise || '')}</span></div>
+              <div class="quiet">${esc([s.load && (s.load + ' lbs'), s.reps && (s.reps + ' reps'), s.rir && ('RIR ' + s.rir)].filter(Boolean).join(' · ') || '—')}</div>
+              ${s.notes ? `<div class="quiet">${esc(s.notes)}</div>` : ''}
+            </div>`).join('') : '<div class="empty">No sets logged.</div>'}
+        </div>
+        <div class="set-form" style="margin-top:14px">
+          <label class="field full">Questions for Coach<textarea id="reviewQuestions">${esc(session.coachQuestions || '')}</textarea></label>
+        </div>
+        <div class="actions" style="margin-top:12px">
+          <button class="primary" id="copyDebrief">Copy debrief</button>
+          <button class="secondary" id="exportCsv">Export CSV</button>
+          ${session.status === 'staged' ? '<button class="secondary" id="undoFinish">Undo finish</button>' : ''}
+        </div>`;
+    };
+  }
+
+  // Log screen handlers: add/duplicate set, finish, discard, rir chips, search.
+  if (!has('bindLog')) {
+    window.bindLog = function bindLog() {
+      const addSet = $('#addSet');
+      if (addSet) addSet.onclick = () => {
+        const session = ensureActiveSession();
+        const loadEl = $('#load');
+        const resultEl = $('#result');
+        const load = loadEl ? loadEl.value.trim() : '';
+        const reps = resultEl ? resultEl.value.trim() : '';
+        if (!load && !reps) { if (typeof toast === 'function') toast('Enter a load or rep count'); return; }
+        const block = (typeof activeBlock === 'function' ? activeBlock() : null) || {};
+        const te = $('#tempoE'), tp = $('#tempoP'), tc = $('#tempoC');
+        const tempo = [te, tp, tc].map(el => el ? el.value.trim() : '').filter(Boolean).join('-');
+        const rirChip = $('[data-rir].active');
+        const rir = rirChip ? rirChip.dataset.rir : (block.rir || '');
+        const noteEl = $('#note');
+        const exerciseName = block.exerciseName || session.activeExercise || '';
+        session.sets = Array.isArray(session.sets) ? session.sets : [];
+        session.sets.push({
+          exerciseName, exercise: exerciseName,
+          load, result: reps, reps,
+          tempo, rir,
+          notes: noteEl ? noteEl.value.trim() : '',
+          loggedAt: new Date().toISOString()
+        });
+        if (typeof persist === 'function') persist();
+        if (typeof renderLog === 'function') renderLog();
+      };
+
+      const dup = $('#duplicateLast');
+      if (dup) dup.onclick = () => {
+        const session = ensureActiveSession();
+        session.sets = Array.isArray(session.sets) ? session.sets : [];
+        const last = session.sets[session.sets.length - 1];
+        if (!last) { if (typeof toast === 'function') toast('No previous set to duplicate'); return; }
+        session.sets.push({ ...last, loggedAt: new Date().toISOString() });
+        if (typeof persist === 'function') persist();
+        if (typeof renderLog === 'function') renderLog();
+      };
+
+      const finish = $('#finish');
+      if (finish) finish.onclick = () => {
+        const session = ensureActiveSession();
+        session.status = 'staged';
+        session.completedAt = new Date().toISOString();
+        const done = getDone();
+        done.unshift(session);
+        saveDone(done);
+        active = (typeof newSession === 'function') ? newSession() : fallbackSession();
+        state.cockpit = null;
+        state.cockpitEditOpen = false;
+        state.restTimer = null;
+        if (typeof persist === 'function') persist();
+        if (typeof renderLog === 'function') renderLog();
+        if (typeof renderReview === 'function') renderReview();
+        if (typeof renderHome === 'function') renderHome();
+        if (typeof toast === 'function') toast('Workout finished — moved to Review');
+      };
+
+      const discard = $('#discard');
+      if (discard) discard.onclick = () => { if (typeof discardActiveWorkout === 'function') discardActiveWorkout(); };
+
+      $$('[data-type]').forEach(b => b.onclick = () => {
+        $$('[data-type]').forEach(x => x.classList.toggle('active', x === b));
+      });
+
+      $$('[data-rir]').forEach(b => b.onclick = () => {
+        $$('[data-rir]').forEach(x => x.classList.toggle('active', x === b));
+      });
+
+      const search = $('#searchExercise');
+      if (search) search.oninput = () => { if (typeof renderPicker === 'function') renderPicker(search.value); };
+    };
+  }
+
+  // Live session timer: updates #timer once per second when on the Log view.
+  if (!has('_momentumTimerStarted')) {
+    window._momentumTimerStarted = true;
+    setInterval(() => {
+      const el = document.getElementById('timer');
+      if (!el) return;
+      if (typeof active === 'undefined' || !active || !active.startedAt) return;
+      if (typeof window.clock === 'function') {
+        const secs = Math.max(0, Math.floor((Date.now() - new Date(active.startedAt).getTime()) / 1000));
+        el.textContent = window.clock(secs);
+      }
+    }, 1000);
+  }
+})();
