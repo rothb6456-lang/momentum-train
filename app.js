@@ -204,18 +204,7 @@ function metric(label, value, detail) {
 
 /* ---------- plan entry helpers ---------- */  
 
-function renderHistory() {  
-  const root = $('#history');  
-  if (!root) return;
-
-  root.innerHTML = `  
-    <div class="card section">  
-      <div class="eyebrow">History</div>  
-      <h2 style="margin-top:6px">History view</h2>  
-      <p class="quiet">History is not available yet.</p>  
-    </div>  
-  `;  
-}  
+ 
 
 /* ---------- stable session / navigation / planner helpers ---------- */
 
@@ -1467,6 +1456,26 @@ function renderReview() {
 
   if (selected) bindReview(selected);  
 }
+/* -----------renderHistory---------------- */
+
+function renderHistory() {  
+  const root = $('#history');  
+  if (!root) return;
+
+  root.innerHTML = `  
+    <div class="card section">  
+      <div class="eyebrow">History</div>  
+      <h2 style="margin-top:6px">History view</h2>  
+      <p class="quiet">History is not available yet.</p>  
+    </div>  
+  `;  
+}  
+
+
+
+
+
+
 
 /* ---------- startup render: keep only this startup block ---------- */  
 window.addEventListener('load', () => {  
