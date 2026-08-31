@@ -201,7 +201,7 @@ function metric(label, value, detail) {
 }
 
 /* ---------- plan entry helpers ---------- */  
-let starterPreviewKey = null;
+
 
 /* ---------- stable session / navigation / planner helpers ---------- */
 
