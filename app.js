@@ -8,23 +8,24 @@ const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
 /* ---------- escaping helpers ---------- */  
+/* ---------- escaping helpers ---------- */  
 const esc = value =>  
   String(value ?? '').replace(/[&<>'"]/g, ch => ({  
-    '&': '&amp;',  
-    '<': '&lt;',  
-    '>': '&gt;',  
-    "'": '&#39;',  
-    '"': '&quot;'  
+    '&': '&',  
+    '<': '<',  
+    '>': '>',  
+    "'": ''',  
+    '"': '"'  
   }[ch]));
 
 function escapeHtml(value) {  
   return String(value ?? '')  
-    .replace(/&/g, '&amp;')  
-    .replace(/</g, '&lt;')  
-    .replace(/>/g, '&gt;')  
-    .replace(/"/g, '&quot;')  
-    .replace(/'/g, '&#39');  
-}
+    .replace(/&/g, '&')  
+    .replace(/</g, '<')  
+    .replace(/>/g, '>')  
+    .replace(/"/g, '"')  
+    .replace(/'/g, ''');  
+}  
 
 /* ---------- storage keys ---------- */  
 const STORAGE_KEYS = {  
@@ -202,156 +203,72 @@ function metric(label, value, detail) {
 /* ---------- plan entry helpers ---------- */  
 let starterPreviewKey = null;
 
-/* ---------- compatibility shim block ---------- */
+/* ---------- stable session / navigation / planner helpers ---------- */
+
+let starterPreviewKey = null;
 
 function selectedReviewedSession() {  
-  const sessions = (typeof getDone === 'function') ? getDone() : [];  
+  const sessions = getDone();  
   if (!Array.isArray(sessions) || !sessions.length) return null;
 
-  if (typeof selectedReviewId !== 'undefined' && selectedReviewId) {  
+  if (selectedReviewId) {  
     return sessions.find(x => x && x.id === selectedReviewId) || null;  
   }
 
-  return sessions.find(Boolean) || null;  
+  return sessions[0] || null;  
+}
+
+function planForActive() {  
+  const session = ensureActiveSession();  
+  if (!session) return null;
+
+  if (session.plannedWorkout && Array.isArray(session.plannedWorkout.exerciseBlocks)) {  
+    return session.plannedWorkout;  
+  }
+
+  if (  
+    session.planId &&  
+    typeof MomentumPlanner !== 'undefined' &&  
+    typeof MomentumPlanner.load === 'function'  
+  ) {  
+    return MomentumPlanner.load().find(x => x && x.id === session.planId) || null;  
+  }
+
+  return null;  
 }
 
 function activeBlock() {  
-  const session = (typeof ensureActiveSession === 'function')  
-    ? ensureActiveSession()  
-    : (typeof active !== 'undefined' ? active : null);
-
+  const session = ensureActiveSession();  
   if (!session) return null;
 
   const cockpitExercises = state?.cockpit?.exercises;  
   if (Array.isArray(cockpitExercises) && cockpitExercises.length) {  
-    const activeExercise = session.activeExercise;  
-    if (activeExercise) {  
-      return cockpitExercises.find(x => x && x.exerciseName === activeExercise) || cockpitExercises[0] || null;  
+    if (session.activeExercise) {  
+      return cockpitExercises.find(x => x && x.exerciseName === session.activeExercise) || cockpitExercises[0] || null;  
     }  
     return cockpitExercises[0] || null;  
   }
 
-  const plannedBlocks = session?.plannedWorkout?.exerciseBlocks;  
-  if (Array.isArray(plannedBlocks) && plannedBlocks.length) {  
-    const activeExercise = session.activeExercise;  
-    if (activeExercise) {  
-      return plannedBlocks.find(x => x && x.exerciseName === activeExercise) || plannedBlocks[0] || null;  
+  const plan = planForActive();  
+  const blocks = Array.isArray(plan?.exerciseBlocks) ? plan.exerciseBlocks : [];  
+  if (blocks.length) {  
+    if (session.activeExercise) {  
+      return blocks.find(x => x && x.exerciseName === session.activeExercise) || blocks[0] || null;  
     }  
-    return plannedBlocks[0] || null;  
+    return blocks[0] || null;  
   }
 
   return null;  
 }
 
 function plannedBlocksForActive() {  
-  const session = (typeof ensureActiveSession === 'function')  
-    ? ensureActiveSession()  
-    : (typeof active !== 'undefined' ? active : null);
-
-  const blocks = session?.plannedWorkout?.exerciseBlocks;  
-  return Array.isArray(blocks) ? blocks : [];  
+  const plan = planForActive();  
+  return Array.isArray(plan?.exerciseBlocks) ? plan.exerciseBlocks : [];  
 }
 
 function plannedForExercise(exerciseName) {  
   if (!exerciseName) return null;  
   return plannedBlocksForActive().find(x => x && x.exerciseName === exerciseName) || null;  
-}
-
-function renderPicker() {  
-  const host = document.getElementById('exercisePicker');  
-  if (!host) return;
-
-  const session = (typeof ensureActiveSession === 'function')  
-    ? ensureActiveSession()  
-    : (typeof active !== 'undefined' ? active : null);
-
-  const blocks = plannedBlocksForActive();  
-  const cockpitExercises = state?.cockpit?.exercises;  
-  const source = Array.isArray(cockpitExercises) && cockpitExercises.length ? cockpitExercises : blocks;
-
-  if (!Array.isArray(source) || !source.length) {  
-    host.innerHTML = '<div class="empty">No planned exercises yet.</div>';  
-    return;  
-  }
-
-  host.innerHTML = source.map(block => {  
-    const name = block?.exerciseName || 'Untitled exercise';  
-    const isActive = session?.activeExercise === name;  
-    return `  
-      <button class="${isActive ? 'primary' : 'secondary'}" data-pick-exercise="${esc(name)}">  
-        ${esc(name)}  
-      </button>  
-    `;  
-  }).join('');
-
-  $$('[data-pick-exercise]', host).forEach(button => {  
-    button.onclick = () => {  
-      if (session) {  
-        session.activeExercise = button.dataset.pickExercise;  
-        if (typeof persist === 'function') persist();  
-      }  
-      if (typeof renderLog === 'function') renderLog();  
-    };  
-  });  
-}
-
-function logMarkup() {  
-  const session = (typeof ensureActiveSession === 'function')  
-    ? ensureActiveSession()  
-    : (typeof active !== 'undefined' ? active : null);
-
-  if (!session) {  
-    return '<div class="empty">No active workout.</div>';  
-  }
-
-  const current = activeBlock();  
-  const currentName = current?.exerciseName || session.activeExercise || '';  
-  const sets = Array.isArray(session.sets) ? session.sets : [];  
-  const matchingSets = currentName  
-    ? sets.filter(x => x && x.exerciseName === currentName)  
-    : sets;
-
-  const planned = currentName ? plannedForExercise(currentName) : null;
-
-  return `  
-    <article class="card section">  
-      <div class="eyebrow">Log workout</div>  
-      <h2 style="margin-top:6px">${esc(session.workoutName || 'Workout in progress')}</h2>  
-      <p class="quiet">  
-        ${currentName  
-          ? `Currently tracking: <b>${esc(currentName)}</b>`  
-          : 'Choose an exercise to begin logging.'}  
-      </p>
-
-      <div id="exercisePicker" class="actions" style="margin-top:12px;flex-wrap:wrap"></div>
-
-      ${planned ? `  
-        <div class="signal-card" style="margin-top:12px">  
-          <b>Planned target</b>  
-          ${esc(planned.targetSets || '—')} sets ·  
-          ${esc(planned.targetReps || '—')} reps ·  
-          ${esc(planned.targetWeightOrLoad || '—')} load ·  
-          ${esc(planned.rir || '—')} RIR  
-        </div>  
-      ` : ''}
-
-      <div class="section" style="margin-top:14px">  
-        ${matchingSets.length ? matchingSets.map((set, index) => `  
-          <div class="exercise-card">  
-            <div class="exercise-title">  
-              <b>Set ${index + 1}</b>  
-              <span class="quiet">  
-                ${esc(set.reps ?? '—')} reps ·  
-                ${esc(set.weight ?? set.load ?? '—')} load ·  
-                ${esc(set.rir ?? '—')} RIR  
-              </span>  
-            </div>  
-            ${set.notes ? `<div class="quiet">${esc(set.notes)}</div>` : ''}  
-          </div>  
-        `).join('') : '<div class="empty">No sets logged yet for this exercise.</div>'}  
-      </div>  
-    </article>  
-  `;  
 }
 
 function show(view) {  
@@ -363,13 +280,7 @@ function show(view) {
     node.style.display = id === view ? '' : 'none';  
   });
 
-  if (typeof persistCurrentView === 'function') {  
-    persistCurrentView(view);  
-  } else {  
-    try {  
-      localStorage.setItem('momentum:lastView', view);  
-    } catch {}  
-  }
+  persistCurrentView(view);
 
   if (view === 'home' && typeof renderHome === 'function') renderHome();  
   if (view === 'today' && typeof renderToday === 'function') renderToday();  
@@ -382,46 +293,212 @@ function safeShow(view) {
   show(view);  
 }
 
-function startPlan(planId) {  
+function openTrainingFocus() {  
+  starterPreviewKey = null;  
+  editor = null;  
+  show('today');  
+  setTimeout(() => {  
+    $('#trainingFocus')?.scrollIntoView({ behavior: 'smooth', block: 'start' });  
+  }, 40);  
+}
+
+function openPlannerBuilder() {  
+  starterPreviewKey = null;  
+  editor =  
+    (typeof MomentumPlanner !== 'undefined' && typeof MomentumPlanner.blankWorkout === 'function')  
+      ? MomentumPlanner.blankWorkout()  
+      : (typeof newWorkoutShell === 'function' ? newWorkoutShell('manual') : null);
+
+  if (editor) editor.sourceType = editor.sourceType || 'manual';
+
+  show('today');  
+  setTimeout(() => {  
+    if (typeof renderEditor === 'function') renderEditor('builder');  
+    $('#plannerEditor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });  
+  }, 40);  
+}
+
+function openPlannerPaste() {  
+  starterPreviewKey = null;  
+  editor =  
+    (typeof MomentumPlanner !== 'undefined' && typeof MomentumPlanner.blankWorkout === 'function')  
+      ? MomentumPlanner.blankWorkout()  
+      : (typeof newWorkoutShell === 'function' ? newWorkoutShell('chatgpt') : null);
+
+  if (editor) editor.sourceType = 'chatgpt';
+
+  show('today');  
+  setTimeout(() => {  
+    if (typeof renderEditor === 'function') renderEditor('paste');  
+    $('#plannerEditor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });  
+  }, 40);  
+}
+
+function startPlan(id) {  
   if (typeof MomentumPlanner === 'undefined' || typeof MomentumPlanner.load !== 'function') {  
     return;  
   }
 
-  const plan = MomentumPlanner.load().find(x => x && x.id === planId);  
-  if (!plan) return;
+  const plan = MomentumPlanner.load().find(x => x && x.id === id);  
+  if (!plan) {  
+    if (typeof toast === 'function') toast('Workout not found.');  
+    return;  
+  }
 
-  const session = (typeof newSession === 'function')  
-    ? newSession(plan)  
-    : {  
-        id: `session_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,  
-        status: 'active',  
-        planId: plan.id,  
-        plannedWorkout: plan,  
-        phase: plan.phaseId || '',  
-        week: plan.week || '',  
-        day: plan.day || '',  
-        workoutName: plan.title || 'Planned workout',  
-        startedAt: new Date().toISOString(),  
-        updatedAt: new Date().toISOString(),  
-        activeExercise: plan.exerciseBlocks?.[0]?.exerciseName || '',  
-        sets: [],  
-        tags: [],  
-        coachQuestions: ''  
-      };
-
-  active = session;  
+  active = (typeof newSession === 'function') ? newSession(plan) : fallbackSession();  
   active.status = 'active';  
   active.planId = plan.id;  
   active.plannedWorkout = plan;  
-  active.workoutName = active.workoutName || plan.title || 'Planned workout';  
-  active.activeExercise = active.activeExercise || plan.exerciseBlocks?.[0]?.exerciseName || '';
+  active.phase = plan.phaseId || active.phase || '';  
+  active.week = plan.week || active.week || '';  
+  active.day = plan.day || active.day || '';  
+  active.workoutName = plan.title || active.workoutName || 'Planned workout';  
+  active.activeExercise = plan.exerciseBlocks?.[0]?.exerciseName || active.activeExercise || '';  
+  active.sets = Array.isArray(active.sets) ? active.sets : [];
 
-  if (typeof persist === 'function') persist();  
-  show('log');  
+  state.cockpit =  
+    (typeof MomentumPlanner.buildCockpitWorkout === 'function')  
+      ? MomentumPlanner.buildCockpitWorkout(plan)  
+      : null;
+
+  state.cockpitEditOpen = false;  
+  state.cockpitEditingLastSet = null;  
+  state.restTimer = null;
+
+  if (typeof MomentumPlanner.mark === 'function') {  
+    MomentumPlanner.mark(plan.id, 'active');  
+  }
+
+  persist();  
+  renderHome();  
+  renderToday();  
+  renderLog();  
+  show('log');
+
+  if (typeof toast === 'function') toast('Planned workout started');  
 }
 
-function restoreStagedSession() {  
-  return (typeof active !== 'undefined' && active) ? active : null;  
+function restoreStagedSession(sessionId) {  
+  const sessions = getDone();  
+  const idx = sessions.findIndex(x => x && x.id === sessionId);  
+  if (idx === -1) return null;
+
+  const session = sessions[idx];  
+  if (!session || (session.status !== 'staged' && session.status !== 'shared')) return null;
+
+  active = {  
+    ...fallbackSession(),  
+    ...session,  
+    status: 'active',  
+    completedAt: null  
+  };
+
+  active.sets = Array.isArray(session.sets) ? session.sets : [];  
+  active.plannedWorkout = session.plannedWorkout || null;  
+  active.activeExercise =  
+    session.activeExercise ||  
+    session.plannedWorkout?.exerciseBlocks?.[0]?.exerciseName ||  
+    '';
+
+  sessions.splice(idx, 1);  
+  saveDone(sessions);
+
+  persist();  
+  renderLog();  
+  renderReview();  
+  renderToday();  
+  renderHome();  
+  show('log');
+
+  if (typeof toast === 'function') toast('Workout restored to Log');  
+  return active;  
+}
+
+function discardActiveWorkout() {  
+  if (!confirm('Discard this active session?')) return;
+
+  active = (typeof newSession === 'function') ? newSession() : fallbackSession();  
+  state.cockpit = null;  
+  state.cockpitEditOpen = false;  
+  state.cockpitEditingLastSet = null;  
+  state.restTimer = null;
+
+  persist();  
+  renderLog();  
+  renderToday();  
+  renderHome();
+
+  if (typeof toast === 'function') toast('Draft discarded');  
+}
+
+function logMarkup() {  
+  const session = ensureActiveSession();  
+  const current = activeBlock();  
+  const currentName = current?.exerciseName || session.activeExercise || '';  
+  const sets = Array.isArray(session.sets) ? session.sets : [];  
+  const matchingSets = currentName  
+    ? sets.filter(x => x && (x.exerciseName === currentName || x.exercise === currentName))  
+    : sets;
+
+  return matchingSets.length  
+    ? matchingSets.map((set, index) => `  
+        <div class="exercise-card">  
+          <div class="exercise-title">  
+            <b>Set ${index + 1}</b>  
+            <span class="quiet">  
+              ${esc(set.reps ?? set.result ?? '—')} reps ·  
+              ${esc(set.weight ?? set.load ?? '—')} load ·  
+              ${esc(set.rir ?? '—')} RIR  
+            </span>  
+          </div>  
+          ${set.notes ? `<div class="quiet">${esc(set.notes)}</div>` : ''}  
+        </div>  
+      `).join('')  
+    : '<div class="empty">No sets logged yet for this exercise.</div>';  
+}
+
+function renderPicker(query = '') {  
+  const root = $('#exercisePicker');  
+  if (!root || !active) return;
+
+  const plan = planForActive();  
+  const plannedNames = new Set(((plan && plan.exerciseBlocks) || []).map(x => x.exerciseName));  
+  const library = (typeof allExercises === 'function') ? allExercises() : [];  
+  const cockpitNames = Array.isArray(state?.cockpit?.exercises)  
+    ? state.cockpit.exercises.map(x => x.exerciseName).filter(Boolean)  
+    : [];  
+  const planNames = [...plannedNames];  
+  const combined = [...new Set([...cockpitNames, ...planNames, ...library])];  
+  const names = combined.filter(x => String(x).toLowerCase().includes(query.toLowerCase()));
+
+  root.innerHTML =  
+    names.map(x => `  
+      <button class="pick ${x === active.activeExercise ? 'active' : ''}" data-pick="${esc(x)}">  
+        <b>${esc(x)}</b>  
+        <small>${plannedNames.has(x) ? 'Planned workout' : 'Exercise library'}</small>  
+      </button>  
+    `).join('') ||  
+    '<div class="empty">No matching known exercises.</div>';
+
+  $$('[data-pick]', root).forEach(b => {  
+    b.onclick = () => {  
+      active.activeExercise = b.dataset.pick;  
+      persist();  
+      renderLog();  
+    };  
+  });  
+}
+
+function bindSessionContext() {  
+  $$('[data-context]').forEach(el => {  
+    el.oninput = () => {  
+      const key = el.dataset.context;  
+      if (key === 'coachQuestions') {  
+        active.coachQuestions = el.value;  
+        persist();  
+      }  
+    };  
+  });  
 }  
 /* ---------- renderHome ---------- */  
 function renderHome() {  
@@ -1060,28 +1137,7 @@ function renderEditor(mode) {
 }
 
 /* ---------- start workout ---------- */  
-function startPlan(id) {  
-  const plan = MomentumPlanner.load().find(x => x.id === id);  
-  if (!plan) {  
-    toast('Workout not found.');  
-    return;  
-  }
 
-  active = newSession(plan);  
-  active.status = 'active';  
-  state.cockpit = MomentumPlanner.buildCockpitWorkout(plan);  
-  state.cockpitEditOpen = false;  
-  state.cockpitEditingLastSet = null;  
-  state.restTimer = null;
-
-  MomentumPlanner.mark(plan.id, 'active');  
-  persist();  
-  renderHome();  
-  renderToday();  
-  renderLog();  
-  show('log');  
-  toast('Planned workout started');  
-}
 
 /* ---------- cockpit / session safety ---------- */  
 function discardActiveWorkout() {  
@@ -1179,12 +1235,13 @@ function activeBlock() {
 
 
 /* ---------- renderLog ---------- */  
+/* ---------- renderLog ---------- */  
 function renderLog() {  
   const root = document.getElementById('log');  
   if (!root) return;
 
   if (!active || !Array.isArray(active.sets)) {  
-    active = newSession();  
+    active = (typeof newSession === 'function') ? newSession() : fallbackSession();  
   }
 
   const reviewed = selectedReviewedSession();  
@@ -1223,51 +1280,46 @@ function renderLog() {
       </div>  
     `;
 
-    const openReviewBtn = $('#openReviewFromLog');  
-    if (openReviewBtn) {  
-      openReviewBtn.onclick = () => {  
-        selectedReviewId = reviewed.id;  
-        renderReview();  
-        show('review');  
-      };  
-    }
+    $('#openReviewFromLog')?.addEventListener('click', () => {  
+      selectedReviewId = reviewed.id;  
+      renderReview();  
+      show('review');  
+    });
 
-    const undoFinishBtn = $('#undoFinishFromLog');  
-    if (undoFinishBtn) {  
-      undoFinishBtn.onclick = () => {  
-        restoreStagedSession(reviewed.id);  
-      };  
-    }
+    $('#undoFinishFromLog')?.addEventListener('click', () => {  
+      restoreStagedSession(reviewed.id);  
+    });
 
-    const openNextBtn = $('#openNextWorkoutFromLog');  
-    if (openNextBtn && next) {  
-      openNextBtn.onclick = () => {  
-        show('today');  
-      };  
-    }
+    $('#openNextWorkoutFromLog')?.addEventListener('click', () => {  
+      show('today');  
+    });
 
     return;  
   }
 
-  const block = activeBlock();  
-  const plannedContext = (() => {  
-    const plan = planForActive();  
-    return active.planId && plan ? `  
+  const block = activeBlock() || {};  
+  const plan = planForActive();  
+  const plannedContext = active.planId && plan  
+    ? `  
       <article class="card" style="margin-bottom:12px">  
         <div class="eyebrow">Planned context</div>  
         <b>${esc(plan.title)}</b> · ${esc(planSummary(plan))}  
       </article>  
-    ` : '';  
-  })();
+    `  
+    : '';
 
   root.innerHTML = `  
     <div class="log-shell">  
       <header class="active-session">  
         <div>  
           <div class="eyebrow">${active.planId ? 'Planned session · autosaved' : 'Ad hoc session · autosaved'}</div>  
-          <h1>${esc(active.workoutName)}</h1>  
+          <h1>${esc(active.workoutName || 'Workout in progress')}</h1>  
           <div class="quiet" style="margin-top:6px">Session time</div>  
-          <div id="timer">${clock(Math.max(0, Math.floor((Date.now() - new Date(active.startedAt)) / 1000)))}</div>  
+          <div id="timer">${  
+            typeof clock === 'function'  
+              ? clock(Math.max(0, Math.floor((Date.now() - new Date(active.startedAt || new Date().toISOString())) / 1000)))  
+              : ''  
+          }</div>  
         </div>  
         <div class="session-tools">  
           <button class="secondary" id="finish">Finish</button>  
@@ -1291,7 +1343,7 @@ function renderLog() {
             <p class="quiet">  
               ${esc([  
                 block.targetSets && `${block.targetSets} sets`,  
-                block.targetRepsOrDuration,  
+                block.targetRepsOrDuration || block.targetReps,  
                 block.targetWeightOrLoad && `${block.targetWeightOrLoad} lbs`,  
                 block.tempo && `Tempo ${block.tempo}`,  
                 block.rir && `RIR ${block.rir}`  
@@ -1307,7 +1359,6 @@ function renderLog() {
                   inputmode="decimal"  
                   pattern="[0-9]*[.]?[0-9]*"  
                   placeholder="0"  
-                  oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/^([^.]*\\.)|\\./g, '$1')"  
                 >  
               </label>
 
@@ -1319,7 +1370,6 @@ function renderLog() {
                   inputmode="text"  
                   pattern="[0-9]*"  
                   placeholder="0"  
-                  oninput="this.value = this.value.replace(/[^0-9a-zA-Z/ ,.-]/g, '')"  
                 >  
               </label>
 
@@ -1360,9 +1410,9 @@ function renderLog() {
           <article class="card session-log">  
             <div class="card-head">  
               <div><h2>Live session log</h2>${active.sets.length} completed set${active.sets.length === 1 ? '' : 's'} · saved automatically</div>  
-              ${new Set(active.sets.map(x => x.exercise)).size} exercises  
+              ${new Set((active.sets || []).map(x => x.exercise || x.exerciseName).filter(Boolean)).size} exercises  
             </div>  
-            ${logMarkup(active)}  
+            ${logMarkup()}  
           </article>
 
           <article class="card section">  
@@ -1377,9 +1427,9 @@ function renderLog() {
   `;
 
   renderPicker();  
-  bindLog();  
+  if (typeof bindLog === 'function') bindLog();  
   bindSessionContext();  
-}
+}  
 
 /* ---------- single bindReview (keep only this one) ---------- */  
 function bindReview(session) {  
