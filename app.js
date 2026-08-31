@@ -169,6 +169,19 @@ function persistCurrentView(view) {
   } catch {}  
 }
 
+function renderHistory() {  
+  const root = $('#history');  
+  if (!root) return;
+
+  root.innerHTML = `  
+    <div class="card section">  
+      <div class="eyebrow">History</div>  
+      <h2 style="margin-top:6px">History view</h2>  
+      <p class="quiet">History is not available yet.</p>  
+    </div>  
+  `;  
+}  
+
 function restoreCurrentView() {  
   try {  
     const hasActive =  
