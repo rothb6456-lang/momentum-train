@@ -154,8 +154,10 @@ function planSummary(plan) {
 
 /* ---------- navigation helpers ---------- */
 function bindGo() {
-  $$('[data-go]').forEach(b => {
-    b.onclick = () => show(b.dataset.go);
+  // The page nav uses data-view; bind that, plus any legacy data-go buttons.
+  $$('[data-view], [data-go]').forEach(b => {
+    const target = b.dataset.view || b.dataset.go;
+    b.onclick = () => show(target);
   });
 }
 
@@ -273,8 +275,9 @@ function plannedForExercise(exerciseName) {
 function show(view) {
   const sections = ['home', 'today', 'log', 'review', 'history'];
 
-  // If the requested view's container is missing, fall back to the first
-  // section that actually exists so the page is never blanked silently.
+  // The page CSS shows a view via the .active class
+  // (.view{display:none}.view.active{display:block}). Toggle that class rather
+  // than setting inline display, so the stylesheet visibility rules win.
   const targetNode = document.getElementById(view);
   if (!targetNode) {
     const fallback = sections.find(id => document.getElementById(id)) || 'today';
@@ -284,8 +287,19 @@ function show(view) {
   sections.forEach(id => {
     const node = document.getElementById(id);
     if (!node) return;
-    node.style.display = id === view ? '' : 'none';
+    node.style.display = ''; // clear stale inline override from older versions
+    node.classList.toggle('active', id === view);
   });
+
+  // Sync the top tabs + bottom nav active states (data-view or legacy data-go).
+  $$('[data-view], [data-go]').forEach(b => {
+    const target = b.dataset.view || b.dataset.go;
+    b.classList.toggle('active', target === view);
+  });
+
+  const labels = { home: 'Today', today: 'Plan', log: 'Log', review: 'Review', history: 'History' };
+  const mobileTitle = $('#mobileTitle');
+  if (mobileTitle) mobileTitle.textContent = labels[view] || '';
 
   persistCurrentView(view);
 
@@ -1685,8 +1699,7 @@ function bootstrap() {
 
 // Preserve the original window.load timing for dependencies that may only be
 // ready by then — but if the load event has already fired (script included
-// late, async-after-load, or dynamically injected), bootstrap immediately
-// instead of waiting for an event that will never come.
+// late, async-after-load, or dynamically injected), bootstrap immediately.
 let bootstrapStarted = false;
 function startBootstrap() {
   if (bootstrapStarted) return;
