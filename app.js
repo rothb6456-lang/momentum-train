@@ -1523,24 +1523,30 @@ function renderLog() {
   const setLabel = setsTarget > 0
     ? 'Set ' + setNum + ' of ' + setsTarget + (setsComplete ? ' \u2713' : '')
     : 'Set ' + setNum;
+  const setBadge = setsTarget > 0
+    ? (setsComplete ? setsTarget + '/' + setsTarget + ' \u2713' : setNum + '/' + setsTarget)
+    : String(setNum);
 
   root.innerHTML = `
     <div class="log-shell">
-      <header class="active-session">
-        <div>
-          <div class="eyebrow">${active.planId ? 'Planned session &middot; autosaved' : 'Ad hoc &middot; autosaved'} &middot; ${esc(setLabel)}</div>
-          <h1>${esc(rx.exerciseName || 'Choose exercise')}</h1>
-          <div class="quiet prescription-summary">${esc(summary)}</div>
+      <header class="active-session compact-bar">
+        <div class="bar-title-wrap">
+          <h1 class="bar-title">${esc(rx.exerciseName || 'Choose exercise')}</h1>
+          <span class="bar-badge">${esc(setBadge)}</span>
         </div>
         <div class="session-tools">
-          <button class="secondary" id="finish">Finish</button>
-          <button class="danger" id="discard">Discard</button>
+          <button class="secondary mini" id="finish">Finish</button>
+          <button class="danger mini" id="discard">Discard</button>
         </div>
       </header>
 
       ${restBannerMarkup()}
 
       <article class="card set-entry-card">
+        <div class="rx-head">
+          <span class="rx-badge">${esc(setLabel)}</span>
+          <span class="rx-line">${esc(summary)}</span>
+        </div>
         <div class="set-form">
           <label class="field">Load<input id="load" class="input" inputmode="decimal" value="${esc(loadVal)}" placeholder="0"></label>
           <label class="field">Reps<input id="result" class="input" inputmode="text" value="${esc(repsVal)}" placeholder="0"></label>
@@ -2130,8 +2136,6 @@ document.addEventListener('visibilitychange', () => {
         state.restTimer = restSecs > 0 ? { total: restSecs, startedAt: Date.now() } : null;
         if (typeof persist === 'function') persist();
         if (typeof renderLog === 'function') renderLog();
-        const r2 = $('#result');
-        if (r2) { r2.focus(); try { r2.select(); } catch (e) {} }
       };
 
       const dup = $('#duplicateLast');
@@ -2238,7 +2242,7 @@ document.addEventListener('visibilitychange', () => {
   if (typeof document !== 'undefined' && !document.getElementById('momentumLogStyles')) {
     const _ls = document.createElement('style');
     _ls.id = 'momentumLogStyles';
-    _ls.textContent = `.set-entry-card{padding:16px 17px}.set-entry-card .set-form{gap:10px}.set-entry-card .input{font-size:18px;min-height:52px}.set-entry-card .actions{display:flex;flex-direction:column;gap:10px;margin-top:14px}.set-entry-card .actions button{width:100%;min-height:52px;font-size:16px}.prescription-summary{margin-top:6px;font-size:13px;line-height:1.45}.rest-banner{display:flex;align-items:center;gap:10px;justify-content:center;background:#16323a;border:1px solid var(--mint);border-radius:14px;padding:11px 14px;margin-bottom:12px;font-size:15px}.rest-banner #restTime{font-size:22px;color:var(--mint);min-width:48px;text-align:center}.rest-banner #skipRest{margin-left:auto}.collapsible{margin-top:12px;padding:13px 16px}.collapsible summary{cursor:pointer;list-style:none;color:var(--muted);font-weight:700;font-size:13px}.collapsible summary::-webkit-details-marker{display:none}.next-exercise{background:var(--blue);color:#06182e}@media(max-width:720px){.set-entry-card .input{font-size:20px;min-height:56px}.set-entry-card .actions button{min-height:56px;font-size:17px}.active-session{flex-wrap:wrap}.session-tools button{min-height:38px}}`;
+    _ls.textContent = `.set-entry-card{padding:16px 17px}.set-entry-card .set-form{gap:10px}.set-entry-card .input{font-size:18px;min-height:52px}.set-entry-card .actions{display:flex;flex-direction:column;gap:10px;margin-top:14px}.set-entry-card .actions button{width:100%;min-height:52px;font-size:16px}.prescription-summary{margin-top:6px;font-size:13px;line-height:1.45}.rest-banner{display:flex;align-items:center;gap:10px;justify-content:center;background:#16323a;border:1px solid var(--mint);border-radius:14px;padding:11px 14px;margin-bottom:12px;font-size:15px}.rest-banner #restTime{font-size:22px;color:var(--mint);min-width:48px;text-align:center}.rest-banner #skipRest{margin-left:auto}.collapsible{margin-top:12px;padding:13px 16px}.collapsible summary{cursor:pointer;list-style:none;color:var(--muted);font-weight:700;font-size:13px}.collapsible summary::-webkit-details-marker{display:none}.next-exercise{background:var(--blue);color:#06182e}.active-session.compact-bar{padding:7px 10px;margin-bottom:10px;gap:8px;flex-wrap:nowrap}.bar-title-wrap{display:flex;align-items:center;gap:8px;min-width:0;flex:1 1 auto}.bar-title{font-size:16px;font-weight:780;margin:0;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.15}.bar-badge{flex:0 0 auto;font-size:11px;font-weight:700;color:var(--mint);border:1px solid #2f7664;border-radius:99px;padding:3px 8px;white-space:nowrap}.compact-bar .session-tools{display:flex;gap:6px;flex:0 0 auto}.mini{min-height:30px;padding:5px 9px;font-size:11px}.rx-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:10px}.rx-badge{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mint);border:1px solid #2f7664;border-radius:99px;padding:3px 9px;white-space:nowrap}.rx-line{color:var(--muted);font-size:12.5px;line-height:1.35;flex:1 1 200px}@media(max-width:720px){.set-entry-card .input{font-size:20px;min-height:56px}.set-entry-card .actions button{min-height:56px;font-size:17px}.compact-bar{flex-wrap:nowrap}.bar-title{font-size:15px}.rx-line{flex:1 1 100%}.session-tools button{min-height:34px}}`;
     (document.head || document.documentElement).appendChild(_ls);
   }
 })();
