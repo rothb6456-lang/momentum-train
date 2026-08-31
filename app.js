@@ -1747,6 +1747,13 @@ document.addEventListener('visibilitychange', () => {
 
   if (!has('momentumUid')) window.momentumUid = function momentumUid(prefix) { return uid(prefix); };
 
+  // Deep-clone helper. planner.js keeps its own private `clone` inside the IIFE;
+  // app.js references a bare global `clone` when opening the editor, so expose
+  // one to avoid the "Editor is unavailable right now" guard firing.
+  if (!has('clone')) {
+    window.clone = function clone(value) { return JSON.parse(JSON.stringify(value)); };
+  }
+
   if (!has('toast')) {
     window.toast = function toast(msg) {
       const el = document.getElementById('toast');
@@ -1798,9 +1805,10 @@ document.addEventListener('visibilitychange', () => {
     window.normalizeNumericEntry = function normalizeNumericEntry(value, isLoad) {
       const raw = String(value == null ? '' : value).trim();
       if (!raw) return '';
-      // keep digits, decimals, ranges, and unit letters; drop the rest
-      const cleaned = raw.replace(/[^0-9.\-–\s/a-zA-Z]/g, '').replace(/\s+/g, ' ').trim();
-      return cleaned || raw;
+      // Preserve the prescribed value as-entered. Loads like "50 lb total, 25/arm"
+      // and descriptors like "conservative load" are legitimate, so we only
+      // collapse runs of whitespace — never strip punctuation or slashes.
+      return raw.replace(/\s+/g, ' ').trim();
     };
   }
 
