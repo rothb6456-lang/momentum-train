@@ -1351,6 +1351,88 @@ function renderEditor(mode) {
 
 /* ---------renderLog Helpers----- */
 
+function prescriptionOf(block) {
+  const b = block || {};
+  const isCockpit = 'prescribedLoad' in b || 'prescribedSets' in b;
+  let sets, reps, load, tempo, rir, rest;
+  if (isCockpit) {
+    sets = b.prescribedSets; reps = b.prescribedRepsOrDuration; load = b.prescribedLoad;
+    tempo = b.prescribedTempo; rir = b.prescribedRir; rest = b.prescribedRest;
+    if ((!sets || sets === 0) && typeof plannedForExercise === 'function') {
+      const pb = plannedForExercise(b.exerciseName);
+      if (pb && pb.targetSets) sets = pb.targetSets;
+    }
+  } else {
+    sets = b.targetSets; reps = b.targetRepsOrDuration; load = b.targetWeightOrLoad;
+    tempo = b.tempo; rir = b.rir; rest = b.rest;
+  }
+  return {
+    exerciseName: b.exerciseName || '',
+    sets: sets, reps: reps, load: load, tempo: tempo, rir: rir, rest: rest,
+    workingLoad: isCockpit ? (b.workingLoad || '') : (b.targetWeightOrLoad || ''),
+    checkpoint: b.checkpoints || ''
+  };
+}
+
+function prescribedSetsCount(block) {
+  const rx = prescriptionOf(block);
+  const raw = String(rx.sets == null ? '' : rx.sets).trim();
+  if (!raw) return 0;
+  const n = Number(raw);
+  if (!isNaN(n) && n > 0) return n;
+  const range = raw.match(/(\d+)\s*[-\u2013]\s*(\d+)/);
+  if (range) return Number(range[2]);
+  const any = raw.match(/(\d+)/);
+  return any ? Number(any[1]) : 0;
+}
+
+function topEndReps(reps) {
+  const sx = String(reps == null ? '' : reps).trim();
+  if (!sx) return '';
+  const range = sx.match(/(\d+)\s*[-\u2013]\s*(\d+)/);
+  if (range) return range[2];
+  return sx;
+}
+
+function extractLoadNumber(load) {
+  const sx = String(load == null ? '' : load).trim();
+  if (!sx) return '';
+  const m = sx.match(/(\d+(?:\.\d+)?)/);
+  return m ? m[1] : '';
+}
+
+function nextExerciseNameFor(currentName) {
+  const ex = state && state.cockpit && Array.isArray(state.cockpit.exercises) ? state.cockpit.exercises : [];
+  if (!ex.length) return '';
+  let idx = ex.findIndex(e => e && e.exerciseName === currentName);
+  if (idx < 0 && state.cockpit && typeof state.cockpit.exerciseIndex === 'number') idx = state.cockpit.exerciseIndex;
+  for (let i = idx + 1; i < ex.length; i++) {
+    if (ex[i] && !ex[i].skipped) return ex[i].exerciseName || '';
+  }
+  return '';
+}
+
+function restSecondsFromPrescription(rest) {
+  const sx = String(rest == null ? '' : rest).trim();
+  if (!sx) return 0;
+  const mins = sx.match(/(\d+(?:\.\d+)?)\s*min/i);
+  if (mins) return Math.round(parseFloat(mins[1]) * 60);
+  const secs = sx.match(/(\d+(?:\.\d+)?)\s*sec/i);
+  if (secs) return Math.round(parseFloat(secs[1]));
+  const m = sx.match(/(\d+(?:\.\d+)?)/);
+  return m ? Math.round(parseFloat(m[1]) * 60) : 0;
+}
+
+function restBannerMarkup() {
+  const rt = state && state.restTimer;
+  if (!rt || !rt.total) return '';
+  const elapsed = rt.startedAt ? Math.floor((Date.now() - rt.startedAt) / 1000) : 0;
+  const remaining = Math.max(0, rt.total - elapsed);
+  if (remaining <= 0) return '';
+  return '<div class="rest-banner" id="restBanner"><span class="rest-label">Rest</span> <b id="restTime">' + remaining + 's</b><button class="chip" id="skipRest">Skip</button></div>';
+}
+
+
 
 /* ---------- renderLog ---------- */
 function renderLog() {
@@ -1415,28 +1497,40 @@ function renderLog() {
   }
 
   const block = (typeof activeBlock === 'function' ? activeBlock() : null) || {};
-  const plan = safePlan((typeof planForActive === 'function') ? planForActive() : null);
-  const plannedContext = active.planId && plan
-    ? `
-      <article class="card" style="margin-bottom:12px">
-        <div class="eyebrow">Planned context</div>
-        <b>${esc(plan.title)}</b> · ${esc(planSummary(plan))}
-      </article>
-    `
-    : '';
+  const rx = prescriptionOf(block);
+  const completedForCurrent = rx.exerciseName
+    ? (active.sets || []).filter(s => (s.exerciseName || s.exercise) === rx.exerciseName).length
+    : 0;
+  const setsTarget = prescribedSetsCount(block);
+  const setsComplete = setsTarget > 0 && completedForCurrent >= setsTarget;
+  const nextName = nextExerciseNameFor(rx.exerciseName);
+  const showNext = setsComplete && !!nextName;
+
+  const summary = [
+    rx.load && ('Load ' + rx.load),
+    rx.reps && (rx.reps + ' reps'),
+    rx.tempo && ('Tempo ' + rx.tempo),
+    rx.rir && ('RIR ' + rx.rir),
+    rx.rest && ('Rest ' + rx.rest)
+  ].filter(Boolean).join(' \u00b7 ') || 'No planned target';
+
+  const loadVal = extractLoadNumber(rx.workingLoad || rx.load);
+  const repsVal = topEndReps(rx.reps);
+  const tempoParts = String(rx.tempo || '').split('-');
+  const rirOptions = ['0', '0-1', '1', '1-2', '2', '2+', '3+', '4+'];
+
+  const setNum = setsTarget > 0 ? Math.min(completedForCurrent + 1, setsTarget) : (completedForCurrent + 1);
+  const setLabel = setsTarget > 0
+    ? 'Set ' + setNum + ' of ' + setsTarget + (setsComplete ? ' \u2713' : '')
+    : 'Set ' + setNum;
 
   root.innerHTML = `
     <div class="log-shell">
       <header class="active-session">
         <div>
-          <div class="eyebrow">${active.planId ? 'Planned session · autosaved' : 'Ad hoc session · autosaved'}</div>
-          <h1>${esc(active.workoutName || 'Workout in progress')}</h1>
-          <div class="quiet" style="margin-top:6px">Session time</div>
-          <div id="timer">${
-            typeof clock === 'function'
-              ? clock(Math.max(0, Math.floor((Date.now() - new Date(active.startedAt || new Date().toISOString())) / 1000)))
-              : ''
-          }</div>
+          <div class="eyebrow">${active.planId ? 'Planned session &middot; autosaved' : 'Ad hoc &middot; autosaved'} &middot; ${esc(setLabel)}</div>
+          <h1>${esc(rx.exerciseName || 'Choose exercise')}</h1>
+          <div class="quiet prescription-summary">${esc(summary)}</div>
         </div>
         <div class="session-tools">
           <button class="secondary" id="finish">Finish</button>
@@ -1444,102 +1538,38 @@ function renderLog() {
         </div>
       </header>
 
-      ${plannedContext}
+      ${restBannerMarkup()}
 
-      <div class="logger-layout">
-        <aside class="card">
-          <div class="card-head"><div><h2>Exercise flow</h2>Planned exercises are pinned first.</div></div>
-          <input id="searchExercise" class="input" placeholder="Search known exercises">
-          <div id="exercisePicker" class="picker-list"></div>
-        </aside>
+      <article class="card set-entry-card">
+        <div class="set-form">
+          <label class="field">Load<input id="load" class="input" inputmode="decimal" value="${esc(loadVal)}" placeholder="0"></label>
+          <label class="field">Reps<input id="result" class="input" inputmode="text" value="${esc(repsVal)}" placeholder="0"></label>
+          <div class="field full">RIR<div class="rir-chips">${rirOptions.map(x => `<button class="chip ${rx.rir === x ? 'active' : ''}" data-rir="${x}">${x}</button>`).join('')}</div></div>
+          <div class="field full">Tempo<div class="tempo"><input id="tempoE" class="input" value="${esc(tempoParts[0] || '')}" placeholder="E"><input id="tempoP" class="input" value="${esc(tempoParts[1] || '')}" placeholder="P"><input id="tempoC" class="input" value="${esc(tempoParts[2] || '')}" placeholder="C"></div></div>
+        </div>
+        <div class="actions">
+          <button class="primary" id="addSet">Add set</button>
+          ${showNext ? `<button class="primary next-exercise" id="nextExercise">Next: ${esc(nextName)} &rarr;</button>` : ''}
+          ${!showNext && setsComplete ? '<button class="primary" id="finishDone">Finish workout</button>' : ''}
+        </div>
+      </article>
 
-        <section>
-          <article class="card">
-            <div class="eyebrow">Set entry</div>
-            <h2 style="margin-top:6px">${esc(block.exerciseName || 'Choose exercise')}</h2>
-            <p class="quiet">
-              ${esc([
-                block.targetSets && `${block.targetSets} sets`,
-                block.targetRepsOrDuration || block.targetReps,
-                block.targetWeightOrLoad && `${block.targetWeightOrLoad} lbs`,
-                block.tempo && `Tempo ${block.tempo}`,
-                block.rir && `RIR ${block.rir}`
-              ].filter(Boolean).join(' · ') || 'No planned target')}
-            </p>
+      <article class="card session-log">
+        <div class="card-head"><div><h2>Sets</h2>${completedForCurrent} of ${setsTarget || '&mdash;'} completed</div></div>
+        ${typeof logMarkup === 'function' ? logMarkup() : ''}
+      </article>
 
-            <div class="set-form">
-              <label class="field">
-                Load (lbs)
-                <input
-                  id="load"
-                  class="input"
-                  inputmode="decimal"
-                  pattern="[0-9]*[.]?[0-9]*"
-                  placeholder="0"
-                >
-              </label>
+      <details class="card collapsible"><summary>Notes &amp; coach questions</summary>
+        <div class="set-form" style="margin-top:11px">
+          <label class="field full">Set note<textarea id="note" placeholder="Substitution or technique note"></textarea></label>
+          <label class="field full">Questions for Coach<textarea data-context="coachQuestions">${esc(active.coachQuestions || '')}</textarea></label>
+        </div>
+      </details>
 
-              <label class="field">
-                Reps
-                <input
-                  id="result"
-                  class="input"
-                  inputmode="text"
-                  pattern="[0-9]*"
-                  placeholder="0"
-                >
-              </label>
-
-              <div class="field full">
-                Result type
-                <div class="segment">
-                  <button class="secondary active" data-type="reps">Reps</button>
-                  <button class="secondary" data-type="duration">Duration</button>
-                </div>
-              </div>
-
-              <div class="field full">
-                Tempo (eccentric · pause · concentric)
-                <div class="tempo">
-                  <input id="tempoE" class="input" value="${esc((block.tempo || '').split('-')[0] || '')}" placeholder="E">
-                  <input id="tempoP" class="input" value="${esc((block.tempo || '').split('-')[1] || '')}" placeholder="P">
-                  <input id="tempoC" class="input" value="${esc((block.tempo || '').split('-')[2] || '')}" placeholder="C">
-                </div>
-              </div>
-
-              <div class="field full">
-                RIR
-                <div class="rir-chips">
-                  ${['0', '0-1', '1', '1-2', '2', '2+', '3+', '4+'].map(x => `<button class="chip ${block.rir === x ? 'active' : ''}" data-rir="${x}">${x}</button>`).join('')}
-                </div>
-              </div>
-
-              <label class="field full">Technical checkpoint<textarea id="checkpoint" placeholder="Position, path, cue, or execution observation">${esc(block.checkpoints || '')}</textarea></label>
-              <label class="field full">Set note<textarea id="note" placeholder="Substitution, technique note, tolerance note, or performance detail"></textarea></label>
-            </div>
-
-            <div class="actions">
-              <button class="primary" id="addSet">Add completed set</button>
-              <button class="secondary" id="duplicateLast">Duplicate previous</button>
-            </div>
-          </article>
-
-          <article class="card session-log">
-            <div class="card-head">
-              <div><h2>Live session log</h2>${active.sets.length} completed set${active.sets.length === 1 ? '' : 's'} · saved automatically</div>
-              ${new Set((active.sets || []).map(x => x.exercise || x.exerciseName).filter(Boolean)).size} exercises
-            </div>
-            ${typeof logMarkup === 'function' ? logMarkup() : ''}
-          </article>
-
-          <article class="card section">
-            <h2>Session context</h2>
-            <div class="set-form" style="margin-top:11px">
-              <label class="field full">Questions for Coach<textarea data-context="coachQuestions">${esc(active.coachQuestions || '')}</textarea></label>
-            </div>
-          </article>
-        </section>
-      </div>
+      <details class="card collapsible"><summary>Switch exercise</summary>
+        <input id="searchExercise" class="input" placeholder="Search known exercises" style="margin-top:10px">
+        <div id="exercisePicker" class="picker-list" style="margin-top:8px"></div>
+      </details>
     </div>
   `;
 
@@ -2073,10 +2103,11 @@ document.addEventListener('visibilitychange', () => {
         const reps = resultEl ? resultEl.value.trim() : '';
         if (!load && !reps) { if (typeof toast === 'function') toast('Enter a load or rep count'); return; }
         const block = (typeof activeBlock === 'function' ? activeBlock() : null) || {};
+        const rx = (typeof prescriptionOf === 'function') ? prescriptionOf(block) : block;
         const te = $('#tempoE'), tp = $('#tempoP'), tc = $('#tempoC');
         const tempo = [te, tp, tc].map(el => el ? el.value.trim() : '').filter(Boolean).join('-');
         const rirChip = $('[data-rir].active');
-        const rir = rirChip ? rirChip.dataset.rir : (block.rir || '');
+        const rir = rirChip ? rirChip.dataset.rir : (rx.rir || '');
         const noteEl = $('#note');
         const exerciseName = block.exerciseName || session.activeExercise || '';
         session.sets = Array.isArray(session.sets) ? session.sets : [];
@@ -2087,8 +2118,20 @@ document.addEventListener('visibilitychange', () => {
           notes: noteEl ? noteEl.value.trim() : '',
           loggedAt: new Date().toISOString()
         });
+        // persist the chosen load as the working load so the next set pre-fills with it
+        if (window.MomentumPlanner && typeof MomentumPlanner.setCockpitWorkingLoad === 'function' && state.cockpit) {
+          const ex = Array.isArray(state.cockpit.exercises) ? state.cockpit.exercises : [];
+          let idx = ex.findIndex(e => e && e.exerciseName === exerciseName);
+          if (idx < 0 && typeof state.cockpit.exerciseIndex === 'number') idx = state.cockpit.exerciseIndex;
+          if (idx >= 0) state.cockpit = MomentumPlanner.setCockpitWorkingLoad(state.cockpit, idx, load);
+        }
+        // start the prescribed rest timer
+        const restSecs = (typeof restSecondsFromPrescription === 'function') ? restSecondsFromPrescription(rx.rest) : 0;
+        state.restTimer = restSecs > 0 ? { total: restSecs, startedAt: Date.now() } : null;
         if (typeof persist === 'function') persist();
         if (typeof renderLog === 'function') renderLog();
+        const r2 = $('#result');
+        if (r2) { r2.focus(); try { r2.select(); } catch (e) {} }
       };
 
       const dup = $('#duplicateLast');
@@ -2124,6 +2167,34 @@ document.addEventListener('visibilitychange', () => {
       const discard = $('#discard');
       if (discard) discard.onclick = () => { if (typeof discardActiveWorkout === 'function') discardActiveWorkout(); };
 
+      const nextBtn = $('#nextExercise');
+      if (nextBtn) nextBtn.onclick = () => {
+        const session = ensureActiveSession();
+        const cur = (typeof activeBlock === 'function' ? activeBlock() : null);
+        const curName = (cur && cur.exerciseName) || session.activeExercise || '';
+        const nx = (typeof nextExerciseNameFor === 'function') ? nextExerciseNameFor(curName) : '';
+        if (!nx) { if (typeof toast === 'function') toast('No next exercise'); return; }
+        session.activeExercise = nx;
+        if (state.cockpit && Array.isArray(state.cockpit.exercises)) {
+          const idx = state.cockpit.exercises.findIndex(e => e && e.exerciseName === nx);
+          if (idx >= 0) state.cockpit.exerciseIndex = idx;
+        }
+        state.restTimer = null;
+        if (typeof persist === 'function') persist();
+        if (typeof renderLog === 'function') renderLog();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      };
+
+      const finishDone = $('#finishDone');
+      if (finishDone) finishDone.onclick = () => { const f = $('#finish'); if (f) f.click(); };
+
+      const skipRest = $('#skipRest');
+      if (skipRest) skipRest.onclick = () => {
+        state.restTimer = null;
+        if (typeof persist === 'function') persist();
+        if (typeof renderLog === 'function') renderLog();
+      };
+
       $$('[data-type]').forEach(b => b.onclick = () => {
         $$('[data-type]').forEach(x => x.classList.toggle('active', x === b));
       });
@@ -2142,12 +2213,32 @@ document.addEventListener('visibilitychange', () => {
     window._momentumTimerStarted = true;
     setInterval(() => {
       const el = document.getElementById('timer');
-      if (!el) return;
-      if (typeof active === 'undefined' || !active || !active.startedAt) return;
-      if (typeof window.clock === 'function') {
+      if (el && active && active.startedAt && typeof window.clock === 'function') {
         const secs = Math.max(0, Math.floor((Date.now() - new Date(active.startedAt).getTime()) / 1000));
         el.textContent = window.clock(secs);
       }
+      // rest-timer tick: countdown from the prescribed rest after a set is logged
+      const rt = state && state.restTimer;
+      if (rt && rt.startedAt && rt.total) {
+        const elapsed = Math.floor((Date.now() - rt.startedAt) / 1000);
+        const remaining = Math.max(0, rt.total - elapsed);
+        const banner = document.getElementById('restBanner');
+        const timeEl = document.getElementById('restTime');
+        if (remaining <= 0) {
+          if (banner) banner.hidden = true;
+          state.restTimer = null;
+        } else if (timeEl) {
+          timeEl.textContent = remaining + 's';
+        }
+      }
     }, 1000);
+  }
+
+  // gym-floor log styles (injected so index.html need not change)
+  if (typeof document !== 'undefined' && !document.getElementById('momentumLogStyles')) {
+    const _ls = document.createElement('style');
+    _ls.id = 'momentumLogStyles';
+    _ls.textContent = `.set-entry-card{padding:16px 17px}.set-entry-card .set-form{gap:10px}.set-entry-card .input{font-size:18px;min-height:52px}.set-entry-card .actions{display:flex;flex-direction:column;gap:10px;margin-top:14px}.set-entry-card .actions button{width:100%;min-height:52px;font-size:16px}.prescription-summary{margin-top:6px;font-size:13px;line-height:1.45}.rest-banner{display:flex;align-items:center;gap:10px;justify-content:center;background:#16323a;border:1px solid var(--mint);border-radius:14px;padding:11px 14px;margin-bottom:12px;font-size:15px}.rest-banner #restTime{font-size:22px;color:var(--mint);min-width:48px;text-align:center}.rest-banner #skipRest{margin-left:auto}.collapsible{margin-top:12px;padding:13px 16px}.collapsible summary{cursor:pointer;list-style:none;color:var(--muted);font-weight:700;font-size:13px}.collapsible summary::-webkit-details-marker{display:none}.next-exercise{background:var(--blue);color:#06182e}@media(max-width:720px){.set-entry-card .input{font-size:20px;min-height:56px}.set-entry-card .actions button{min-height:56px;font-size:17px}.active-session{flex-wrap:wrap}.session-tools button{min-height:38px}}`;
+    (document.head || document.documentElement).appendChild(_ls);
   }
 })();
