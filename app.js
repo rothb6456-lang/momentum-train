@@ -1649,6 +1649,35 @@ function bindReview(session) {
       );
     };
   }
+  const markCompleteBtn = $('#markComplete');
+  if (markCompleteBtn) {
+    markCompleteBtn.onclick = () => {
+      const all = getDone();
+      const item = all.find(x => x.id === session.id);
+      if (!item) return;
+      item.status = 'complete';
+      saveDone(all);
+      toast('Review marked complete');
+      renderReview();
+      renderHistory();
+      renderHome();
+    };
+  }
+
+  const reopenReviewBtn = $('#reopenReview');
+  if (reopenReviewBtn) {
+    reopenReviewBtn.onclick = () => {
+      const all = getDone();
+      const item = all.find(x => x.id === session.id);
+      if (!item) return;
+      item.status = 'shared';
+      saveDone(all);
+      toast('Review reopened');
+      renderReview();
+      renderHistory();
+      renderHome();
+    };
+  }
 }
 
 /* ---------- renderReview ---------- */
@@ -1656,9 +1685,10 @@ function renderReview() {
   const root = $('#review');
   if (!root) return;
 
-  const sessions = getDone();
+  const all = getDone();
+  const sessions = all.filter(s => s.status !== 'complete');
   if (!selectedReviewId && sessions[0]) selectedReviewId = sessions[0].id;
-  const selected = sessions.find(x => x.id === selectedReviewId) || sessions[0] || null;
+  const selected = all.find(x => x.id === selectedReviewId) || sessions[0] || null;
 
   root.innerHTML = `
     <div class="review-grid">
@@ -1671,10 +1701,10 @@ function renderReview() {
               ? sessions.map(s => `
                 <button class="session-item ${s.id === selected?.id ? 'active' : ''}" data-review="${s.id}">
                   <b>${esc(s.workoutName)}</b>
-                  <small class="quiet">${dateText(s.completedAt)} · ${s.sets.length} sets · ${esc(s.status)}</small>
+                  <small class="quiet">${dateText(s.completedAt)} · ${s.sets.length} sets · ${s.status === 'shared' ? 'Debrief copied' : 'Needs review'}</small>
                 </button>
               `).join('')
-              : '<div class="empty">Finished Momentum sessions appear here.</div>'
+              : '<div class="empty">Sessions awaiting review appear here.</div>'
           }
         </div>
       </aside>
@@ -1698,13 +1728,35 @@ function renderHistory() {
   const root = $('#history');
   if (!root) return;
 
+  const sessions = getDone()
+    .slice()
+    .sort((a, b) => (b.completedAt || '').localeCompare(a.completedAt || ''));
+
   root.innerHTML = `
     <div class="card section">
       <div class="eyebrow">History</div>
-      <h2 style="margin-top:6px">History view</h2>
-      <p class="quiet">History is not available yet.</p>
+      <h2 style="margin-top:6px">Completed workouts</h2>
+      <p class="quiet">${sessions.length} finished session${sessions.length === 1 ? '' : 's'} on this device. Tap one to reopen its review.</p>
+      <div class="stack" style="margin-top:14px">
+        ${
+          sessions.length
+            ? sessions.map(s => `
+              <button class="session-item" data-history="${s.id}">
+                <b>${esc(s.workoutName || 'Workout')}</b>
+                <small class="quiet">${dateText(s.completedAt)} · ${s.sets.length} set${s.sets.length === 1 ? '' : 's'} · ${s.status === 'complete' ? 'Reviewed' : (s.status === 'shared' ? 'Debrief copied' : 'Needs review')}</small>
+              </button>
+            `).join('')
+            : '<div class="empty">Finished workouts will appear here once you complete one.</div>'
+        }
+      </div>
     </div>
   `;
+
+  $$('[data-history]').forEach(b => b.onclick = () => {
+    selectedReviewId = b.dataset.history;
+    renderReview();
+    show('review');
+  });
 }
 
 
@@ -2090,7 +2142,8 @@ document.addEventListener('visibilitychange', () => {
           <label class="field full">Questions for Coach<textarea id="reviewQuestions">${esc(session.coachQuestions || '')}</textarea></label>
         </div>
         <div class="actions" style="margin-top:12px">
-          <button class="primary" id="copyDebrief">Copy debrief</button>
+          ${session.status === 'complete' ? '<button class="secondary" id="reopenReview">Reopen review</button>' : '<button class="primary" id="markComplete">Mark complete</button>'}
+          <button class="secondary" id="copyDebrief">Copy debrief</button>
           <button class="secondary" id="exportCsv">Export CSV</button>
           ${session.status === 'staged' ? '<button class="secondary" id="undoFinish">Undo finish</button>' : ''}
         </div>`;
@@ -2242,7 +2295,7 @@ document.addEventListener('visibilitychange', () => {
   if (typeof document !== 'undefined' && !document.getElementById('momentumLogStyles')) {
     const _ls = document.createElement('style');
     _ls.id = 'momentumLogStyles';
-    _ls.textContent = `.set-entry-card{padding:16px 17px}.set-entry-card .set-form{gap:10px}.set-entry-card .input{font-size:18px;min-height:52px}.set-entry-card .actions{display:flex;flex-direction:column;gap:10px;margin-top:14px}.set-entry-card .actions button{width:100%;min-height:52px;font-size:16px}.prescription-summary{margin-top:6px;font-size:13px;line-height:1.45}.rest-banner{display:flex;align-items:center;gap:10px;justify-content:center;background:#16323a;border:1px solid var(--mint);border-radius:14px;padding:11px 14px;margin-bottom:12px;font-size:15px}.rest-banner #restTime{font-size:22px;color:var(--mint);min-width:48px;text-align:center}.rest-banner #skipRest{margin-left:auto}.collapsible{margin-top:12px;padding:13px 16px}.collapsible summary{cursor:pointer;list-style:none;color:var(--muted);font-weight:700;font-size:13px}.collapsible summary::-webkit-details-marker{display:none}.next-exercise{background:var(--blue);color:#06182e}.active-session.compact-bar{padding:7px 10px;margin-bottom:10px;gap:8px;flex-wrap:nowrap}.bar-title-wrap{display:flex;align-items:center;gap:8px;min-width:0;flex:1 1 auto}.bar-title{font-size:16px;font-weight:780;margin:0;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.15}.bar-badge{flex:0 0 auto;font-size:11px;font-weight:700;color:var(--mint);border:1px solid #2f7664;border-radius:99px;padding:3px 8px;white-space:nowrap}.compact-bar .session-tools{display:flex;gap:6px;flex:0 0 auto}.mini{min-height:30px;padding:5px 9px;font-size:11px}.rx-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:10px}.rx-badge{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mint);border:1px solid #2f7664;border-radius:99px;padding:3px 9px;white-space:nowrap}.rx-line{color:var(--muted);font-size:12.5px;line-height:1.35;flex:1 1 200px}@media(max-width:720px){.set-entry-card .input{font-size:20px;min-height:56px}.set-entry-card .actions button{min-height:56px;font-size:17px}.compact-bar{flex-wrap:nowrap}.bar-title{font-size:15px}.rx-line{flex:1 1 100%}.session-tools button{min-height:34px}}`;
+    _ls.textContent = `.set-entry-card{padding:16px 17px}.toast{max-width:calc(100vw - 28px)}.set-entry-card .set-form{gap:10px}.set-entry-card .input{font-size:18px;min-height:52px}.set-entry-card .actions{display:flex;flex-direction:column;gap:10px;margin-top:14px}.set-entry-card .actions button{width:100%;min-height:52px;font-size:16px}.prescription-summary{margin-top:6px;font-size:13px;line-height:1.45}.rest-banner{display:flex;align-items:center;gap:10px;justify-content:center;background:#16323a;border:1px solid var(--mint);border-radius:14px;padding:11px 14px;margin-bottom:12px;font-size:15px}.rest-banner #restTime{font-size:22px;color:var(--mint);min-width:48px;text-align:center}.rest-banner #skipRest{margin-left:auto}.collapsible{margin-top:12px;padding:13px 16px}.collapsible summary{cursor:pointer;list-style:none;color:var(--muted);font-weight:700;font-size:13px}.collapsible summary::-webkit-details-marker{display:none}.next-exercise{background:var(--blue);color:#06182e}.active-session.compact-bar{padding:7px 10px;margin-bottom:10px;gap:8px;flex-wrap:nowrap}.bar-title-wrap{display:flex;align-items:center;gap:8px;min-width:0;flex:1 1 auto}.bar-title{font-size:16px;font-weight:780;margin:0;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.15}.bar-badge{flex:0 0 auto;font-size:11px;font-weight:700;color:var(--mint);border:1px solid #2f7664;border-radius:99px;padding:3px 8px;white-space:nowrap}.compact-bar .session-tools{display:flex;gap:6px;flex:0 0 auto}.mini{min-height:30px;padding:5px 9px;font-size:11px}.rx-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:10px}.rx-badge{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mint);border:1px solid #2f7664;border-radius:99px;padding:3px 9px;white-space:nowrap}.rx-line{color:var(--muted);font-size:12.5px;line-height:1.35;flex:1 1 200px}@media(max-width:720px){.set-entry-card .input{font-size:20px;min-height:56px}.set-entry-card .actions button{min-height:56px;font-size:17px}.compact-bar{flex-wrap:nowrap}.bar-title{font-size:15px}.rx-line{flex:1 1 100%}.session-tools button{min-height:34px}}`;
     (document.head || document.documentElement).appendChild(_ls);
   }
 })();
