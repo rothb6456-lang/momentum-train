@@ -1,420 +1,424 @@
-/* =========================  
-   MOMENTUM STABILITY + CORE HELPERS  
-   Place this block before renderHome()  
+/* =========================
+   MOMENTUM STABILITY + CORE HELPERS
+   Place this block before renderHome()
    ========================= */
 
-/* ---------- dom helpers ---------- */  
-const $ = (selector, root = document) => root.querySelector(selector);  
+/* ---------- dom helpers ---------- */
+const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
-/* ---------- escaping helpers ---------- */  
-/* ---------- escaping helpers ---------- */  
-const esc = value =>  
-  String(value ?? '').replace(/[&<>'"]/g, ch => ({  
-    '&': '&amp;',  
-    '<': '&lt;',  
-    '>': '&gt;',  
-    "'": '&#39;',  
-    '"': '&quot;'  
+/* ---------- escaping helpers ---------- */
+const esc = value =>
+  String(value ?? '').replace(/[&<>'"]/g, ch => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    "'": '&#39;',
+    '"': '&quot;'
   }[ch]));
 
-function escapeHtml(value) {  
-  return String(value ?? '')  
-    .replace(/&/g, '&amp;')  
-    .replace(/</g, '&lt;')  
-    .replace(/>/g, '&gt;')  
-    .replace(/"/g, '&#quot;')  
-    .replace(/'/g, '&#39;');  
-}  
+// Backward-compatible alias (kept global for other page scripts / inline HTML);
+// delegates to the hardened esc() so the broken &#quot; entity is never produced.
+function escapeHtml(value) {
+  return esc(value);
+}
 
-/* ---------- storage keys ---------- */  
-const STORAGE_KEYS = {  
-  active: 'momentum.active.v3',  
-  done: 'momentum.sessions.v3',  
-  cockpit: 'momentum.cockpit.v1',  
-  editor: 'momentum.editor.v1',  
-  lastView: 'momentum:lastView'  
+/* ---------- storage keys ---------- */
+const STORAGE_KEYS = {
+  active: 'momentum.active.v3',
+  done: 'momentum.sessions.v3',
+  cockpit: 'momentum.cockpit.v1',
+  editor: 'momentum.editor.v1',
+  lastView: 'momentum:lastView'
 };
 
-/* ---------- json storage ---------- */  
-function loadJson(key, fallback = null) {  
-  try {  
-    const raw = localStorage.getItem(key);  
-    return raw ? JSON.parse(raw) : fallback;  
-  } catch {  
-    return fallback;  
-  }  
+/* ---------- json storage ---------- */
+function loadJson(key, fallback = null) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
 }
 
-function saveJson(key, value) {  
-  localStorage.setItem(key, JSON.stringify(value));  
+function saveJson(key, value) {
+  localStorage.setItem(key, JSON.stringify(value));
 }
 
-function getDone() {  
-  return loadJson(STORAGE_KEYS.done, []);  
+function getDone() {
+  return loadJson(STORAGE_KEYS.done, []);
 }
 
-function saveDone(sessions) {  
-  saveJson(STORAGE_KEYS.done, Array.isArray(sessions) ? sessions : []);  
+function saveDone(sessions) {
+  saveJson(STORAGE_KEYS.done, Array.isArray(sessions) ? sessions : []);
 }
 
-/* ---------- session fallback ---------- */  
-function fallbackSession() {  
-  const now = new Date().toISOString();  
-  return {  
-    id: `session_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,  
-    status: 'draft',  
-    planId: '',  
-    plannedWorkout: null,  
-    phase: '',  
-    week: '',  
-    day: '',  
-    workoutName: 'Ad hoc workout',  
-    startedAt: now,  
-    updatedAt: now,  
-    activeExercise: '',  
-    sets: [],  
-    tags: [],  
-    coachQuestions: ''  
-  };  
+/* ---------- session fallback ---------- */
+function fallbackSession() {
+  const now = new Date().toISOString();
+  return {
+    id: `session_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    status: 'draft',
+    planId: '',
+    plannedWorkout: null,
+    phase: '',
+    week: '',
+    day: '',
+    workoutName: 'Ad hoc workout',
+    startedAt: now,
+    updatedAt: now,
+    activeExercise: '',
+    sets: [],
+    tags: [],
+    coachQuestions: ''
+  };
 }
 
-/* ---------- app state ---------- */  
-const state = {  
-  cockpit: null,  
-  cockpitEditOpen: false,  
-  cockpitEditingLastSet: null,  
-  restTimer: null  
+/* ---------- app state ---------- */
+const state = {
+  cockpit: null,
+  cockpitEditOpen: false,
+  cockpitEditingLastSet: null,
+  restTimer: null
 };
 
-let active = loadJson(STORAGE_KEYS.active, null);  
-if (!active || !Array.isArray(active.sets)) {  
-  active = fallbackSession();  
+let active = loadJson(STORAGE_KEYS.active, null);
+if (!active || !Array.isArray(active.sets)) {
+  active = fallbackSession();
 }
 
-let editor = loadJson(STORAGE_KEYS.editor, null);  
+let editor = loadJson(STORAGE_KEYS.editor, null);
 let selectedReviewId = '';
 
-const restoredCockpit = loadJson(STORAGE_KEYS.cockpit, null);  
-if (restoredCockpit && Array.isArray(restoredCockpit.exercises)) {  
-  state.cockpit = restoredCockpit;  
+const restoredCockpit = loadJson(STORAGE_KEYS.cockpit, null);
+if (restoredCockpit && Array.isArray(restoredCockpit.exercises)) {
+  state.cockpit = restoredCockpit;
 }
 
-/* ---------- persistence ---------- */  
-function persistCockpit() {  
-  saveJson(STORAGE_KEYS.cockpit, state.cockpit || null);  
+/* ---------- persistence ---------- */
+function persistCockpit() {
+  saveJson(STORAGE_KEYS.cockpit, state.cockpit || null);
 }
 
-function persistEditor() {  
-  saveJson(STORAGE_KEYS.editor, typeof editor !== 'undefined' ? editor : null);  
+function persistEditor() {
+  saveJson(STORAGE_KEYS.editor, typeof editor !== 'undefined' ? editor : null);
 }
 
-function clearCockpitPersisted() {  
-  localStorage.removeItem(STORAGE_KEYS.cockpit);  
+function clearCockpitPersisted() {
+  localStorage.removeItem(STORAGE_KEYS.cockpit);
 }
 
-function clearEditorPersisted() {  
-  localStorage.removeItem(STORAGE_KEYS.editor);  
+function clearEditorPersisted() {
+  localStorage.removeItem(STORAGE_KEYS.editor);
 }
 
-function ensureActiveSession() {  
-  if (!active || !Array.isArray(active.sets)) {  
-    active = (typeof newSession === 'function') ? newSession() : fallbackSession();  
-  }  
-  return active;  
+function ensureActiveSession() {
+  if (!active || !Array.isArray(active.sets)) {
+    active = (typeof newSession === 'function') ? newSession() : fallbackSession();
+  }
+  return active;
 }
 
-function persist() {  
-  ensureActiveSession();  
-  active.updatedAt = new Date().toISOString();  
-  saveJson(STORAGE_KEYS.active, active);  
-  persistCockpit();  
-  persistEditor();  
+function persist() {
+  ensureActiveSession();
+  active.updatedAt = new Date().toISOString();
+  saveJson(STORAGE_KEYS.active, active);
+  persistCockpit();
+  persistEditor();
 }
 
-/* ---------- planner / queue helpers ---------- */  
-function queued() {  
-  if (typeof MomentumPlanner === 'undefined' || typeof MomentumPlanner.load !== 'function') {  
-    return [];  
+/* ---------- planner / queue helpers ---------- */
+function queued() {
+  if (typeof MomentumPlanner === 'undefined' || typeof MomentumPlanner.load !== 'function') {
+    return [];
   }
 
-  return MomentumPlanner.load().filter(x => x.status === 'queued' || x.status === 'active');  
+  return MomentumPlanner.load().filter(x => x.status === 'queued' || x.status === 'active');
 }
 
-function nextPlan() {  
-  return queued()[0] || null;  
+function nextPlan() {
+  return queued()[0] || null;
 }
 
-function planSummary(plan) {  
+function planSummary(plan) {
   if (!plan) return 'No phase metadata';
 
-  return [  
-    plan.phaseId ? `Phase ${plan.phaseId}` : '',  
-    plan.week ? `Week ${plan.week}` : '',  
-    plan.day ? `Day ${plan.day}` : '',  
-    plan.sourceType || ''  
-  ].filter(Boolean).join(' · ') || 'No phase metadata';  
+  return [
+    plan.phaseId ? `Phase ${plan.phaseId}` : '',
+    plan.week ? `Week ${plan.week}` : '',
+    plan.day ? `Day ${plan.day}` : '',
+    plan.sourceType || ''
+  ].filter(Boolean).join(' · ') || 'No phase metadata';
 }
 
-/* ---------- navigation helpers ---------- */  
-function bindGo() {  
-  $$('[data-go]').forEach(b => {  
-    b.onclick = () => show(b.dataset.go);  
-  });  
+/* ---------- navigation helpers ---------- */
+function bindGo() {
+  $$('[data-go]').forEach(b => {
+    b.onclick = () => show(b.dataset.go);
+  });
 }
 
-function persistCurrentView(view) {  
-  try {  
-    localStorage.setItem(STORAGE_KEYS.lastView, view);  
-  } catch {}  
+function persistCurrentView(view) {
+  try {
+    localStorage.setItem(STORAGE_KEYS.lastView, view);
+  } catch {}
 }
 
 
 
-function restoreCurrentView() {  
-  try {  
-    const hasActive =  
-      active &&  
-      (  
-        (Array.isArray(active.sets) && active.sets.length > 0) ||  
-        (state.cockpit && Array.isArray(state.cockpit.exercises) && state.cockpit.exercises.length > 0)  
+function restoreCurrentView() {
+  try {
+    const hasActive =
+      active &&
+      (
+        (Array.isArray(active.sets) && active.sets.length > 0) ||
+        (state.cockpit && Array.isArray(state.cockpit.exercises) && state.cockpit.exercises.length > 0)
       );
 
     if (hasActive) return 'log';
 
-    const saved = localStorage.getItem(STORAGE_KEYS.lastView) || 'today';  
-    return ['home', 'today', 'log', 'review', 'history'].includes(saved) ? saved : 'today';  
-  } catch {  
-    return 'today';  
-  }  
+    const saved = localStorage.getItem(STORAGE_KEYS.lastView) || 'today';
+    return ['home', 'today', 'log', 'review', 'history'].includes(saved) ? saved : 'today';
+  } catch {
+    return 'today';
+  }
 }
 
-/* ---------- ui helpers ---------- */  
-function isMobileHomeLayout() {  
-  return window.matchMedia('(max-width: 760px)').matches;  
+/* ---------- ui helpers ---------- */
+function isMobileHomeLayout() {
+  return window.matchMedia('(max-width: 760px)').matches;
 }
 
-function starterCards() {  
-  return (window.MomentumWorkoutCards && window.MomentumWorkoutCards.starterCards) || [];  
+function starterCards() {
+  return (window.MomentumWorkoutCards && window.MomentumWorkoutCards.starterCards) || [];
 }
 
-function metric(label, value, detail) {  
-  return `<article class="card metric"><div class="label">${esc(label)}</div><div class="value">${esc(value)}</div><div class="delta">${esc(detail)}</div></article>`;  
+function metric(label, value, detail) {
+  return `<article class="card metric"><div class="label">${esc(label)}</div><div class="value">${esc(value)}</div><div class="delta">${esc(detail)}</div></article>`;
 }
 
-/* ---------- plan entry helpers ---------- */  
+/* ---------- plan entry helpers ---------- */
 
- 
+
 
 /* ---------- stable session / navigation / planner helpers ---------- */
 
 let starterPreviewKey = null;
 
-function selectedReviewedSession() {  
-  const sessions = getDone();  
+function selectedReviewedSession() {
+  const sessions = getDone();
   if (!Array.isArray(sessions) || !sessions.length) return null;
 
-  if (selectedReviewId) {  
-    return sessions.find(x => x && x.id === selectedReviewId) || null;  
+  if (selectedReviewId) {
+    return sessions.find(x => x && x.id === selectedReviewId) || null;
   }
 
-  return sessions[0] || null;  
+  return sessions[0] || null;
 }
 
-function planForActive() {  
-  const session = ensureActiveSession();  
+function planForActive() {
+  const session = ensureActiveSession();
   if (!session) return null;
 
-  if (session.plannedWorkout && Array.isArray(session.plannedWorkout.exerciseBlocks)) {  
-    return session.plannedWorkout;  
+  if (session.plannedWorkout && Array.isArray(session.plannedWorkout.exerciseBlocks)) {
+    return session.plannedWorkout;
   }
 
-  if (  
-    session.planId &&  
-    typeof MomentumPlanner !== 'undefined' &&  
-    typeof MomentumPlanner.load === 'function'  
-  ) {  
-    return MomentumPlanner.load().find(x => x && x.id === session.planId) || null;  
+  if (
+    session.planId &&
+    typeof MomentumPlanner !== 'undefined' &&
+    typeof MomentumPlanner.load === 'function'
+  ) {
+    return MomentumPlanner.load().find(x => x && x.id === session.planId) || null;
   }
 
-  return null;  
+  return null;
 }
 
-function activeBlock() {  
-  const session = ensureActiveSession();  
+function activeBlock() {
+  const session = ensureActiveSession();
   if (!session) return null;
 
-  const cockpitExercises = state?.cockpit?.exercises;  
-  if (Array.isArray(cockpitExercises) && cockpitExercises.length) {  
-    if (session.activeExercise) {  
-      return cockpitExercises.find(x => x && x.exerciseName === session.activeExercise) || cockpitExercises[0] || null;  
-    }  
-    return cockpitExercises[0] || null;  
+  const cockpitExercises = state?.cockpit?.exercises;
+  if (Array.isArray(cockpitExercises) && cockpitExercises.length) {
+    if (session.activeExercise) {
+      return cockpitExercises.find(x => x && x.exerciseName === session.activeExercise) || cockpitExercises[0] || null;
+    }
+    return cockpitExercises[0] || null;
   }
 
-  const plan = planForActive();  
-  const blocks = Array.isArray(plan?.exerciseBlocks) ? plan.exerciseBlocks : [];  
-  if (blocks.length) {  
-    if (session.activeExercise) {  
-      return blocks.find(x => x && x.exerciseName === session.activeExercise) || blocks[0] || null;  
-    }  
-    return blocks[0] || null;  
+  const plan = planForActive();
+  const blocks = Array.isArray(plan?.exerciseBlocks) ? plan.exerciseBlocks : [];
+  if (blocks.length) {
+    if (session.activeExercise) {
+      return blocks.find(x => x && x.exerciseName === session.activeExercise) || blocks[0] || null;
+    }
+    return blocks[0] || null;
   }
 
-  return null;  
+  return null;
 }
 
-function plannedBlocksForActive() {  
-  const plan = planForActive();  
-  return Array.isArray(plan?.exerciseBlocks) ? plan.exerciseBlocks : [];  
+function plannedBlocksForActive() {
+  const plan = planForActive();
+  return Array.isArray(plan?.exerciseBlocks) ? plan.exerciseBlocks : [];
 }
 
-function plannedForExercise(exerciseName) {  
-  if (!exerciseName) return null;  
-  return plannedBlocksForActive().find(x => x && x.exerciseName === exerciseName) || null;  
+function plannedForExercise(exerciseName) {
+  if (!exerciseName) return null;
+  return plannedBlocksForActive().find(x => x && x.exerciseName === exerciseName) || null;
 }
 
-function show(view) {  
+function show(view) {
   const sections = ['home', 'today', 'log', 'review', 'history'];
 
-  sections.forEach(id => {  
-    const node = document.getElementById(id);  
-    if (!node) return;  
-    node.style.display = id === view ? '' : 'none';  
+  // If the requested view's container is missing, fall back to the first
+  // section that actually exists so the page is never blanked silently.
+  const targetNode = document.getElementById(view);
+  if (!targetNode) {
+    const fallback = sections.find(id => document.getElementById(id)) || 'today';
+    if (fallback !== view && document.getElementById(fallback)) view = fallback;
+  }
+
+  sections.forEach(id => {
+    const node = document.getElementById(id);
+    if (!node) return;
+    node.style.display = id === view ? '' : 'none';
   });
 
   persistCurrentView(view);
 
-  if (view === 'home' && typeof renderHome === 'function') renderHome();  
-  if (view === 'today' && typeof renderToday === 'function') renderToday();  
-  if (view === 'log' && typeof renderLog === 'function') renderLog();  
-  if (view === 'review' && typeof renderReview === 'function') renderReview();  
-  if (view === 'history' && typeof renderHistory === 'function') renderHistory();  
+  if (view === 'home' && typeof renderHome === 'function') renderHome();
+  if (view === 'today' && typeof renderToday === 'function') renderToday();
+  if (view === 'log' && typeof renderLog === 'function') renderLog();
+  if (view === 'review' && typeof renderReview === 'function') renderReview();
+  if (view === 'history' && typeof renderHistory === 'function') renderHistory();
 }
 
-function safeShow(view) {  
-  show(view);  
+function safeShow(view) {
+  show(view);
 }
 
-function openTrainingFocus() {  
-  starterPreviewKey = null;  
-  editor = null;  
-  show('today');  
-  setTimeout(() => {  
-    $('#trainingFocus')?.scrollIntoView({ behavior: 'smooth', block: 'start' });  
-  }, 40);  
+function openTrainingFocus() {
+  starterPreviewKey = null;
+  editor = null;
+  show('today');
+  setTimeout(() => {
+    $('#trainingFocus')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 40);
 }
 
-function openPlannerBuilder() {  
-  starterPreviewKey = null;  
-  editor =  
-    (typeof MomentumPlanner !== 'undefined' && typeof MomentumPlanner.blankWorkout === 'function')  
-      ? MomentumPlanner.blankWorkout()  
+function openPlannerBuilder() {
+  starterPreviewKey = null;
+  editor =
+    (typeof MomentumPlanner !== 'undefined' && typeof MomentumPlanner.blankWorkout === 'function')
+      ? MomentumPlanner.blankWorkout()
       : (typeof newWorkoutShell === 'function' ? newWorkoutShell('manual') : null);
 
   if (editor) editor.sourceType = editor.sourceType || 'manual';
 
-  show('today');  
-  setTimeout(() => {  
-    if (typeof renderEditor === 'function') renderEditor('builder');  
-    $('#plannerEditor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });  
-  }, 40);  
+  show('today');
+  setTimeout(() => {
+    if (typeof renderEditor === 'function') renderEditor('builder');
+    $('#plannerEditor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 40);
 }
 
-function openPlannerPaste() {  
-  starterPreviewKey = null;  
-  editor =  
-    (typeof MomentumPlanner !== 'undefined' && typeof MomentumPlanner.blankWorkout === 'function')  
-      ? MomentumPlanner.blankWorkout()  
+function openPlannerPaste() {
+  starterPreviewKey = null;
+  editor =
+    (typeof MomentumPlanner !== 'undefined' && typeof MomentumPlanner.blankWorkout === 'function')
+      ? MomentumPlanner.blankWorkout()
       : (typeof newWorkoutShell === 'function' ? newWorkoutShell('chatgpt') : null);
 
   if (editor) editor.sourceType = 'chatgpt';
 
-  show('today');  
-  setTimeout(() => {  
-    if (typeof renderEditor === 'function') renderEditor('paste');  
-    $('#plannerEditor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });  
-  }, 40);  
+  show('today');
+  setTimeout(() => {
+    if (typeof renderEditor === 'function') renderEditor('paste');
+    $('#plannerEditor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 40);
 }
 
-function startPlan(id) {  
-  if (typeof MomentumPlanner === 'undefined' || typeof MomentumPlanner.load !== 'function') {  
-    return;  
+function startPlan(id) {
+  if (typeof MomentumPlanner === 'undefined' || typeof MomentumPlanner.load !== 'function') {
+    return;
   }
 
-  const plan = MomentumPlanner.load().find(x => x && x.id === id);  
-  if (!plan) {  
-    if (typeof toast === 'function') toast('Workout not found.');  
-    return;  
+  const plan = MomentumPlanner.load().find(x => x && x.id === id);
+  if (!plan) {
+    if (typeof toast === 'function') toast('Workout not found.');
+    return;
   }
 
-  active = (typeof newSession === 'function') ? newSession(plan) : fallbackSession();  
-  active.status = 'active';  
-  active.planId = plan.id;  
-  active.plannedWorkout = plan;  
-  active.phase = plan.phaseId || active.phase || '';  
-  active.week = plan.week || active.week || '';  
-  active.day = plan.day || active.day || '';  
-  active.workoutName = plan.title || active.workoutName || 'Planned workout';  
-  active.activeExercise = plan.exerciseBlocks?.[0]?.exerciseName || active.activeExercise || '';  
+  active = (typeof newSession === 'function') ? newSession(plan) : fallbackSession();
+  active.status = 'active';
+  active.planId = plan.id;
+  active.plannedWorkout = plan;
+  active.phase = plan.phaseId || active.phase || '';
+  active.week = plan.week || active.week || '';
+  active.day = plan.day || active.day || '';
+  active.workoutName = plan.title || active.workoutName || 'Planned workout';
+  active.activeExercise = plan.exerciseBlocks?.[0]?.exerciseName || active.activeExercise || '';
   active.sets = Array.isArray(active.sets) ? active.sets : [];
 
-  state.cockpit =  
-    (typeof MomentumPlanner.buildCockpitWorkout === 'function')  
-      ? MomentumPlanner.buildCockpitWorkout(plan)  
+  state.cockpit =
+    (typeof MomentumPlanner.buildCockpitWorkout === 'function')
+      ? MomentumPlanner.buildCockpitWorkout(plan)
       : null;
 
-  state.cockpitEditOpen = false;  
-  state.cockpitEditingLastSet = null;  
+  state.cockpitEditOpen = false;
+  state.cockpitEditingLastSet = null;
   state.restTimer = null;
 
-  if (typeof MomentumPlanner.mark === 'function') {  
-    MomentumPlanner.mark(plan.id, 'active');  
+  if (typeof MomentumPlanner.mark === 'function') {
+    MomentumPlanner.mark(plan.id, 'active');
   }
 
-  persist();  
-  renderHome();  
-  renderToday();  
-  renderLog();  
+  persist();
+  renderHome();
+  renderToday();
+  renderLog();
   show('log');
 
-  if (typeof toast === 'function') toast('Planned workout started');  
+  if (typeof toast === 'function') toast('Planned workout started');
 }
 
-function restoreStagedSession(sessionId) {  
-  const sessions = getDone();  
-  const idx = sessions.findIndex(x => x && x.id === sessionId);  
+function restoreStagedSession(sessionId) {
+  const sessions = getDone();
+  const idx = sessions.findIndex(x => x && x.id === sessionId);
   if (idx === -1) return null;
 
-  const session = sessions[idx];  
+  const session = sessions[idx];
   if (!session || (session.status !== 'staged' && session.status !== 'shared')) return null;
 
-  active = {  
-    ...fallbackSession(),  
-    ...session,  
-    status: 'active',  
-    completedAt: null  
+  active = {
+    ...fallbackSession(),
+    ...session,
+    status: 'active',
+    completedAt: null
   };
 
-  active.sets = Array.isArray(session.sets) ? session.sets : [];  
-  active.plannedWorkout = session.plannedWorkout || null;  
-  active.activeExercise =  
-    session.activeExercise ||  
-    session.plannedWorkout?.exerciseBlocks?.[0]?.exerciseName ||  
+  active.sets = Array.isArray(session.sets) ? session.sets : [];
+  active.plannedWorkout = session.plannedWorkout || null;
+  active.activeExercise =
+    session.activeExercise ||
+    session.plannedWorkout?.exerciseBlocks?.[0]?.exerciseName ||
     '';
 
-  sessions.splice(idx, 1);  
+  sessions.splice(idx, 1);
   saveDone(sessions);
 
-  persist();  
-  renderLog();  
-  renderReview();  
-  renderToday();  
-  renderHome();  
+  persist();
+  renderLog();
+  renderReview();
+  renderToday();
+  renderHome();
   show('log');
 
-  if (typeof toast === 'function') toast('Workout restored to Log');  
-  return active;  
+  if (typeof toast === 'function') toast('Workout restored to Log');
+  return active;
 }
 
 function discardActiveWorkout() {
@@ -435,76 +439,76 @@ function discardActiveWorkout() {
   if (typeof toast === 'function') toast('Draft discarded');
 }
 
-function logMarkup() {  
-  const session = ensureActiveSession();  
-  const current = activeBlock();  
-  const currentName = current?.exerciseName || session.activeExercise || '';  
-  const sets = Array.isArray(session.sets) ? session.sets : [];  
-  const matchingSets = currentName  
-    ? sets.filter(x => x && (x.exerciseName === currentName || x.exercise === currentName))  
+function logMarkup() {
+  const session = ensureActiveSession();
+  const current = activeBlock();
+  const currentName = current?.exerciseName || session.activeExercise || '';
+  const sets = Array.isArray(session.sets) ? session.sets : [];
+  const matchingSets = currentName
+    ? sets.filter(x => x && (x.exerciseName === currentName || x.exercise === currentName))
     : sets;
 
-  return matchingSets.length  
-    ? matchingSets.map((set, index) => `  
-        <div class="exercise-card">  
-          <div class="exercise-title">  
-            <b>Set ${index + 1}</b>  
-            <span class="quiet">  
-              ${esc(set.reps ?? set.result ?? '—')} reps ·  
-              ${esc(set.weight ?? set.load ?? '—')} load ·  
-              ${esc(set.rir ?? '—')} RIR  
-            </span>  
-          </div>  
-          ${set.notes ? `<div class="quiet">${esc(set.notes)}</div>` : ''}  
-        </div>  
-      `).join('')  
-    : '<div class="empty">No sets logged yet for this exercise.</div>';  
+  return matchingSets.length
+    ? matchingSets.map((set, index) => `
+        <div class="exercise-card">
+          <div class="exercise-title">
+            <b>Set ${index + 1}</b>
+            <span class="quiet">
+              ${esc(set.reps ?? set.result ?? '—')} reps ·
+              ${esc(set.weight ?? set.load ?? '—')} load ·
+              ${esc(set.rir ?? '—')} RIR
+            </span>
+          </div>
+          ${set.notes ? `<div class="quiet">${esc(set.notes)}</div>` : ''}
+        </div>
+      `).join('')
+    : '<div class="empty">No sets logged yet for this exercise.</div>';
 }
 
-function renderPicker(query = '') {  
-  const root = $('#exercisePicker');  
+function renderPicker(query = '') {
+  const root = $('#exercisePicker');
   if (!root || !active) return;
 
-  const plan = planForActive();  
-  const plannedNames = new Set(((plan && plan.exerciseBlocks) || []).map(x => x.exerciseName));  
-  const library = (typeof allExercises === 'function') ? allExercises() : [];  
-  const cockpitNames = Array.isArray(state?.cockpit?.exercises)  
-    ? state.cockpit.exercises.map(x => x.exerciseName).filter(Boolean)  
-    : [];  
-  const planNames = [...plannedNames];  
-  const combined = [...new Set([...cockpitNames, ...planNames, ...library])];  
+  const plan = planForActive();
+  const plannedNames = new Set(((plan && plan.exerciseBlocks) || []).map(x => x.exerciseName));
+  const library = (typeof allExercises === 'function') ? allExercises() : [];
+  const cockpitNames = Array.isArray(state?.cockpit?.exercises)
+    ? state.cockpit.exercises.map(x => x.exerciseName).filter(Boolean)
+    : [];
+  const planNames = [...plannedNames];
+  const combined = [...new Set([...cockpitNames, ...planNames, ...library])];
   const names = combined.filter(x => String(x).toLowerCase().includes(query.toLowerCase()));
 
-  root.innerHTML =  
-    names.map(x => `  
-      <button class="pick ${x === active.activeExercise ? 'active' : ''}" data-pick="${esc(x)}">  
-        <b>${esc(x)}</b>  
-        <small>${plannedNames.has(x) ? 'Planned workout' : 'Exercise library'}</small>  
-      </button>  
-    `).join('') ||  
+  root.innerHTML =
+    names.map(x => `
+      <button class="pick ${x === active.activeExercise ? 'active' : ''}" data-pick="${esc(x)}">
+        <b>${esc(x)}</b>
+        <small>${plannedNames.has(x) ? 'Planned workout' : 'Exercise library'}</small>
+      </button>
+    `).join('') ||
     '<div class="empty">No matching known exercises.</div>';
 
-  $$('[data-pick]', root).forEach(b => {  
-    b.onclick = () => {  
-      active.activeExercise = b.dataset.pick;  
-      persist();  
-      renderLog();  
-    };  
-  });  
+  $$('[data-pick]', root).forEach(b => {
+    b.onclick = () => {
+      active.activeExercise = b.dataset.pick;
+      persist();
+      renderLog();
+    };
+  });
 }
 
-function bindSessionContext() {  
-  $$('[data-context]').forEach(el => {  
-    el.oninput = () => {  
-      const key = el.dataset.context;  
-      if (key === 'coachQuestions') {  
-        active.coachQuestions = el.value;  
-        persist();  
-      }  
-    };  
-  });  
-}  
-/* ---------- renderHome ---------- */  
+function bindSessionContext() {
+  $$('[data-context]').forEach(el => {
+    el.oninput = () => {
+      const key = el.dataset.context;
+      if (key === 'coachQuestions') {
+        active.coachQuestions = el.value;
+        persist();
+      }
+    };
+  });
+}
+/* ---------- renderHome ---------- */
 function renderHome() {
   // --- Safe data access: MomentumData may not exist or may be partially loaded ---
   const rawMetrics = (typeof MomentumData !== 'undefined' && MomentumData && typeof MomentumData.metrics === 'function')
@@ -555,6 +559,10 @@ function renderHome() {
 
   const hasQueuedPlan = !!safeNext;
   const mobile = isMobileHomeLayout();
+
+  // Guard: if the home container is missing, there is nothing to render into.
+  const homeRoot = $('#home');
+  if (!homeRoot) return;
 
   let primaryActionMarkup = '';
   let secondaryActionMarkup = '';
@@ -734,7 +742,7 @@ function renderHome() {
   }
 }
 
-/* ---------- renderToday ---------- */  
+/* ---------- renderToday ---------- */
 /* ---------- shared safety helpers ---------- */
 function safeBlocks(list) {
   return Array.isArray(list) ? list : [];
@@ -1519,128 +1527,128 @@ function renderLog() {
   if (typeof bindSessionContext === 'function') bindSessionContext();
 }
 
-/* ---------- single bindReview (keep only this one) ---------- */  
-function bindReview(session) {  
-  const reviewQuestions = $('#reviewQuestions');  
-  if (reviewQuestions) {  
-    reviewQuestions.oninput = () => {  
-      const all = getDone();  
-      const item = all.find(x => x.id === session.id);  
-      if (!item) return;  
-      item.coachQuestions = reviewQuestions.value;  
-      saveDone(all);  
-    };  
+/* ---------- single bindReview (keep only this one) ---------- */
+function bindReview(session) {
+  const reviewQuestions = $('#reviewQuestions');
+  if (reviewQuestions) {
+    reviewQuestions.oninput = () => {
+      const all = getDone();
+      const item = all.find(x => x.id === session.id);
+      if (!item) return;
+      item.coachQuestions = reviewQuestions.value;
+      saveDone(all);
+    };
   }
 
-  const undoFinishBtn = $('#undoFinish');  
-  if (undoFinishBtn) {  
-    undoFinishBtn.onclick = () => {  
-      restoreStagedSession(session.id);  
-    };  
+  const undoFinishBtn = $('#undoFinish');
+  if (undoFinishBtn) {
+    undoFinishBtn.onclick = () => {
+      restoreStagedSession(session.id);
+    };
   }
 
-  const copyDebriefBtn = $('#copyDebrief');  
-  if (copyDebriefBtn) {  
-    copyDebriefBtn.onclick = async () => {  
-      const reviewQuestionsEl = $('#reviewQuestions');  
-      const questions = reviewQuestionsEl && typeof reviewQuestionsEl.value === 'string'  
-        ? reviewQuestionsEl.value  
+  const copyDebriefBtn = $('#copyDebrief');
+  if (copyDebriefBtn) {
+    copyDebriefBtn.onclick = async () => {
+      const reviewQuestionsEl = $('#reviewQuestions');
+      const questions = reviewQuestionsEl && typeof reviewQuestionsEl.value === 'string'
+        ? reviewQuestionsEl.value
         : (session.coachQuestions || '');
 
-      const payload = {  
-        ...session,  
-        coachQuestions: questions  
+      const payload = {
+        ...session,
+        coachQuestions: questions
       };
 
       await copy(debrief(payload));
 
-      const all = getDone();  
-      const item = all.find(x => x.id === session.id);  
-      if (item) {  
-        item.coachQuestions = questions;  
-        if (item.status === 'staged') item.status = 'shared';  
-        saveDone(all);  
+      const all = getDone();
+      const item = all.find(x => x.id === session.id);
+      if (item) {
+        item.coachQuestions = questions;
+        if (item.status === 'staged') item.status = 'shared';
+        saveDone(all);
       }
 
-      renderReview();  
-    };  
+      renderReview();
+    };
   }
 
-  const exportCsvBtn = $('#exportCsv');  
-  if (exportCsvBtn) {  
-    exportCsvBtn.onclick = () => {  
-      const reviewQuestionsEl = $('#reviewQuestions');  
-      const questions = reviewQuestionsEl && typeof reviewQuestionsEl.value === 'string'  
-        ? reviewQuestionsEl.value  
+  const exportCsvBtn = $('#exportCsv');
+  if (exportCsvBtn) {
+    exportCsvBtn.onclick = () => {
+      const reviewQuestionsEl = $('#reviewQuestions');
+      const questions = reviewQuestionsEl && typeof reviewQuestionsEl.value === 'string'
+        ? reviewQuestionsEl.value
         : (session.coachQuestions || '');
 
-      download(  
-        `momentum-${dateIso(session.completedAt)}.csv`,  
-        'text/csv;charset=utf-8',  
-        csv({  
-          ...session,  
-          coachQuestions: questions  
-        })  
-      );  
-    };  
-  }  
+      download(
+        `momentum-${dateIso(session.completedAt)}.csv`,
+        'text/csv;charset=utf-8',
+        csv({
+          ...session,
+          coachQuestions: questions
+        })
+      );
+    };
+  }
 }
 
-/* ---------- renderReview ---------- */  
-function renderReview() {  
-  const root = $('#review');  
+/* ---------- renderReview ---------- */
+function renderReview() {
+  const root = $('#review');
   if (!root) return;
 
-  const sessions = getDone();  
-  if (!selectedReviewId && sessions[0]) selectedReviewId = sessions[0].id;  
+  const sessions = getDone();
+  if (!selectedReviewId && sessions[0]) selectedReviewId = sessions[0].id;
   const selected = sessions.find(x => x.id === selectedReviewId) || sessions[0] || null;
 
-  root.innerHTML = `  
-    <div class="review-grid">  
-      <aside class="card">  
-        <div class="eyebrow">Review queue</div>  
-        <h2 style="margin-top:6px">Saved sessions</h2>  
-        <div style="margin-top:12px">  
-          ${  
-            sessions.length  
-              ? sessions.map(s => `  
-                <button class="session-item ${s.id === selected?.id ? 'active' : ''}" data-review="${s.id}">  
-                  <b>${esc(s.workoutName)}</b>  
-                  <small class="quiet">${dateText(s.completedAt)} · ${s.sets.length} sets · ${esc(s.status)}</small>  
-                </button>  
-              `).join('')  
-              : '<div class="empty">Finished Momentum sessions appear here.</div>'  
-          }  
-        </div>  
+  root.innerHTML = `
+    <div class="review-grid">
+      <aside class="card">
+        <div class="eyebrow">Review queue</div>
+        <h2 style="margin-top:6px">Saved sessions</h2>
+        <div style="margin-top:12px">
+          ${
+            sessions.length
+              ? sessions.map(s => `
+                <button class="session-item ${s.id === selected?.id ? 'active' : ''}" data-review="${s.id}">
+                  <b>${esc(s.workoutName)}</b>
+                  <small class="quiet">${dateText(s.completedAt)} · ${s.sets.length} sets · ${esc(s.status)}</small>
+                </button>
+              `).join('')
+              : '<div class="empty">Finished Momentum sessions appear here.</div>'
+          }
+        </div>
       </aside>
 
-      <section class="card">  
-        ${selected ? reviewDetail(selected) : '<div class="empty">Select a saved session to review or export.</div>'}  
-      </section>  
-    </div>  
+      <section class="card">
+        ${selected ? reviewDetail(selected) : '<div class="empty">Select a saved session to review or export.</div>'}
+      </section>
+    </div>
   `;
 
-  $$('[data-review]').forEach(b => b.onclick = () => {  
-    selectedReviewId = b.dataset.review;  
-    renderReview();  
+  $$('[data-review]').forEach(b => b.onclick = () => {
+    selectedReviewId = b.dataset.review;
+    renderReview();
   });
 
-  if (selected) bindReview(selected);  
+  if (selected) bindReview(selected);
 }
 /* -----------renderHistory---------------- */
 
-function renderHistory() {  
-  const root = $('#history');  
+function renderHistory() {
+  const root = $('#history');
   if (!root) return;
 
-  root.innerHTML = `  
-    <div class="card section">  
-      <div class="eyebrow">History</div>  
-      <h2 style="margin-top:6px">History view</h2>  
-      <p class="quiet">History is not available yet.</p>  
-    </div>  
-  `;  
-}  
+  root.innerHTML = `
+    <div class="card section">
+      <div class="eyebrow">History</div>
+      <h2 style="margin-top:6px">History view</h2>
+      <p class="quiet">History is not available yet.</p>
+    </div>
+  `;
+}
 
 
 
@@ -1648,46 +1656,62 @@ function renderHistory() {
 
 
 
-/* ---------- startup render: keep only this startup block ---------- */  
-window.addEventListener('load', () => {  
-  try { if (typeof renderHome === 'function') renderHome(); } catch (e) { console.error('renderHome failed', e); }  
-  try { if (typeof renderToday === 'function') renderToday(); } catch (e) { console.error('renderToday failed', e); }  
-  try { if (typeof renderLog === 'function') renderLog(); } catch (e) { console.error('renderLog failed', e); }  
-  try { if (typeof renderReview === 'function') renderReview(); } catch (e) { console.error('renderReview failed', e); }  
-  try { if (typeof renderHistory === 'function') renderHistory(); } catch (e) { console.error('renderHistory failed', e); }
+/* ---------- startup / bootstrap ---------- */
+// Render every section once, then reveal the restored view. Each render is
+// isolated so a failure in one section cannot prevent the others from drawing.
+function bootstrap() {
+  const renders = [
+    ['renderHome', renderHome],
+    ['renderToday', renderToday],
+    ['renderLog', renderLog],
+    ['renderReview', renderReview],
+    ['renderHistory', renderHistory],
+  ];
+  for (const [name, fn] of renders) {
+    try {
+      if (typeof fn === 'function') fn();
+    } catch (e) {
+      console.error('Momentum: ' + name + ' failed', e);
+    }
+  }
+  try {
+    if (typeof show === 'function') {
+      show(typeof restoreCurrentView === 'function' ? restoreCurrentView() : 'today');
+    }
+  } catch (e) {
+    console.error('Momentum: show failed', e);
+  }
+}
 
-  try {  
-    if (typeof show === 'function') {  
-      show(typeof restoreCurrentView === 'function' ? restoreCurrentView() : 'today');  
-    }  
-  } catch (e) {  
-    console.error('show failed', e);  
-  }  
-});  
+// Preserve the original window.load timing for dependencies that may only be
+// ready by then — but if the load event has already fired (script included
+// late, async-after-load, or dynamically injected), bootstrap immediately
+// instead of waiting for an event that will never come.
+let bootstrapStarted = false;
+function startBootstrap() {
+  if (bootstrapStarted) return;
+  bootstrapStarted = true;
+  bootstrap();
+}
 
-/* ---------- unload persistence ---------- */  
-window.addEventListener('beforeunload', () => {  
-  if (typeof persist === 'function') persist();  
+if (document.readyState === 'complete') {
+  startBootstrap();
+} else {
+  window.addEventListener('load', startBootstrap, { once: true });
+}
+
+/* ---------- unload persistence ---------- */
+window.addEventListener('beforeunload', () => {
+  if (typeof persist === 'function') persist();
 });
 
-window.addEventListener('pagehide', () => {  
-  if (typeof persist === 'function') persist();  
+window.addEventListener('pagehide', () => {
+  if (typeof persist === 'function') persist();
 });
 
-document.addEventListener('visibilitychange', () => {  
-  if (document.visibilityState === 'hidden' && typeof persist === 'function') {  
-    persist();  
-  }  
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden' && typeof persist === 'function') {
+    persist();
+  }
 });
 
-/* =========================  
-   IMPORTANT MANUAL CLEANUP AFTER PASTE  
-   1. DELETE the old duplicate bindReview function.  
-   2. DELETE the old mid-file startup block:  
-        renderHome();  
-        renderToday();  
-        renderReview();  
-        renderLog();  
-        show('review');  
-   3. Keep only the final window.addEventListener('load', ...) startup block above.  
-   ========================= */  
