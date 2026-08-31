@@ -11,20 +11,20 @@ const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 /* ---------- escaping helpers ---------- */  
 const esc = value =>  
   String(value ?? '').replace(/[&<>'"]/g, ch => ({  
-    '&': '&',  
-    '<': '<',  
-    '>': '>',  
-    "'": ''',  
-    '"': '"'  
+    '&': '&amp;',  
+    '<': '&lt;',  
+    '>': '&gt;',  
+    "'": '&#39;',  
+    '"': '&quot;'  
   }[ch]));
 
 function escapeHtml(value) {  
   return String(value ?? '')  
-    .replace(/&/g, '&')  
-    .replace(/</g, '<')  
-    .replace(/>/g, '>')  
-    .replace(/"/g, '"')  
-    .replace(/'/g, ''');  
+    .replace(/&/g, '&amp;')  
+    .replace(/</g, '&lt;')  
+    .replace(/>/g, '&gt;')  
+    .replace(/"/g, '&#quot;')  
+    .replace(/'/g, '&#39;');  
 }  
 
 /* ---------- storage keys ---------- */  
