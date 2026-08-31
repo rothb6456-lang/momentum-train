@@ -1140,101 +1140,15 @@ function renderEditor(mode) {
 
 
 /* ---------- cockpit / session safety ---------- */  
-function discardActiveWorkout() {  
-  if (!confirm('Discard this active session?')) return;  
-  if (typeof active === 'undefined') return;
 
-  active = newSession();  
-  state.cockpit = null;  
-  state.cockpitEditOpen = false;  
-  state.cockpitEditingLastSet = null;  
-  state.restTimer = null;
 
-  if (typeof persist === 'function') persist();
 
-  renderLog();  
-  renderToday();  
-  renderHome();  
-  toast('Draft discarded');  
-}
-
-function bindSessionContext() {  
-  $$('[data-context]').forEach(el => {  
-    el.oninput = () => {  
-      const key = el.dataset.context;  
-      if (key === 'coachQuestions') {  
-        if (typeof active === 'undefined' || !active) return;  
-        active.coachQuestions = el.value;  
-        if (typeof persist === 'function') persist();  
-      }  
-    };  
-  });  
-}
 
 /* ---------- renderPicker ---------- */  
-function renderPicker(query = '') {  
-  const root = $('#exercisePicker');  
-  if (!root || !active) return;
 
-  const plan = planForActive();  
-  const planned = new Set(((plan && plan.exerciseBlocks) || []).map(x => x.exerciseName));  
-  const names = allExercises().filter(x => x.toLowerCase().includes(query.toLowerCase()));
-
-  root.innerHTML =  
-    [  
-      ...names.filter(x => planned.has(x)),  
-      ...names.filter(x => !planned.has(x))  
-    ].map(x => `  
-      <button class="pick ${x === active.activeExercise ? 'active' : ''}" data-pick="${esc(x)}">  
-        <b>${esc(x)}</b>  
-        <small>${planned.has(x) ? 'Planned workout' : 'Exercise library'}</small>  
-      </button>  
-    `).join('')  
-    || '<div class="empty">No matching known exercises.</div>';
-
-  $$('[data-pick]', root).forEach(b => b.onclick = () => {  
-    active.activeExercise = b.dataset.pick;  
-    persist();  
-    renderLog();  
-  });  
-}
 /* ---------renderLog Helpers----- */
-function selectedReviewedSession() {  
-  const sessions = typeof getDone === 'function' ? getDone() : [];  
-  if (!Array.isArray(sessions) || !sessions.length) return null;
-
-  if (typeof selectedReviewId !== 'undefined' && selectedReviewId) {  
-    return sessions.find(x => x && x.id === selectedReviewId) || null;  
-  }
-
-  return sessions.find(Boolean) || null;  
-}  
-function activeBlock() {  
-  const session = ensureActiveSession();
-
-  const cockpitExercises = state?.cockpit?.exercises;  
-  if (Array.isArray(cockpitExercises) && cockpitExercises.length) {  
-    const activeExercise = session.activeExercise;  
-    if (activeExercise) {  
-      return cockpitExercises.find(x => x && x.exerciseName === activeExercise) || cockpitExercises[0] || null;  
-    }  
-    return cockpitExercises[0] || null;  
-  }
-
-  const plannedBlocks = session?.plannedWorkout?.exerciseBlocks;  
-  if (Array.isArray(plannedBlocks) && plannedBlocks.length) {  
-    const activeExercise = session.activeExercise;  
-    if (activeExercise) {  
-      return plannedBlocks.find(x => x && x.exerciseName === activeExercise) || plannedBlocks[0] || null;  
-    }  
-    return plannedBlocks[0] || null;  
-  }
-
-  return null;  
-}  
 
 
-/* ---------- renderLog ---------- */  
 /* ---------- renderLog ---------- */  
 function renderLog() {  
   const root = document.getElementById('log');  
