@@ -66,6 +66,7 @@ function fallbackSession() {
     week: '',
     day: '',
     workoutName: 'Ad hoc workout',
+    canonicalTitle: '',
     startedAt: now,
     updatedAt: now,
     activeExercise: '',
@@ -374,6 +375,7 @@ function startPlan(id) {
   active.week = plan.week || active.week || '';
   active.day = plan.day || active.day || '';
   active.workoutName = plan.title || active.workoutName || 'Planned workout';
+  active.canonicalTitle = plan.canonicalTitle || plan.title || active.canonicalTitle || '';
   active.activeExercise = plan.exerciseBlocks?.[0]?.exerciseName || active.activeExercise || '';
   active.sets = Array.isArray(active.sets) ? active.sets : [];
 
@@ -1366,11 +1368,15 @@ function prescriptionOf(block) {
     sets = b.targetSets; reps = b.targetRepsOrDuration; load = b.targetWeightOrLoad;
     tempo = b.tempo; rir = b.rir; rest = b.rest;
   }
+  const isTimed = b.timed || /\b(sec|min|s|m)\b/i.test(reps || '') || (typeof isTimedExercise === 'function' && isTimedExercise(b.exerciseName, reps));
   return {
     exerciseName: b.exerciseName || '',
     sets: sets, reps: reps, load: load, tempo: tempo, rir: rir, rest: rest,
     workingLoad: isCockpit ? (b.workingLoad || '') : (b.targetWeightOrLoad || ''),
-    checkpoint: b.checkpoints || ''
+    checkpoint: b.checkpoints || '',
+    optional: b.optional || false,
+    timed: isTimed,
+    section: b.section || ''
   };
 }
 
@@ -1506,13 +1512,17 @@ function renderLog() {
   const nextName = nextExerciseNameFor(rx.exerciseName);
   const showNext = setsComplete && !!nextName;
 
+  const repsText = rx.reps
+    ? (/\b(sec|min|s|m)\b/i.test(rx.reps) || rx.timed ? rx.reps : `${rx.reps} reps`)
+    : '';
+
   const summary = [
-    rx.load && ('Load ' + rx.load),
-    rx.reps && (rx.reps + ' reps'),
+    rx.load && ('Load ' + rx.load + (/\b(lb|lbs|kg)\b/i.test(rx.load) ? '' : ' lbs')),
+    repsText,
     rx.tempo && ('Tempo ' + rx.tempo),
     rx.rir && ('RIR ' + rx.rir),
     rx.rest && ('Rest ' + rx.rest)
-  ].filter(Boolean).join(' \u00b7 ') || 'No planned target';
+  ].filter(Boolean).join(' · ') || 'No planned target';
 
   const loadVal = extractLoadNumber(rx.workingLoad || rx.load);
   const repsVal = topEndReps(rx.reps);
@@ -1521,17 +1531,17 @@ function renderLog() {
 
   const setNum = setsTarget > 0 ? Math.min(completedForCurrent + 1, setsTarget) : (completedForCurrent + 1);
   const setLabel = setsTarget > 0
-    ? 'Set ' + setNum + ' of ' + setsTarget + (setsComplete ? ' \u2713' : '')
+    ? 'Set ' + setNum + ' of ' + setsTarget + (setsComplete ? ' ✓' : '')
     : 'Set ' + setNum;
   const setBadge = setsTarget > 0
-    ? (setsComplete ? setsTarget + '/' + setsTarget + ' \u2713' : setNum + '/' + setsTarget)
+    ? (setsComplete ? setsTarget + '/' + setsTarget + ' ✓' : setNum + '/' + setsTarget)
     : String(setNum);
 
   root.innerHTML = `
     <div class="log-shell">
       <header class="active-session compact-bar">
         <div class="bar-title-wrap">
-          <h1 class="bar-title">${esc(rx.exerciseName || 'Choose exercise')}</h1>
+          <h1 class="bar-title">${esc(rx.exerciseName || 'Choose exercise')}${rx.optional ? ' <span class="badge" style="font-size:11px;padding:2px 6px;background:#334155;border-radius:4px;color:#94a3b8;vertical-align:middle;margin-left:6px">OPTIONAL</span>' : ''}</h1>
           <span class="bar-badge">${esc(setBadge)}</span>
         </div>
         <div class="session-tools">
@@ -1549,7 +1559,7 @@ function renderLog() {
         </div>
         <div class="set-form">
           <label class="field">Load<input id="load" class="input" inputmode="decimal" value="${esc(loadVal)}" placeholder="0"></label>
-          <label class="field">Reps<input id="result" class="input" inputmode="text" value="${esc(repsVal)}" placeholder="0"></label>
+          <label class="field">${rx.timed ? 'Duration' : 'Reps'}<input id="result" class="input" inputmode="text" value="${esc(repsVal)}" placeholder="${rx.timed ? '60 sec' : '0'}"></label>
           <div class="field full">RIR<div class="rir-chips">${rirOptions.map(x => `<button class="chip ${rx.rir === x ? 'active' : ''}" data-rir="${x}">${x}</button>`).join('')}</div></div>
           <div class="field full">Tempo<div class="tempo"><input id="tempoE" class="input" value="${esc(tempoParts[0] || '')}" placeholder="E"><input id="tempoP" class="input" value="${esc(tempoParts[1] || '')}" placeholder="P"><input id="tempoC" class="input" value="${esc(tempoParts[2] || '')}" placeholder="C"></div></div>
         </div>
@@ -2067,15 +2077,36 @@ document.addEventListener('visibilitychange', () => {
   if (!has('debrief')) {
     window.debrief = function debrief(session) {
       const sets = Array.isArray(session.sets) ? session.sets : [];
+      const title = session.canonicalTitle || session.workoutName || 'Workout';
       const lines = [
-        `Workout: ${session.workoutName || 'Workout'}`,
-        `Date: ${dateText(session.completedAt)}`,
+        `Workout: ${title}`,
+        `Date: ${dateText(session.completedAt || session.startedAt)}`,
         `Sets: ${sets.length}`
       ];
       if (session.coachQuestions) lines.push(`Questions for Coach: ${session.coachQuestions}`);
       lines.push('');
       sets.forEach((s, i) => {
-        lines.push(`Set ${i + 1}: ${s.exerciseName || s.exercise || '—'} — ${s.load || '—'} lbs × ${s.reps || '—'} reps${s.rir ? ' (RIR ' + s.rir + ')' : ''}${s.notes ? ' — ' + s.notes : ''}`);
+        const exName = s.exerciseName || s.exercise || '—';
+        const loadStr = (s.load && s.load !== '0') ? `${s.load} lbs` : '';
+        const repsStr = s.reps || s.result || '';
+        const isTimed = s.timed || /\b(sec|min|s|m)\b/i.test(repsStr) || (typeof isTimedExercise === 'function' && isTimedExercise(exName, repsStr));
+
+        let perf = '';
+        if (loadStr && repsStr) {
+          perf = isTimed ? `${loadStr} | ${repsStr}` : `${loadStr} × ${repsStr} reps`;
+        } else if (repsStr) {
+          perf = isTimed ? repsStr : `${repsStr} reps`;
+        } else if (loadStr) {
+          perf = loadStr;
+        }
+
+        const tags = [];
+        if (s.tempo) tags.push(`Tempo ${s.tempo}`);
+        if (s.rir) tags.push(`RIR ${s.rir}`);
+        const tagStr = tags.length ? ` (${tags.join(' | ')})` : '';
+        const noteStr = s.notes ? ` — ${s.notes}` : '';
+
+        lines.push(`Set ${i + 1}: ${exName}${perf ? ' — ' + perf : ''}${tagStr}${noteStr}`);
       });
       return lines.join('\n');
     };
@@ -2084,9 +2115,26 @@ document.addEventListener('visibilitychange', () => {
   if (!has('csv')) {
     window.csv = function csv(session) {
       const sets = Array.isArray(session.sets) ? session.sets : [];
-      const header = ['Set', 'Exercise', 'Load', 'Reps', 'RIR', 'Notes'];
-      const rows = sets.map((s, i) => [i + 1, s.exerciseName || s.exercise || '', s.load || '', s.reps || '', s.rir || '', s.notes || '']);
-      const q = v => `"${String(v).replace(/"/g, '""')}"`;
+      const header = ['Set', 'Section', 'Exercise', 'Load', 'Reps_Or_Duration', 'Is_Timed', 'Tempo', 'RIR', 'Rest', 'Notes'];
+      const rows = sets.map((s, i) => {
+        const exName = s.exerciseName || s.exercise || '';
+        const reps = s.reps || s.result || '';
+        const isTimed = s.timed || /\b(sec|min|s|m)\b/i.test(reps) || (typeof isTimedExercise === 'function' && isTimedExercise(exName, reps));
+        const section = s.section || (s.optional ? 'Optional' : (/warm-?up|preparation/i.test(exName) ? 'Warm-Up' : 'Primary'));
+        return [
+          i + 1,
+          section,
+          exName,
+          s.load || '',
+          reps,
+          isTimed ? 'true' : 'false',
+          s.tempo || '',
+          s.rir || '',
+          s.rest || '',
+          s.notes || ''
+        ];
+      });
+      const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
       return [header, ...rows].map(r => r.map(q).join(',')).join('\n');
     };
   }
@@ -2127,16 +2175,32 @@ document.addEventListener('visibilitychange', () => {
     window.reviewDetail = function reviewDetail(session) {
       if (!session) return '<div class="empty">No session selected.</div>';
       const sets = Array.isArray(session.sets) ? session.sets : [];
+      const title = session.canonicalTitle || session.workoutName || 'Workout';
       return `
-        <div class="card-head"><div><div class="eyebrow">Review</div><h2 style="margin-top:6px">${esc(session.workoutName || 'Workout')}</h2></div>${esc(session.status || '')}</div>
+        <div class="card-head"><div><div class="eyebrow">Review</div><h2 style="margin-top:6px">${esc(title)}</h2></div>${esc(session.status || '')}</div>
         <p class="quiet">${dateText(session.completedAt)} · ${sets.length} set${sets.length === 1 ? '' : 's'}</p>
         <div class="stack" style="margin-top:12px">
-          ${sets.length ? sets.map((s, i) => `
+          ${sets.length ? sets.map((s, i) => {
+            const exName = s.exerciseName || s.exercise || '';
+            const reps = s.reps || s.result || '';
+            const isTimed = s.timed || /\b(sec|min|s|m)\b/i.test(reps) || (typeof isTimedExercise === 'function' && isTimedExercise(exName, reps));
+            const perf = [
+              s.load && (s.load + ' lbs'),
+              reps && (isTimed ? reps : (reps + ' reps')),
+              s.tempo && ('Tempo ' + s.tempo),
+              s.rir && ('RIR ' + s.rir)
+            ].filter(Boolean).join(' · ') || '—';
+            return `
             <div class="exercise-card">
-              <div class="exercise-title"><b>Set ${i + 1}</b> <span class="quiet">${esc(s.exerciseName || s.exercise || '')}</span></div>
-              <div class="quiet">${esc([s.load && (s.load + ' lbs'), s.reps && (s.reps + ' reps'), s.rir && ('RIR ' + s.rir)].filter(Boolean).join(' · ') || '—')}</div>
-              ${s.notes ? `<div class="quiet">${esc(s.notes)}</div>` : ''}
-            </div>`).join('') : '<div class="empty">No sets logged.</div>'}
+              <div class="exercise-title">
+                <b>Set ${i + 1}</b>
+                <span class="quiet">${esc(exName)}</span>
+                ${s.optional ? '<span class="badge badge-optional" style="font-size:10px;padding:2px 6px;background:#334155;border-radius:4px;color:#94a3b8;margin-left:6px">OPTIONAL</span>' : ''}
+              </div>
+              <div class="quiet">${esc(perf)}</div>
+              ${s.notes ? `<div class="quiet" style="margin-top:4px;font-style:italic">${esc(s.notes)}</div>` : ''}
+            </div>`;
+          }).join('') : '<div class="empty">No sets logged.</div>'}
         </div>
         <div class="set-form" style="margin-top:14px">
           <label class="field full">Questions for Coach<textarea id="reviewQuestions">${esc(session.coachQuestions || '')}</textarea></label>
@@ -2164,16 +2228,25 @@ document.addEventListener('visibilitychange', () => {
         const block = (typeof activeBlock === 'function' ? activeBlock() : null) || {};
         const rx = (typeof prescriptionOf === 'function') ? prescriptionOf(block) : block;
         const te = $('#tempoE'), tp = $('#tempoP'), tc = $('#tempoC');
-        const tempo = [te, tp, tc].map(el => el ? el.value.trim() : '').filter(Boolean).join('-');
+        const tempoInput = [te, tp, tc].map(el => el ? el.value.trim() : '').filter(Boolean).join('-');
+        const tempo = tempoInput || rx.tempo || rx.prescribedTempo || '';
         const rirChip = $('[data-rir].active');
-        const rir = rirChip ? rirChip.dataset.rir : (rx.rir || '');
+        const rir = rirChip ? rirChip.dataset.rir : (rx.rir || rx.prescribedRir || '');
+        const rest = rx.rest || rx.prescribedRest || '';
         const noteEl = $('#note');
         const exerciseName = block.exerciseName || session.activeExercise || '';
+        const isOpt = block.optional || rx.optional || false;
+        const isTimed = block.timed || rx.timed || (typeof isTimedExercise === 'function' && isTimedExercise(exerciseName, reps));
+        const section = block.section || rx.section || (isOpt ? 'optional' : (/warm-?up|preparation/i.test(exerciseName) ? 'warmup' : 'primary'));
+
         session.sets = Array.isArray(session.sets) ? session.sets : [];
         session.sets.push({
           exerciseName, exercise: exerciseName,
           load, result: reps, reps,
-          tempo, rir,
+          tempo, rir, rest,
+          optional: isOpt,
+          timed: isTimed,
+          section,
           notes: noteEl ? noteEl.value.trim() : '',
           loggedAt: new Date().toISOString()
         });
