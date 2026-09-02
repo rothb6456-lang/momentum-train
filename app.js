@@ -1643,7 +1643,7 @@ function renderLog() {
       </article>
 
       <article class="card session-log">
-        <div class="card-head"><div><h2>Sets</h2>${completedForCurrent} of ${setsTarget > 0 ? setsTarget : (isWarmupBlock ? 'open' : '—')} completed</div></div> completed</div></div>
+        <div class="card-head"><div><h2>Sets</h2>${completedForCurrent} of ${setsTarget > 0 ? setsTarget : (isWarmupBlock ? 'open' : '—')} completed</div></div>
         ${typeof logMarkup === 'function' ? logMarkup() : ''}
       </article>
 
@@ -2409,90 +2409,21 @@ document.addEventListener('visibilitychange', () => {
       if (search) search.oninput = () => { if (typeof renderPicker === 'function') renderPicker(search.value); };
     };
   }
+      // Bind edit/remove buttons on logged sets  
+      if (typeof bindSetActions === 'function') bindSetActions();  
+    };  
+  }
 
-$$('[data-edit-set]').forEach(btn => {  
-        btn.onclick = () => {  
-          const idx = parseInt(btn.dataset.editSet, 10);  
-          const session = ensureActiveSession();  
-          if (!Array.isArray(session.sets) || idx < 0 || idx >= session.sets.length) return;  
-          const set = session.sets[idx];
-
-          // Populate the form fields with the set's values  
-          const loadEl = $('#load');  
-          const resultEl = $('#result');  
-          const teEl = $('#tempoE');  
-          const tpEl = $('#tempoP');  
-          const tcEl = $('#tempoC');  
-          const noteEl = $('#note');
-
-          if (loadEl) loadEl.value = set.load || '';  
-          if (resultEl) resultEl.value = set.reps || set.result || '';
-
-          const tempoParts = String(set.tempo || '').split('-');  
-          if (teEl) teEl.value = tempoParts[0] || '';  
-          if (tpEl) tpEl.value = tempoParts[1] || '';  
-          if (tcEl) tcEl.value = tempoParts[2] || '';
-
-          if (noteEl) noteEl.value = set.notes || '';
-
-          // Activate the matching RIR chip  
-          $$('[data-rir]').forEach(chip => {  
-            chip.classList.toggle('active', chip.dataset.rir === (set.rir || ''));  
-          });
-
-          // Remove the set so re-adding replaces it  
-          session.sets.splice(idx, 1);  
-          if (typeof persist === 'function') persist();
-
-          // Re-render just the log portion  
-          const logSection = $('.session-log');  
-          if (logSection) {  
-            const block = (typeof activeBlock === 'function' ? activeBlock() : null) || {};  
-            const rx = prescriptionOf(block);  
-            const sTarget = prescribedSetsCount(block);  
-            const currentName = block.exerciseName || session.activeExercise || '';  
-            const completed = currentName  
-              ? session.sets.filter(s => (s.exerciseName || s.exercise) === currentName).length  
-              : session.sets.length;
-
-            const isWU = (block.section === 'warmup') || /warm-?up|preparation/i.test(rx.exerciseName);  
-            logSection.innerHTML = `  
-              <div class="card-head"><div><h2>Sets</h2>${completed} of ${sTarget > 0 ? sTarget : (isWU ? 'open' : '—')} completed</div></div>  
-              ${typeof logMarkup === 'function' ? logMarkup() : ''}  
-            `;  
-            // Re-bind edit/remove on the refreshed markup  
-            bindSetActions();  
-          }
-
-          toast('Set loaded for editing — modify and tap Add Set');  
-        };  
-      });
-
-      // Remove a logged set  
-      $$('[data-remove-set]').forEach(btn => {  
-        btn.onclick = () => {  
-          const idx = parseInt(btn.dataset.removeSet, 10);  
-          const session = ensureActiveSession();  
-          if (!Array.isArray(session.sets) || idx < 0 || idx >= session.sets.length) return;  
-          if (!confirm('Remove this set?')) return;
-
-          session.sets.splice(idx, 1);  
-          if (typeof persist === 'function') persist();  
-          if (typeof renderLog === 'function') renderLog();  
-          toast('Set removed');  
-        };  
-      });  
-
-  // Live session timer: updates #timer once per second when on the Log view.
-  if (!has('_momentumTimerStarted')) {
-    window._momentumTimerStarted = true;
-    setInterval(() => {
-      const el = document.getElementById('timer');
-      if (el && active && active.startedAt && typeof window.clock === 'function') {
-        const secs = Math.max(0, Math.floor((Date.now() - new Date(active.startedAt).getTime()) / 1000));
-        el.textContent = window.clock(secs);
-      }
-      // rest-timer tick: countdown from the prescribed rest after a set is logged
+  // Live session timer: updates #timer once per second when on the Log view.  
+  if (!has('_momentumTimerStarted')) {  
+    window._momentumTimerStarted = true;  
+    setInterval(() => {  
+      const el = document.getElementById('timer');  
+      if (el && active && active.startedAt && typeof window.clock === 'function') {  
+        const secs = Math.max(0, Math.floor((Date.now() - new Date(active.startedAt).getTime()) / 1000));  
+        el.textContent = window.clock(secs);  
+      }  
+      // rest-timer tick  
       const rt = state && state.restTimer;  
       if (rt && rt.startedAt && rt.total) {  
         const elapsed = Math.floor((Date.now() - rt.startedAt) / 1000);  
@@ -2500,23 +2431,23 @@ $$('[data-edit-set]').forEach(btn => {
         const banner = document.getElementById('restBanner');  
         const timeEl = document.getElementById('restTime');  
         if (remaining <= 0) {  
-          // Timer complete: clear state and remove banner entirely  
           state.restTimer = null;  
           if (banner) banner.remove();  
         } else if (timeEl) {  
           timeEl.textContent = remaining + 's';  
         }  
       } else {  
-        // No active timer — ensure banner is gone  
         const staleBanner = document.getElementById('restBanner');  
         if (staleBanner) staleBanner.remove();  
-      } 
-
-  // gym-floor log styles (injected so index.html need not change)
-  if (typeof document !== 'undefined' && !document.getElementById('momentumLogStyles')) {
-    const _ls = document.createElement('style');
-    _ls.id = 'momentumLogStyles';
-    _ls.textContent = `.set-entry-card{padding:16px 17px}.toast{max-width:calc(100vw - 28px);left:50%;transform:translateX(-50%)}.set-entry-card .set-form{gap:10px}.set-entry-card .input{font-size:18px;min-height:52px}.set-entry-card .actions{display:flex;flex-direction:column;gap:10px;margin-top:14px}.set-entry-card .actions button{width:100%;min-height:52px;font-size:16px}.prescription-summary{margin-top:6px;font-size:13px;line-height:1.45}.rest-banner{display:flex;align-items:center;gap:10px;justify-content:center;background:#16323a;border:1px solid var(--mint);border-radius:14px;padding:11px 14px;margin-bottom:12px;font-size:15px;position:sticky;top:60px;z-index:2}.rest-banner #restTime{font-size:22px;color:var(--mint);min-width:48px;text-align:center}.rest-banner #skipRest{margin-left:auto}.collapsible{margin-top:12px;padding:13px 16px}.collapsible summary{cursor:pointer;list-style:none;color:var(--muted);font-weight:700;font-size:13px}.collapsible summary::-webkit-details-marker{display:none}.next-exercise{background:var(--blue);color:#06182e}.active-session.compact-bar{padding:7px 10px;margin-bottom:10px;gap:8px;flex-wrap:nowrap}.bar-title-wrap{display:flex;align-items:center;gap:8px;min-width:0;flex:1 1 auto}.bar-title{font-size:16px;font-weight:780;margin:0;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.15}.bar-badge{flex:0 0 auto;font-size:11px;font-weight:700;color:var(--mint);border:1px solid #2f7664;border-radius:99px;padding:3px 8px;white-space:nowrap}.compact-bar .session-tools{display:flex;gap:6px;flex:0 0 auto}.mini{min-height:30px;padding:5px 9px;font-size:11px}.rx-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:10px}.rx-badge{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mint);border:1px solid #2f7664;border-radius:99px;padding:3px 9px;white-space:nowrap}.rx-line{color:var(--muted);font-size:12.5px;line-height:1.35;flex:1 1 200px}.logged-set-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--line)}.logged-set-row:first-child{border-top:0}.logged-set-actions{display:flex;gap:4px;margin-left:auto;flex-shrink:0}.logged-set-actions button{min-height:28px;padding:3px 8px;font-size:11px}@media(max-width:720px){.set-entry-card .input{font-size:20px;min-height:56px}.set-entry-card .actions button{min-height:56px;font-size:17px}.compact-bar{flex-wrap:nowrap}.bar-title{font-size:15px}.rx-line{flex:1 1 100%}.session-tools button{min-height:34px}.set-form{grid-template-columns:1fr !important}}`;
-    (document.head || document.documentElement).appendChild(_ls);
+      }  
+    }, 1000);  
   }
-})();
+
+  // gym-floor log styles (injected so index.html need not change)  
+  if (typeof document !== 'undefined' && !document.getElementById('momentumLogStyles')) {  
+    const _ls = document.createElement('style');  
+    _ls.id = 'momentumLogStyles';  
+    _ls.textContent = `.set-entry-card{padding:16px 17px}.toast{max-width:calc(100vw - 28px);left:50%;transform:translateX(-50%)}.set-entry-card .set-form{gap:10px}.set-entry-card .input{font-size:18px;min-height:52px}.set-entry-card .actions{display:flex;flex-direction:column;gap:10px;margin-top:14px}.set-entry-card .actions button{width:100%;min-height:52px;font-size:16px}.prescription-summary{margin-top:6px;font-size:13px;line-height:1.45}.rest-banner{display:flex;align-items:center;gap:10px;justify-content:center;background:#16323a;border:1px solid var(--mint);border-radius:14px;padding:11px 14px;margin-bottom:12px;font-size:15px;position:sticky;top:60px;z-index:2}.rest-banner #restTime{font-size:22px;color:var(--mint);min-width:48px;text-align:center}.rest-banner #skipRest{margin-left:auto}.collapsible{margin-top:12px;padding:13px 16px}.collapsible summary{cursor:pointer;list-style:none;color:var(--muted);font-weight:700;font-size:13px}.collapsible summary::-webkit-details-marker{display:none}.next-exercise{background:var(--blue);color:#06182e}.active-session.compact-bar{padding:7px 10px;margin-bottom:10px;gap:8px;flex-wrap:nowrap}.bar-title-wrap{display:flex;align-items:center;gap:8px;min-width:0;flex:1 1 auto}.bar-title{font-size:16px;font-weight:780;margin:0;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.15}.bar-badge{flex:0 0 auto;font-size:11px;font-weight:700;color:var(--mint);border:1px solid #2f7664;border-radius:99px;padding:3px 8px;white-space:nowrap}.compact-bar .session-tools{display:flex;gap:6px;flex:0 0 auto}.mini{min-height:30px;padding:5px 9px;font-size:11px}.rx-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:10px}.rx-badge{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mint);border:1px solid #2f7664;border-radius:99px;padding:3px 9px;white-space:nowrap}.rx-line{color:var(--muted);font-size:12.5px;line-height:1.35;flex:1 1 200px}.logged-set-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--line)}.logged-set-row:first-child{border-top:0}.logged-set-actions{display:flex;gap:4px;margin-left:auto;flex-shrink:0}.logged-set-actions button{min-height:28px;padding:3px 8px;font-size:11px}@media(max-width:720px){.set-entry-card .input{font-size:20px;min-height:56px}.set-entry-card .actions button{min-height:56px;font-size:17px}.compact-bar{flex-wrap:nowrap}.bar-title{font-size:15px}.rx-line{flex:1 1 100%}.session-tools button{min-height:34px}.set-form{grid-template-columns:1fr !important}}`;  
+    (document.head || document.documentElement).appendChild(_ls);  
+  }  
+})();  
