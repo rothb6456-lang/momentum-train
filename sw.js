@@ -1,4 +1,4 @@
-const CACHE = 'momentum-v8';  
+const CACHE = 'momentum-v9';  
 const ASSETS = [  
   '/',  
   '/index.html',  
@@ -16,7 +16,6 @@ const ASSETS = [
 
 self.addEventListener('install', event => {  
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)));  
-});  
 });
 
 self.addEventListener('activate', event => {
