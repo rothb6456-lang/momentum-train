@@ -147,23 +147,24 @@ const MomentumPlanner = (() => {
     };
   }
 
-function normalizeWorkoutText(input) {
-  return String(input || '')
-    .replace(/\r/g, '')
-    .replace(/\u00A0/g, ' ')
-    .replace(/[“”]/g, '"')
-    .replace(/[‘’]/g, "'")
-    .replace(/[‐‑–—]/g, '-')
-    .replace(/×/g, 'x')
-    .replace(/\bseconds?\b/gi, 'sec')
-    .replace(/\bsecs\b/gi, 'sec')
-    .replace(/\bminutes?\b/gi, 'min')
-    .replace(/\bmins\b/gi, 'min')
-    .replace(/\bbodyweight\b/gi, 'BW')
-    .replace(/[ \t]+\n/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
+function normalizeWorkoutText(input) {  
+  return String(input || '')  
+    .replace(/\r/g, '')  
+    .replace(/\u00A0/g, ' ')  
+    .replace(/[""]/g, '"')  
+    .replace(/['']/g, "'")  
+    .replace(/[‐‑–—]/g, '-')  
+    .replace(/[⸻⸺─━]/g, '---')  
+    .replace(/×/g, 'x')  
+    .replace(/\bseconds?\b/gi, 'sec')  
+    .replace(/\bsecs\b/gi, 'sec')  
+    .replace(/\bminutes?\b/gi, 'min')  
+    .replace(/\bmins\b/gi, 'min')  
+    .replace(/\bbodyweight\b/gi, 'BW')  
+    .replace(/[ \t]+\n/g, '\n')  
+    .replace(/\n{3,}/g, '\n\n')  
+    .trim();  
+} 
 
 function parseWorkoutMeta(text) {
   const lines = text.split('\n').map(s => s.trim()).filter(Boolean);
@@ -520,49 +521,58 @@ function parseNarrativeWorkout(text) {
   // Warm-up heading patterns  
   const warmupHeadingPattern = /^(?:#+\s*)?(warm-?up|shoulder preparation|movement preparation|activation)\s*[:?]?\s*$/i;
 
-  // Check for an unnumbered Warm-Up block before the first numbered exercise  
-  const firstNumberedIndex = lines.findIndex(l => /^\d+\.\s+/.test((l || '').trim()));  
+  // Section divider pattern (--- or more dashes)  
+  const dividerPattern = /^-{3,}$/;
+
+  // Find the first numbered exercise line  
+  const firstNumberedIndex = lines.findIndex(l => /^\d+\.\s+/.test((l || '').trim()));
+
+  // Collect all lines before the first numbered exercise  
   const preLines = firstNumberedIndex >= 0 ? lines.slice(0, firstNumberedIndex) : [];
 
-  // Look for warm-up sections in pre-numbered-exercise lines  
-  let warmupStartIndex = -1;  
-  for (let w = 0; w < preLines.length; w++) {  
-    const trimmed = (preLines[w] || '').trim();  
-    if (warmupHeadingPattern.test(trimmed)) {  
-      warmupStartIndex = w;  
+  // Split pre-lines into sections divided by --- dividers  
+  const preSections = [];  
+  let currentSection = [];  
+  for (const line of preLines) {  
+    const trimmed = (line || '').trim();  
+    if (dividerPattern.test(trimmed)) {  
+      if (currentSection.length) preSections.push(currentSection);  
+      currentSection = [];  
+    } else {  
+      currentSection.push(trimmed);  
     }  
-  }
+  }  
+  if (currentSection.length) preSections.push(currentSection);
 
-  // Also check for treadmill/cardio lines before the first warm-up heading  
-  if (warmupStartIndex === -1) {  
-    // Look for a standalone cardio warm-up pattern  
-    for (let w = 0; w < preLines.length; w++) {  
-      const trimmed = (preLines[w] || '').trim();  
-      if (/\b(treadmill|bike|rower|walking|jogging|elliptical)\b/i.test(trimmed)) {  
-        warmupStartIndex = w;  
-        break;  
-      }  
+  // Process each pre-section for warm-up content  
+  for (const section of preSections) {  
+    // Check if this section contains a warm-up heading or cardio exercise  
+    const hasWarmupHeading = section.some(l => warmupHeadingPattern.test(l));  
+    const hasCardioLine = section.some(l => /\b(treadmill|bike|rower|walking|jogging|elliptical)\b/i.test(l));
+
+    if (hasWarmupHeading || hasCardioLine) {  
+      const warmExercises = parseCompoundWarmupBlock('Warm-Up', section);  
+      warmExercises.forEach(ex => exercises.push(ex));  
     }  
-  }
-
-  if (warmupStartIndex >= 0) {  
-    const warmupBlock = preLines.slice(warmupStartIndex);  
-    const warmExercises = parseCompoundWarmupBlock('Warm-Up', warmupBlock);  
-    warmExercises.forEach(ex => exercises.push(ex));  
   }
 
   // Track current section context for tagging  
-  let currentSection = 'primary';
+  let sectionContext = 'primary';
 
   let i = firstNumberedIndex >= 0 ? firstNumberedIndex : 0;
 
   while (i < lines.length) {  
     const line = (lines[i] || '').trim();
 
+    // Skip divider lines  
+    if (dividerPattern.test(line)) {  
+      i++;  
+      continue;  
+    }
+
     // Check for section headers (e.g., "Arms", "Capacity")  
     if (sectionHeaderPattern.test(line)) {  
-      // Update current section context but don't create an exercise  
-      currentSection = line.replace(/^#+\s*/, '').trim().toLowerCase();  
+      sectionContext = line.replace(/^#+\s*/, '').trim().toLowerCase();  
       i++;  
       continue;  
     }
@@ -585,7 +595,13 @@ function parseNarrativeWorkout(text) {
     const block = [];  
     i++;  
     while (i < lines.length && !/^\d+\.\s+/.test((lines[i] || '').trim())) {  
-      block.push((lines[i] || '').trim());  
+      const bLine = (lines[i] || '').trim();  
+      // Stop collecting block lines at a divider  
+      if (dividerPattern.test(bLine)) {  
+        i++;  
+        break;  
+      }  
+      block.push(bLine);  
       i++;  
     }
 
@@ -607,52 +623,57 @@ function parseNarrativeWorkout(text) {
     const rawName = normalizeExerciseName(rawHeadingName);  
     const exercise = parseNarrativeExerciseBlock(number, rawName, block);  
     if (exercise && hasMeaningfulExercise(exercise)) {  
-      // Apply section context if not already set by the exercise itself  
-      if (exercise.section === 'primary' && currentSection !== 'primary') {  
-        exercise.sectionLabel = currentSection; // preserve for display, don't override section logic  
+      if (exercise.section === 'primary' && sectionContext !== 'primary') {  
+        exercise.sectionLabel = sectionContext;  
       }  
       exercises.push(exercise);  
     }  
   }
 
   return exercises;  
-}  
+} 
 function parseCompoundWarmupBlock(heading, blockLines) {  
   const results = [];  
-  const nonEmpty = blockLines.map(s => s.trim()).filter(Boolean);
+  const nonEmpty = (Array.isArray(blockLines) ? blockLines : []).map(s => String(s || '').trim()).filter(Boolean);
 
   // Metadata keywords that should never be parsed as exercise names  
-  const metadataKeywords = /^(tempo|rir|reps?\s+in\s+reserve|rest|stoplight|intent|checkpoint|progression\s+rule|technical\s+cues?|therefore|stop\s+if|target|confidence|do\s+not|avoid)\b/i;
+  const metadataKeywords = /^(tempo|rir|reps?\s+in\s+reserve|rest|stoplight|intent|checkpoint|progression\s+rule|technical\s+cues?|therefore|stop\s+if|target|confidence|do\s+not|avoid|superset)\b/i;
 
-  // Treadmill / cardio warm-up pattern: "5:00 | 4.7-4.8 mph | 5% incline" or similar  
+  // Treadmill / cardio pattern: "5:00 | 4.7-4.8 mph | 5% incline"  
   const treadmillPattern = /^(\d+:\d+)\s*\|\s*(.+)$/;
 
-  // Check if heading itself is a cardio warm-up with a duration line following  
+  // Cardio name detection  
+  const cardioKeywords = /\b(treadmill|bike|rower|rowing|walking|jogging|running|cardio|elliptical)\b/i;
+
   let cardioName = '';  
   let cardioDuration = '';  
   let cardioNotes = [];
 
-  for (const line of nonEmpty) {  
+  for (let li = 0; li < nonEmpty.length; li++) {  
+    const line = nonEmpty[li];
+
     // Skip header-meta lines  
     if (/^(primary targets|secondary|target duration|overall|confidence)\s*:/i.test(line)) continue;
 
-    // Detect treadmill/cardio prescription: "5:00 | 4.7-4.8 mph | 5% incline"  
-    const treadmillMatch = line.match(treadmillPattern);  
-    if (treadmillMatch && !cardioName) {  
-      // The heading is the exercise name (e.g., "Treadmill Walking")  
-      // Look backward for the cardio name - check heading and previous non-empty lines  
-      const potentialName = nonEmpty.find(l =>  
-        /\b(treadmill|bike|rower|rowing|walking|jogging|running|cardio|elliptical)\b/i.test(l) &&  
-        !treadmillPattern.test(l)  
-      );  
-      cardioName = normalizeExerciseName(potentialName || heading);  
-      cardioDuration = treadmillMatch[1]; // e.g., "5:00"  
-      const details = treadmillMatch[2]; // e.g., "4.7-4.8 mph | 5% incline"  
-      cardioNotes.push(details);  
+    // Skip divider lines  
+    if (/^-{3,}$/.test(line)) continue;
+
+    // Detect cardio exercise name (e.g., "Treadmill Walking")  
+    if (cardioKeywords.test(line) && !treadmillPattern.test(line) && !cardioName) {  
+      cardioName = normalizeExerciseName(line);  
       continue;  
     }
 
-    // Skip metadata lines that look like "key: value" but are NOT exercises  
+    // Detect treadmill/cardio prescription: "5:00 | 4.7-4.8 mph | 5% incline"  
+    const treadmillMatch = line.match(treadmillPattern);  
+    if (treadmillMatch) {  
+      if (!cardioName) cardioName = normalizeExerciseName(heading);  
+      cardioDuration = treadmillMatch[1];  
+      cardioNotes.push(treadmillMatch[2]);  
+      continue;  
+    }
+
+    // Skip metadata lines  
     if (metadataKeywords.test(line)) continue;
 
     // Skip emoji/stoplight lines  
@@ -661,22 +682,28 @@ function parseCompoundWarmupBlock(heading, blockLines) {
     // Skip intent/checkpoint/cue description lines  
     if (/^(intent:|checkpoint:|cues?:|note:|grip:|therefore:)/i.test(line)) continue;
 
+    // Skip warm-up/preparation section headings within the block  
+    if (/^(warm-?up|shoulder preparation|movement preparation|activation)\s*[:?]?\s*$/i.test(line)) continue;
+
     // Parse sub-exercises: "Serratus Wall Slides: 8 reps" pattern  
     const subMatch = line.match(/^[-•*]?\s*([A-Za-z][A-Za-z0-9\s(),'/-]+?)\s*[:—|-]\s*(.+)$/);  
     if (subMatch) {  
       const subNameRaw = subMatch[1].trim();  
       const subDetail = subMatch[2].trim();
 
-      // Double-check: if the "name" part is a metadata keyword, skip it  
+      // Skip if the "name" part is a metadata keyword  
       if (metadataKeywords.test(subNameRaw)) continue;
 
-      // Skip if the name is too short or looks like a label, not an exercise  
+      // Skip if name is too short  
       if (subNameRaw.length < 3) continue;
+
+      // Skip lines that are clearly descriptions, not exercises  
+      if (/^(chest stays|drive elbows|do not|own the|maintain|initiate|avoid|use the|keep|no torso|elbows|shoulders|separate|start with|match the|raise temperature|scapular upward)/i.test(subNameRaw)) continue;
 
       const subName = normalizeExerciseName(subNameRaw);  
       const parsedSub = parseNarrativePrescriptionLine(subName, subDetail);
 
-      // Clean up "reps" suffix from reps field (e.g., "8 reps" -> "8")  
+      // Clean up "reps" suffix from reps field  
       if (parsedSub.reps) {  
         parsedSub.reps = parsedSub.reps.replace(/\s*reps?\s*$/i, '').trim();  
       }
@@ -716,7 +743,7 @@ function parseCompoundWarmupBlock(heading, blockLines) {
     return [single];  
   }  
   return [];  
-}  
+}    
 function isLikelyExerciseHeading(value) {  
   const line = String(value || '').trim();  
   if (!line) return false;
