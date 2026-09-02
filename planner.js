@@ -7,121 +7,146 @@ const MomentumPlanner = (() => {
   const load = () => { try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]'); } catch { return []; } };
   const save = workouts => localStorage.setItem(QUEUE_KEY, JSON.stringify(workouts));
   const blankBlock = (order = 1) => ({
-  id: id(),
-  order,
-  exerciseName: '',
-  targetSets: '',
-  targetRepsOrDuration: '',
-  targetWeightOrLoad: '',
-  tempo: '',
-  rir: '',
-  rest: '',
-  notes: '',
-  checkpoints: '',
-  tags: []
-});
-  const blankWorkout = () => ({ id: id(), title: 'Untitled workout', scheduledDate: '', phaseId: '', week: '', day: '', sourceType: 'manual', sourceRawText: '', status: 'queued', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), exerciseBlocks: [blankBlock()] });
-  function parseLine(line, order) {
-  const text = clean(line).replace(/^\s*(?:\d+[.)]|[-•])\s*/, '');
-  const tempo = text.match(/(?:tempo\s*)?(\d+\s*-\s*\d+\s*-\s*(?:\d+|x))/i)?.[1]?.replace(/\s/g, '') || '';
-  const rir = text.match(/RIR\s*([\d+\-– ]+)/i)?.[1]?.trim() || '';
-  const load = text.match(/(\d+(?:\.\d+)?)\s*(?:lb|lbs|pounds?)/i)?.[1] || '';
-  const rest = normalizeRest(text.match(/rest[:\s]+(\d+(?:\s*-\s*\d+)?\s*(?:sec|min|s|m))/i)?.[1] || '');
-  const target = text.match(/(?:\b(\d+)\s*[x×]\s*)?(\d+(?:\s*[-–]\s*\d+)?\s*(?:reps?|sec(?:onds?)?|min(?:utes?)?)?)/i);
-  const split = text.split(/\s+(?:[-—]|\||: )\s*/);
-  const exerciseName = clean(split[0].replace(/\b\d+\s*[x×].*$/i, '')) || text;
-  const notes = clean(
-    text
-      .replace(exerciseName, '')
-      .replace(/(?:tempo\s*)?\d+\s*-\s*\d+\s*-\s*(?:\d+|x)/ig, '')
-      .replace(/RIR\s*[\d+\-– ]+/ig, '')
-      .replace(/rest[:\s]+\d+(?:\s*-\s*\d+)?\s*(?:sec|min|s|m)/ig, '')
-  );
-
-  return {
-    ...blankBlock(order),
-    exerciseName,
-    targetSets: target?.[1] || '',
-    targetRepsOrDuration: target?.[2]?.trim() || '',
-    targetWeightOrLoad: load,
-    tempo,
-    rir,
-    rest,
-    notes,
+    id: id(),
+    order,
+    exerciseName: '',
+    targetSets: '',
+    targetRepsOrDuration: '',
+    targetWeightOrLoad: '',
+    tempo: '',
+    rir: '',
+    rest: '',
+    notes: '',
     checkpoints: '',
-    tags: []
-  };
-}
+    tags: [],
+    optional: false,
+    timed: false,
+    section: 'primary'
+  });
+  const blankWorkout = () => ({ id: id(), title: 'Untitled workout', canonicalTitle: '', subtitle: '', scheduledDate: '', phaseId: '', week: '', day: '', sourceType: 'manual', sourceRawText: '', status: 'queued', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), exerciseBlocks: [blankBlock()] });
+  function parseLine(line, order) {
+    const text = clean(line).replace(/^\s*(?:\d+[.)]|[-•])\s*/, '');
+    const tempoMatch = text.match(/(?:tempo[:\s]*)?(\d+\s*-\s*\d+\s*-\s*(?:\d+|x))/i)?.[1] || '';
+    const tempo = normalizeTempoOrSpecial(tempoMatch);
+    const rir = normalizeRir(text.match(/RIR[:\s]*([\d+\-– ]+)/i)?.[1] || '');
+    const load = text.match(/(\d+(?:\.\d+)?)\s*(?:lb|lbs|pounds?)/i)?.[1] || '';
+    const rest = normalizeRest(text.match(/rest[:\s]+(\d+(?:\s*-\s*\d+)?\s*(?:sec|min|s|m))/i)?.[1] || '');
+    const target = text.match(/(?:\b(\d+)\s*[x×]\s*)?(\d+(?:\s*[-–]\s*\d+)?\s*(?:reps?|sec(?:onds?)?|min(?:utes?)?)?)/i);
+    const split = text.split(/\s+(?:[-—]|\||: )\s*/);
+    const rawExerciseName = clean(split[0].replace(/\b\d+\s*[x×].*$/i, '')) || text;
+    const isOpt = /\boptional\b/i.test(rawExerciseName);
+    const exerciseName = normalizeExerciseName(rawExerciseName);
+    const targetRepsOrDur = target?.[2]?.trim() || '';
+    const timed = isTimedExercise(exerciseName, targetRepsOrDur);
+    const notes = clean(
+      text
+        .replace(rawExerciseName, '')
+        .replace(/(?:tempo[:\s]*)?\d+\s*-\s*\d+\s*-\s*(?:\d+|x)/ig, '')
+        .replace(/RIR[:\s]*[\d+\-– ]+/ig, '')
+        .replace(/rest[:\s]+\d+(?:\s*-\s*\d+)?\s*(?:sec|min|s|m)/ig, '')
+    );
+
+    return {
+      ...blankBlock(order),
+      exerciseName,
+      targetSets: target?.[1] || '',
+      targetRepsOrDuration: targetRepsOrDur,
+      targetWeightOrLoad: load,
+      tempo,
+      rir,
+      rest,
+      notes,
+      optional: isOpt,
+      timed,
+      section: isOpt ? 'optional' : (/warm-?up|preparation/i.test(exerciseName) ? 'warmup' : 'primary'),
+      checkpoints: '',
+      tags: []
+    };
+  }
   function parse(rawText) {
-  const parsed = parseWorkoutCardText(rawText);
+    const parsed = parseWorkoutCardText(rawText);
 
-  const workout = blankWorkout();
-  workout.title = parsed.title || 'Pasted workout card';
-  workout.subtitle = parsed.subtitle || '';
-  workout.phaseId = parsed.phase || '';
-  workout.week = parsed.week || '';
-  workout.day = parsed.day || '';
-  workout.sourceType = parsed.source || 'chatgpt';
-  workout.sourceRawText = rawText || '';
-  workout.primaryTargets = Array.isArray(parsed.primaryTargets) ? parsed.primaryTargets : [];
-  workout.secondaryTargets = Array.isArray(parsed.secondaryTargets) ? parsed.secondaryTargets : [];
-  workout.programNotes = Array.isArray(parsed.programNotes) ? parsed.programNotes : [];
-  workout.targetDuration = parsed.targetDuration || '';
-  workout.confidence = parsed.confidence || '';
+    const workout = blankWorkout();
+    workout.title = parsed.title || 'Pasted workout card';
+    workout.canonicalTitle = parsed.canonicalTitle || parsed.title || '';
+    workout.subtitle = parsed.subtitle || '';
+    workout.phaseId = parsed.phase || '';
+    workout.week = parsed.week || '';
+    workout.day = parsed.day || '';
+    workout.sourceType = parsed.source || 'chatgpt';
+    workout.sourceRawText = rawText || '';
+    workout.primaryTargets = Array.isArray(parsed.primaryTargets) ? parsed.primaryTargets : [];
+    workout.secondaryTargets = Array.isArray(parsed.secondaryTargets) ? parsed.secondaryTargets : [];
+    workout.programNotes = Array.isArray(parsed.programNotes) ? parsed.programNotes : [];
+    workout.targetDuration = parsed.targetDuration || '';
+    workout.confidence = parsed.confidence || '';
 
-  workout.exerciseBlocks = (parsed.exercises || []).length
-    ? parsed.exercises.map((ex, index) => ({
-        ...blankBlock(index + 1),
-        exerciseName: ex.name || '',
-        targetSets: ex.sets || '',
-        targetRepsOrDuration: ex.reps || '',
-        targetWeightOrLoad: ex.load || '',
-        tempo: ex.tempo || '',
-        rir: ex.rir || '',
-        rest: ex.rest || '',
-        notes: ex.notes || '',
-        checkpoints: '',
-        tags: []
-      }))
-    : [blankBlock(1)];
+    workout.exerciseBlocks = (parsed.exercises || []).length
+      ? parsed.exercises.map((ex, index) => ({
+          ...blankBlock(index + 1),
+          exerciseName: ex.name || '',
+          targetSets: ex.sets || '',
+          targetRepsOrDuration: ex.reps || '',
+          targetWeightOrLoad: ex.load || '',
+          tempo: ex.tempo || '',
+          rir: ex.rir || '',
+          rest: ex.rest || '',
+          notes: ex.notes || '',
+          optional: ex.optional || false,
+          timed: ex.timed || false,
+          section: ex.section || 'primary',
+          checkpoints: '',
+          tags: []
+        }))
+      : [blankBlock(1)];
 
-  return workout;
-}
+    return workout;
+  }
   function parseWorkoutCardText(rawText) {
-  const text = normalizeWorkoutText(rawText || '');
+    const text = normalizeWorkoutText(rawText || '');
 
-  const meta = parseWorkoutMeta(text);
-  const tableExercises = parseMarkdownWorkoutTable(text);
-  const narrativeExercises = tableExercises.length ? [] : parseNarrativeWorkout(text);
+    const meta = parseWorkoutMeta(text);
+    const tableExercises = parseMarkdownWorkoutTable(text);
+    const narrativeExercises = tableExercises.length ? [] : parseNarrativeWorkout(text);
 
-  const exercises = tableExercises.length ? tableExercises : narrativeExercises;
+    const exercises = tableExercises.length ? tableExercises : narrativeExercises;
 
-  return {
-    title: meta.title || 'Pasted workout card',
-    subtitle: meta.subtitle || '',
-    source: 'chatgpt',
-    phase: meta.phase || '',
-    week: meta.week || '',
-    day: meta.day || '',
-    primaryTargets: meta.primaryTargets || [],
-    secondaryTargets: meta.secondaryTargets || [],
-    programNotes: meta.programNotes || [],
-    targetDuration: meta.targetDuration || '',
-    confidence: meta.confidence || '',
-    exercises: exercises.map((ex, i) => ({
-      id: ex.id || `planned-${Date.now()}-${i + 1}`,
-      name: ex.name || '',
-      sets: ex.sets || '',
-      reps: ex.reps || '',
-      load: ex.load || '',
-      tempo: ex.tempo || '',
-      rir: ex.rir || '',
-      rest: ex.rest || '',
-      notes: ex.notes || ''
-    })),
-    warnings: buildParseWarnings(meta, exercises)
-  };
-}
+    return {
+      title: meta.title || 'Pasted workout card',
+      canonicalTitle: meta.canonicalTitle || meta.title || '',
+      subtitle: meta.subtitle || '',
+      source: 'chatgpt',
+      phase: meta.phase || '',
+      week: meta.week || '',
+      day: meta.day || '',
+      primaryTargets: meta.primaryTargets || [],
+      secondaryTargets: meta.secondaryTargets || [],
+      programNotes: meta.programNotes || [],
+      targetDuration: meta.targetDuration || '',
+      confidence: meta.confidence || '',
+      exercises: exercises.map((ex, i) => {
+        const isOpt = ex.optional || isOptionalExercise(ex);
+        const cleanName = normalizeExerciseName(ex.name || '');
+        const timed = ex.timed || isTimedExercise(cleanName, ex.reps || '');
+        return {
+          id: ex.id || `planned-${Date.now()}-${i + 1}`,
+          name: cleanName,
+          sets: ex.sets || '',
+          reps: ex.reps || '',
+          load: normalizeLoad(ex.load || ''),
+          tempo: normalizeTempoOrSpecial(ex.tempo || ''),
+          rir: normalizeRir(ex.rir || ''),
+          rest: normalizeRest(ex.rest || ''),
+          notes: ex.notes || '',
+          optional: isOpt,
+          timed: timed,
+          section: ex.section || (isOpt ? 'optional' : (/warm-?up|preparation/i.test(cleanName) ? 'warmup' : 'primary'))
+        };
+      }),
+      warnings: buildParseWarnings(meta, exercises)
+    };
+  }
+
 function normalizeWorkoutText(input) {
   return String(input || '')
     .replace(/\r/g, '')
@@ -144,11 +169,20 @@ function parseWorkoutMeta(text) {
   const lines = text.split('\n').map(s => s.trim()).filter(Boolean);
 
   const phaseMatch = text.match(/\bPHASE\s+(\d+)\b/i);
-  const weekDayMatch = text.match(/\bWEEK\s+(\d+)\s*[•|\/-]?\s*DAY\s+(\d+)\b/i);
+  const weekDayMatch = text.match(/\bWEEK\s+(\d+)\s*[•|\/-]?\s*DAY\s+(\d+)\b/i) ||
+                       text.match(/\bDAY\s+(\d+)\b/i);
+  const week = weekDayMatch ? (weekDayMatch[2] ? weekDayMatch[1] : '') : '';
+  const day = weekDayMatch ? (weekDayMatch[2] ? weekDayMatch[2] : weekDayMatch[1]) : '';
+
+  let canonicalTitle = '';
+  const canonMatch = text.match(/\b(Phase\s+\d+[^:\n\r]+:\s*[^\n\r]+)/i);
+  if (canonMatch) {
+    canonicalTitle = clean(canonMatch[1]);
+  }
 
   let title = '';
   if (weekDayMatch) {
-    const wdLineIndex = lines.findIndex(line => /\bWEEK\s+\d+.*\bDAY\s+\d+\b/i.test(line));
+    const wdLineIndex = lines.findIndex(line => /\b(WEEK\s+\d+.*\bDAY\s+\d+|DAY\s+\d+)\b/i.test(line));
     if (wdLineIndex >= 0) {
       for (let i = wdLineIndex + 1; i < Math.min(wdLineIndex + 5, lines.length); i++) {
         const line = lines[i];
@@ -173,16 +207,17 @@ function parseWorkoutMeta(text) {
       line.length > 8 &&
       line.length < 120
     );
-    title = fallback || '';
+    title = fallback || canonicalTitle || '';
   }
 
   const headerMeta = parseHeaderMeta(lines);
 
   return {
     phase: phaseMatch ? phaseMatch[1] : '',
-    week: weekDayMatch ? weekDayMatch[1] : '',
-    day: weekDayMatch ? weekDayMatch[2] : '',
-    title,
+    week: week,
+    day: day,
+    title: title || canonicalTitle || 'Pasted workout card',
+    canonicalTitle: canonicalTitle || title || '',
     subtitle: buildWorkoutSubtitle(headerMeta.primaryTargets, headerMeta.secondaryTargets),
     primaryTargets: headerMeta.primaryTargets,
     secondaryTargets: headerMeta.secondaryTargets,
@@ -438,8 +473,8 @@ function mapWorkoutTableColumns(headers) {
 }
 
 function parseExerciseFromTableRow(cells, columnMap) {
-  const name = safeCell(cells, columnMap.exercise);
-  if (!name) return null;
+  const rawName = safeCell(cells, columnMap.exercise);
+  if (!rawName) return null;
 
   const setsReps = safeCell(cells, columnMap.setsReps);
   const load = safeCell(cells, columnMap.load);
@@ -456,15 +491,22 @@ function parseExerciseFromTableRow(cells, columnMap) {
   const cleanRir = normalizeRir(rir);
   const cleanRest = normalizeRest(rest);
 
+  const isOpt = /\boptional\b/i.test(rawName) || /\boptional\b/i.test(notes);
+  const cleanName = normalizeExerciseName(rawName);
+  const timed = isTimedExercise(cleanName, sr.reps);
+
   return {
-    name: normalizeExerciseName(name),
+    name: cleanName,
     sets: sr.sets,
     reps: sr.reps,
     load: cleanLoad,
     tempo: cleanTempo,
     rir: cleanRir,
     rest: cleanRest,
-    notes: joinNotes([notes, leftovers.join('; ')])
+    notes: joinNotes([notes, leftovers.join('; ')]),
+    optional: isOpt,
+    timed: timed,
+    section: isOpt ? 'optional' : (/warm-?up|preparation/i.test(cleanName) ? 'warmup' : 'primary')
   };
 }
 
@@ -472,7 +514,18 @@ function parseNarrativeWorkout(text) {
   const lines = text.split('\n');
   const exercises = [];
 
-  let i = 0;
+  // Check for an unnumbered Warm-Up block before the first numbered exercise
+  const firstNumberedIndex = lines.findIndex(l => /^\d+\.\s+/.test((l || '').trim()));
+  const preLines = firstNumberedIndex >= 0 ? lines.slice(0, firstNumberedIndex) : [];
+  
+  const warmupIndex = preLines.findIndex(l => /^(?:#+\s*)?warm-?up\s*[:?]?/i.test((l || '').trim()) || /^(?:#+\s*)?shoulder preparation\s*[:?]?/i.test((l || '').trim()));
+  if (warmupIndex >= 0) {
+    const warmupBlock = preLines.slice(warmupIndex + 1);
+    const warmExercises = parseCompoundWarmupBlock('Warm-Up', warmupBlock);
+    warmExercises.forEach(ex => exercises.push(ex));
+  }
+
+  let i = firstNumberedIndex >= 0 ? firstNumberedIndex : 0;
 
   while (i < lines.length) {
     const line = (lines[i] || '').trim();
@@ -484,7 +537,7 @@ function parseNarrativeWorkout(text) {
     }
 
     const number = headingMatch[1];
-    const rawName = normalizeExerciseName(headingMatch[2]);
+    const rawHeadingName = headingMatch[2].trim();
 
     const block = [];
     i++;
@@ -493,19 +546,56 @@ function parseNarrativeWorkout(text) {
       i++;
     }
 
-    // Skip numbered header list items (e.g. "4. Serratus/scapular control" under
-    // Secondary:) that are not real exercises — their block contains header
-    // markers and no prescription line, so they would create empty bogus entries.
+    // Skip numbered header list items
     const isHeaderDebris = block.some(b =>
       /^(target duration|overall\s+.*confidence|primary targets|secondary)\s*:/i.test(String(b || '').trim())
     );
     if (isHeaderDebris) continue;
 
+    // Check if this heading is a compound Warm-Up / Preparation block with sub-items
+    if (/^(warm-?up|shoulder preparation|movement preparation)\b/i.test(rawHeadingName)) {
+      const warmExercises = parseCompoundWarmupBlock(rawHeadingName, block);
+      if (warmExercises.length) {
+        warmExercises.forEach(ex => exercises.push(ex));
+        continue;
+      }
+    }
+
+    const rawName = normalizeExerciseName(rawHeadingName);
     const exercise = parseNarrativeExerciseBlock(number, rawName, block);
     if (exercise && hasMeaningfulExercise(exercise)) exercises.push(exercise);
   }
 
   return exercises;
+}
+
+function parseCompoundWarmupBlock(heading, blockLines) {
+  const results = [];
+  const nonEmpty = blockLines.map(s => s.trim()).filter(Boolean);
+
+  for (const line of nonEmpty) {
+    if (/^(primary targets|secondary|target duration|overall|confidence)\s*:/i.test(line)) continue;
+    const subMatch = line.match(/^[-•*]?\s*([A-Za-z0-9\s()'-]+?)\s*[:—|-]\s*(.+)$/);
+    if (subMatch && !/^(intent|cuff|shoulders|red:|checkpoint|stop if|target|confidence|progression)/i.test(subMatch[1])) {
+      const subName = normalizeExerciseName(subMatch[1]);
+      const subDetail = subMatch[2].trim();
+      const parsedSub = parseNarrativePrescriptionLine(subName, subDetail);
+      if (hasMeaningfulExercise(parsedSub)) {
+        parsedSub.section = 'warmup';
+        parsedSub.notes = joinNotes([parsedSub.notes, 'Warm-up / prep']);
+        results.push(parsedSub);
+      }
+    }
+  }
+
+  if (results.length) return results;
+
+  const single = parseNarrativeExerciseBlock('1', normalizeExerciseName(heading), blockLines);
+  if (single && hasMeaningfulExercise(single)) {
+    single.section = 'warmup';
+    return [single];
+  }
+  return [];
 }
 
 function isLikelyExerciseHeading(value) {
@@ -523,23 +613,32 @@ function isLikelyExerciseHeading(value) {
 function parseNarrativeExerciseBlock(number, rawName, blockLines) {
   const nonEmpty = blockLines.map(s => s.trim()).filter(Boolean);
 
+  const isOpt = /\boptional\b/i.test(rawName) || nonEmpty.some(l => /\boptional\b/i.test(l));
+  const cleanName = normalizeExerciseName(rawName);
+
   const prescriptionLine = nonEmpty.find(line =>
     line.includes('|') && /\b\d+\s*x\s*/i.test(line)
   );
 
   let parsed = {
-    name: rawName,
+    name: cleanName,
     sets: '',
     reps: '',
     load: '',
     tempo: '',
     rir: '',
     rest: '',
-    notes: ''
+    notes: '',
+    optional: isOpt,
+    timed: isTimedExercise(cleanName, ''),
+    section: isOpt ? 'optional' : (/warm-?up|preparation/i.test(cleanName) ? 'warmup' : 'primary')
   };
 
   if (prescriptionLine) {
-    parsed = parseNarrativePrescriptionLine(rawName, prescriptionLine);
+    parsed = parseNarrativePrescriptionLine(cleanName, prescriptionLine);
+    parsed.optional = isOpt;
+    parsed.section = isOpt ? 'optional' : (/warm-?up|preparation/i.test(cleanName) ? 'warmup' : 'primary');
+    parsed.timed = isTimedExercise(cleanName, parsed.reps);
   }
 
   const shortNotes = [];
@@ -549,7 +648,7 @@ function parseNarrativeExerciseBlock(number, rawName, blockLines) {
     if (/^\d+\s*x\s*/i.test(line)) continue;
     if (line.includes('|')) continue;
 
-    if (rawName.toLowerCase() === 'warm-up') {
+    if (cleanName.toLowerCase() === 'warm-up' || cleanName.toLowerCase() === 'shoulder preparation') {
       if (line.length <= 80) shortNotes.push(line);
       continue;
     }
@@ -559,13 +658,17 @@ function parseNarrativeExerciseBlock(number, rawName, blockLines) {
     }
   }
 
-  parsed.notes = joinNotes([parsed.notes, shortNotes.slice(0, rawName.toLowerCase() === 'warm-up' ? 6 : 3).join(' | ')]);
+  parsed.notes = joinNotes([parsed.notes, shortNotes.slice(0, 3).join(' | ')]);
   return parsed;
 }
+
 function parseNarrativePrescriptionLine(name, line) {
+  const isOpt = /\boptional\b/i.test(name) || /\boptional\b/i.test(line);
+  const cleanName = normalizeExerciseName(name);
+
   const parts = line.split('|').map(s => s.trim()).filter(Boolean);
   if (!parts.length) {
-    return { name, sets: '', reps: '', load: '', tempo: '', rir: '', rest: '', notes: '' };
+    return { name: cleanName, sets: '', reps: '', load: '', tempo: '', rir: '', rest: '', notes: '', optional: isOpt, timed: isTimedExercise(cleanName, ''), section: isOpt ? 'optional' : 'primary' };
   }
 
   const sr = parseSetsRepsCell(parts[0]);
@@ -576,10 +679,6 @@ function parseNarrativePrescriptionLine(name, line) {
   let restVal = '';
   const notes = [];
 
-  // Standard prescription is positional: sets×reps | LOAD | TEMPO | RIR | REST.
-  // When the trailing tokens land in their expected slots, assign positionally so
-  // descriptors like "conservative load" or "Red band" still populate Load
-  // instead of falling through to notes.
   let positional = false;
   if (tail.length >= 3) {
     const loadTok = tail[0], tempoTok = tail[1], rirTok = tail[2], restTok = tail[3] ?? '';
@@ -594,7 +693,6 @@ function parseNarrativePrescriptionLine(name, line) {
   }
 
   if (!positional) {
-    // Heuristic fallback (order-tolerant) for non-standard prescription layouts.
     for (let i = 0; i < tail.length; i++) {
       const token = tail[i];
 
@@ -619,15 +717,20 @@ function parseNarrativePrescriptionLine(name, line) {
     }
   }
 
+  const timed = isTimedExercise(cleanName, sr.reps);
+
   return {
-    name: normalizeExerciseName(name),
+    name: cleanName,
     sets: sr.sets,
     reps: sr.reps,
     load,
     tempo,
     rir,
     rest: restVal,
-    notes: joinNotes(notes)
+    notes: joinNotes(notes),
+    optional: isOpt,
+    timed: timed,
+    section: isOpt ? 'optional' : (/warm-?up|preparation/i.test(cleanName) ? 'warmup' : 'primary')
   };
 }
 
@@ -635,7 +738,6 @@ function parseSetsRepsCell(value) {
   const cell = String(value || '').trim();
   if (!cell) return { sets: '', reps: '' };
 
-  // Sets may be a single number (3) or a range (1-2); keep the range intact.
   const match = cell.match(/^(\d+(?:\s*-\s*\d+)?)\s*x\s*(.+)$/i);
   if (!match) return { sets: '', reps: cell };
 
@@ -647,7 +749,7 @@ function parseSetsRepsCell(value) {
 
 function looksLikeLoad(value) {
   const v = String(value || '').trim().toLowerCase();
-  return /\b(lb|lbs|kg|bw|bodyweight|total|optional|plate|stack)\b/.test(v) || /^\d+(\.\d+)?$/.test(v);
+  return /\b(lb|lbs|kg|bw|bodyweight|total|plate|stack)\b/.test(v) || /^\d+(\.\d+)?$/.test(v);
 }
 
 function looksLikeTempo(value) {
@@ -679,10 +781,14 @@ function normalizeLoad(value) {
 }
 
 function normalizeTempoOrSpecial(value, leftovers) {
-  const v = String(value || '').trim();
+  let v = String(value || '').trim();
   if (!v) return '';
 
-  if (/^\d+-\d+-\d+(-\d+)?$/.test(v)) return v;
+  v = v.replace(/^tempo[:\s]*/i, '').trim();
+
+  if (/^\d+\s*-\s*\d+\s*-\s*(?:\d+|x)(?:-\d+)?$/i.test(v)) {
+    return v.replace(/\s/g, '');
+  }
   if (/^controlled$/i.test(v)) return 'Controlled';
 
   if (/\bmph\b/i.test(v) || /\bincline\b/i.test(v)) {
@@ -690,18 +796,28 @@ function normalizeTempoOrSpecial(value, leftovers) {
     return '';
   }
 
+  const match = v.match(/(\d+\s*-\s*\d+\s*-\s*(?:\d+|x))/i);
+  if (match) {
+    return match[1].replace(/\s/g, '');
+  }
+
   return v;
 }
 
 function normalizeRir(value) {
-  return String(value || '')
-    .replace(/\bRIR\b/gi, '')
-    .replace(/\s+/g, '')
-    .trim();
+  let v = String(value || '').trim();
+  if (!v) return '';
+
+  v = v.replace(/^rir[:\s]*/i, '').replace(/\bRIR\b/gi, '').replace(/\s+/g, '').trim();
+  return v;
 }
 
 function normalizeRest(value) {
-  return String(value || '')
+  let v = String(value || '').trim();
+  if (!v) return '';
+
+  v = v.replace(/^rest[:\s]*/i, '').trim();
+  return v
     .replace(/\s+/g, ' ')
     .replace(/\bseconds?\b/gi, 'sec')
     .replace(/\bsecs\b/gi, 'sec')
@@ -714,8 +830,13 @@ function normalizeExerciseName(name) {
   const raw = String(name || '').trim();
   if (!raw) return '';
 
+  const stripped = raw
+    .replace(/^optional\s*[:-]?\s*/i, '')
+    .replace(/\s*\(\s*optional\s*\)\s*$/i, '')
+    .trim();
+
   const lowerKeep = new Set(['of', 'and', 'or', 'the', 'to', 'for', 'with', 'on', 'in']);
-  return raw
+  return stripped
     .toLowerCase()
     .split(/\s+/)
     .map((word, idx) => {
@@ -727,6 +848,15 @@ function normalizeExerciseName(name) {
     .replace(/\bDb\b/g, 'DB')
     .replace(/\bRdl\b/g, 'RDL')
     .replace(/\bBw\b/g, 'BW');
+}
+
+function isTimedExercise(name, targetRepsOrDuration) {
+  const n = String(name || '').toLowerCase();
+  const r = String(targetRepsOrDuration || '').toLowerCase();
+
+  if (/\b(sec|min|seconds?|minutes?|s|m)\b/.test(r)) return true;
+  if (/\b(hold|carry|walk|walking|treadmill|plank|hang|dead hang|cardio|rower|bike|conditioning)\b/.test(n)) return true;
+  return false;
 }
 
 function safeCell(cells, idx) {
@@ -871,21 +1001,27 @@ function defaultActualFromBlock(block) {
 }
 
 function toCockpitExercise(block, index) {
+  const isOpt = block.optional || isOptionalExercise(block);
+  const cleanName = normalizeExerciseName(block.exerciseName || '');
+  const timed = block.timed || isTimedPrescription(block) || isTimedExercise(cleanName, block.targetRepsOrDuration);
+
   return {
     id: block.id || id(),
     order: index + 1,
-    exerciseName: clean(block.exerciseName || ''),
+    exerciseName: cleanName,
+    rawExerciseName: clean(block.exerciseName || ''),
     prescribedSets: Number(block.targetSets || 0) || 0,
     prescribedRepsOrDuration: clean(block.targetRepsOrDuration || ''),
     prescribedLoad: clean(block.targetWeightOrLoad || ''),
-    prescribedTempo: clean(block.tempo || ''),
-    prescribedRir: clean(block.rir || ''),
-    prescribedRest: clean(block.rest || ''),
+    prescribedTempo: normalizeTempoOrSpecial(block.tempo || ''),
+    prescribedRir: normalizeRir(block.rir || ''),
+    prescribedRest: normalizeRest(block.rest || ''),
     notes: clean(block.notes || ''),
-    optional: isOptionalExercise(block),
+    optional: isOpt,
+    section: block.section || (isOpt ? 'optional' : (/warm-?up|preparation/i.test(cleanName) ? 'warmup' : 'primary')),
     establishLoad: isEstablishLoad(block),
     unilateral: isUnilateralPrescription(block),
-    timed: isTimedPrescription(block),
+    timed: timed,
     completedSets: [],
     skipped: false,
     started: false,
@@ -898,6 +1034,7 @@ function buildCockpitWorkout(workout) {
   return {
     workoutId: base.id,
     title: base.title || 'Untitled workout',
+    canonicalTitle: base.canonicalTitle || base.title || '',
     phaseId: base.phaseId || '',
     week: base.week || '',
     day: base.day || '',
