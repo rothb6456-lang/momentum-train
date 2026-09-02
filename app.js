@@ -2407,8 +2407,6 @@ document.addEventListener('visibilitychange', () => {
 
       const search = $('#searchExercise');
       if (search) search.oninput = () => { if (typeof renderPicker === 'function') renderPicker(search.value); };
-    };
-  }
       // Bind edit/remove buttons on logged sets  
       if (typeof bindSetActions === 'function') bindSetActions();  
     };  
