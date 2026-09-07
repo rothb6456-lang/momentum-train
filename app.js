@@ -1353,36 +1353,36 @@ window.scrollTo({ top: 0, behavior: 'smooth' });
     editor[input.dataset.plan] = input.value;
   });
 
-  $$('[data-block]').forEach(input => input.oninput = () => {
-    const block = editor.exerciseBlocks.find(x => x.id === input.dataset.block);
-    if (!block) return;
+// Generic field sync for all block inputs  
+  $$('[data-block]').forEach(input => {  
+    if (input.dataset.field === 'exerciseName') return; // handled separately below  
+    input.oninput = () => {  
+      const block = editor.exerciseBlocks.find(x => x.id === input.dataset.block);  
+      if (!block) return;
 
-    const field = input.dataset.field;
-    let value = input.value;
+      const field = input.dataset.field;  
+      let value = input.value;
 
-    if (field === 'exerciseName') {
-      block[field] = value;
-      return;
-    }
+      if (field === 'targetSets') {  
+        value = (typeof normalizeNumericEntry === 'function') ? normalizeNumericEntry(value, false) : value;  
+        input.value = value;  
+      }
 
-    if (field === 'targetSets') {
-      value = (typeof normalizeNumericEntry === 'function') ? normalizeNumericEntry(value, false) : value;
-      input.value = value;
-    }
+      if (field === 'targetWeightOrLoad') {  
+        value = (typeof normalizeNumericEntry === 'function') ? normalizeNumericEntry(value, true) : value;  
+        input.value = value;  
+      }
 
-    if (field === 'targetWeightOrLoad') {
-      value = (typeof normalizeNumericEntry === 'function') ? normalizeNumericEntry(value, true) : value;
-      input.value = value;
-    }
+      if (field === 'rir') {  
+        value = String(value || '').replace(/[^0-9+\-]/g, '');  
+        input.value = value;  
+      }
 
-    if (field === 'rir') {
-      value = String(value || '').replace(/[^0-9+\-]/g, '');
-      input.value = value;
-    }
-
-    block[field] = value;
+      block[field] = value;  
+    };  
   });
 
+  // Exercise name fields: search + canonicalize  
   $$('[data-block][data-field="exerciseName"]').forEach(input => {  
     const bid = input.dataset.block;  
     const resultsEl = $(`[data-results-for="${bid}"]`);
@@ -1394,7 +1394,6 @@ window.scrollTo({ top: 0, behavior: 'smooth' });
       const h2 = card && card.querySelector('h2');  
       if (h2) h2.textContent = input.value || 'Untitled exercise';
 
-      // Show filtered exercise suggestions  
       if (resultsEl) {  
         const query = input.value.trim().toLowerCase();  
         if (query.length < 2) {  
@@ -1410,7 +1409,23 @@ window.scrollTo({ top: 0, behavior: 'smooth' });
           resultsEl.innerHTML = matches.map(name =>  
             `<button type="button" class="exercise-pick-option" data-pick-name="${esc(name)}" data-pick-block="${esc(bid)}">${esc(name)}</button>`  
           ).join('');  
-          resultsEl.hidden = false;  
+          resultsEl.hidden = false;
+
+          // Bind pick buttons immediately  
+          $$('.exercise-pick-option', resultsEl).forEach(btn => {  
+            btn.onclick = (e) => {  
+              e.preventDefault();  
+              const pickedName = btn.dataset.pickName;  
+              const pickedBid = btn.dataset.pickBlock;  
+              const pickedBlock = editor.exerciseBlocks.find(x => x.id === pickedBid);  
+              if (pickedBlock) pickedBlock.exerciseName = pickedName;  
+              input.value = pickedName;  
+              const pickedCard = input.closest('[data-block-card]');  
+              const pickedH2 = pickedCard && pickedCard.querySelector('h2');  
+              if (pickedH2) pickedH2.textContent = pickedName;  
+              resultsEl.hidden = true;  
+            };  
+          });  
         } else {  
           resultsEl.hidden = true;  
         }  
@@ -1433,24 +1448,6 @@ window.scrollTo({ top: 0, behavior: 'smooth' });
     };  
   });
 
-// Handle clicking a suggestion  
-  $$('.exercise-pick-option').forEach(btn => {  
-    btn.onclick = (e) => {  
-      e.preventDefault();  
-      const name = btn.dataset.pickName;  
-      const bid = btn.dataset.pickBlock;  
-      const block = editor.exerciseBlocks.find(x => x.id === bid);  
-      if (block) block.exerciseName = name;  
-      const input = $(`[data-block="${bid}"][data-field="exerciseName"]`);  
-      if (input) input.value = name;  
-      const card = input && input.closest('[data-block-card]');  
-      const h2 = card && card.querySelector('h2');  
-      if (h2) h2.textContent = name;  
-      const resultsEl = $(`[data-results-for="${bid}"]`);  
-      if (resultsEl) resultsEl.hidden = true;  
-    };  
-  });
-
   $$('[data-remove-block]').forEach(button => button.onclick = () => {  
     editor.exerciseBlocks = editor.exerciseBlocks.filter(x => x.id !== button.dataset.removeBlock);  
     if (!editor.exerciseBlocks.length && plannerMethodAvailable('blankBlock')) {  
@@ -1458,7 +1455,36 @@ window.scrollTo({ top: 0, behavior: 'smooth' });
     }  
     renderEditor('builder');  
   });
-$$('[data-move-block]').forEach(button => {  
+
+  $$('[data-move-block]').forEach(button => {  
+    button.onclick = () => {  
+      const bid = button.dataset.moveBlock;  
+      const dir = parseInt(button.dataset.dir, 10);  
+      const idx = editor.exerciseBlocks.findIndex(x => x.id === bid);  
+      const target = idx + dir;  
+      if (idx < 0 || target < 0 || target >= editor.exerciseBlocks.length) return;  
+      [editor.exerciseBlocks[idx], editor.exerciseBlocks[target]] = [editor.exerciseBlocks[target], editor.exerciseBlocks[idx]];  
+      renderEditor('builder');  
+    };  
+  });
+
+  $$('[data-position-block]').forEach(input => {  
+    input.onchange = () => {  
+      const bid = input.dataset.positionBlock;  
+      const currentIdx = editor.exerciseBlocks.findIndex(x => x.id === bid);  
+      if (currentIdx < 0) return;  
+      const targetPos = parseInt(input.value, 10) - 1;  
+      if (isNaN(targetPos) || targetPos < 0 || targetPos >= editor.exerciseBlocks.length) {  
+        input.value = currentIdx + 1;  
+        return;  
+      }  
+      if (targetPos === currentIdx) return;  
+      const [block] = editor.exerciseBlocks.splice(currentIdx, 1);  
+      editor.exerciseBlocks.splice(targetPos, 0, block);  
+      renderEditor('builder');  
+      toast(`Moved to position ${targetPos + 1}`);  
+    };  
+  }); $$('[data-move-block]').forEach(button => {  
     button.onclick = () => {  
       const bid = button.dataset.moveBlock;  
       const dir = parseInt(button.dataset.dir, 10);  
