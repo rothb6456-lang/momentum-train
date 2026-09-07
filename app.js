@@ -874,32 +874,36 @@ function renderToday() {
       <p class="quiet">Paste the card from Coach, make practical edits, then launch the planned structure directly into Log.</p>
 
       <article class="card">
-        ${
-          next ? `
-            <div class="card-head">
-              <div>
-                <div class="eyebrow">Next workout</div>
-                <h2 style="margin-top:6px">${esc(next.title)}</h2>
-                ${esc(planSummary(next))} · ${next.exerciseBlocks.length} exercises
-              </div>
-              ${esc(next.status)}
-            </div>
-            <div class="actions">
-              <button class="primary" data-start="${next.id}">Start workout</button>
-              <button class="secondary" data-edit="${next.id}">Edit</button>
-              <button class="danger" data-delete="${next.id}">Delete</button>
-            </div>
-          ` : `
-            <div class="empty">
-              <b style="color:var(--ink)">No workout planned yet.</b>
-              Choose a starter card, paste a Coach card, or create a custom workout below.
-            </div>
-            <div class="actions">
-              <button class="primary" id="pasteCard">Paste workout card</button>
-              <button class="secondary" id="blankCard">Create custom workout</button>
-            </div>
-          `
-        }
+        ${  
+          next ? `  
+            <div class="card-head">  
+              <div>  
+                <div class="eyebrow">Next workout</div>  
+                <h2 style="margin-top:6px">${esc(next.title)}</h2>  
+                ${esc(planSummary(next))} · ${next.exerciseBlocks.length} exercises  
+              </div>  
+              ${esc(next.status)}  
+            </div>  
+            <div class="actions">  
+              <button class="primary" data-start="${next.id}">Start workout</button>  
+              <button class="secondary" data-edit="${next.id}">Edit</button>  
+              <button class="danger" data-delete="${next.id}">Delete</button>  
+            </div>  
+            <div class="actions" style="margin-top:8px">  
+              <button class="secondary" id="pasteCard">+ Paste another card</button>  
+              <button class="secondary" id="blankCard">+ Create custom workout</button>  
+            </div>  
+          ` : `  
+            <div class="empty">  
+              <b style="color:var(--ink)">No workout planned yet.</b>  
+              Choose a starter card, paste a Coach card, or create a custom workout below.  
+            </div>  
+            <div class="actions">  
+              <button class="primary" id="pasteCard">Paste workout card</button>  
+              <button class="secondary" id="blankCard">Create custom workout</button>  
+            </div>  
+          `  
+        } 
       </article>
 
       <article class="card section" id="trainingFocus">
@@ -1211,6 +1215,8 @@ function renderEditor(mode) {
         renderEditor('builder');
       };
     }
+
+window.scrollTo({ top: 0, behavior: 'smooth' });
 
     const cancelEditor = $('#cancelEditor');
     if (cancelEditor) {
@@ -1706,7 +1712,11 @@ function bindReview(session) {
       if (item) {
         item.coachQuestions = questions;
         if (item.status === 'staged') item.status = 'shared';
-        saveDone(all);
+        // Also mark the plan as complete in the queue  
+        if (item.planId && typeof MomentumPlanner !== 'undefined' && typeof MomentumPlanner.mark === 'function') {  
+          MomentumPlanner.mark(item.planId, 'complete');  
+        } 
+		saveDone(all);
       }
 
       renderReview();
@@ -1738,7 +1748,10 @@ function bindReview(session) {
       const item = all.find(x => x.id === session.id);
       if (!item) return;
       item.status = 'complete';
-      saveDone(all);
+      if (item.planId && typeof MomentumPlanner !== 'undefined' && typeof MomentumPlanner.mark === 'function') {  
+          MomentumPlanner.mark(item.planId, 'complete');  
+        }
+	  saveDone(all);
       toast('Review marked complete');
       renderReview();
       renderHistory();
@@ -2360,7 +2373,10 @@ document.addEventListener('visibilitychange', () => {
         state.cockpitEditOpen = false;
         state.restTimer = null;
         if (typeof persist === 'function') persist();
-        if (typeof renderLog === 'function') renderLog();
+        if (session.planId && typeof MomentumPlanner !== 'undefined' && typeof MomentumPlanner.mark === 'function') {  
+          MomentumPlanner.mark(session.planId, 'complete');  
+        }
+		if (typeof renderLog === 'function') renderLog();
         if (typeof renderReview === 'function') renderReview();
         if (typeof renderHome === 'function') renderHome();
         if (typeof toast === 'function') toast('Workout finished — moved to Review');
