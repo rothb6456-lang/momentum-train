@@ -1267,13 +1267,12 @@ function renderEditor(mode) {
           toast('Could not parse that workout card');
           return;
         }
-        editor = parsed;
-        editor.exerciseBlocks = safeBlocks(editor.exerciseBlocks);
-        renderEditor('builder');
-      };
+        editor = parsed;  
+        editor.exerciseBlocks = safeBlocks(editor.exerciseBlocks);  
+        renderEditor('builder');  
+        window.scrollTo({ top: 0, behavior: 'smooth' });  
+      };  
     }
-
-window.scrollTo({ top: 0, behavior: 'smooth' });
 
     const cancelEditor = $('#cancelEditor');
     if (cancelEditor) {
@@ -1469,34 +1468,6 @@ window.scrollTo({ top: 0, behavior: 'smooth' });
   });
 
   $$('[data-position-block]').forEach(input => {  
-    input.onchange = () => {  
-      const bid = input.dataset.positionBlock;  
-      const currentIdx = editor.exerciseBlocks.findIndex(x => x.id === bid);  
-      if (currentIdx < 0) return;  
-      const targetPos = parseInt(input.value, 10) - 1;  
-      if (isNaN(targetPos) || targetPos < 0 || targetPos >= editor.exerciseBlocks.length) {  
-        input.value = currentIdx + 1;  
-        return;  
-      }  
-      if (targetPos === currentIdx) return;  
-      const [block] = editor.exerciseBlocks.splice(currentIdx, 1);  
-      editor.exerciseBlocks.splice(targetPos, 0, block);  
-      renderEditor('builder');  
-      toast(`Moved to position ${targetPos + 1}`);  
-    };  
-  }); $$('[data-move-block]').forEach(button => {  
-    button.onclick = () => {  
-      const bid = button.dataset.moveBlock;  
-      const dir = parseInt(button.dataset.dir, 10);  
-      const idx = editor.exerciseBlocks.findIndex(x => x.id === bid);  
-      const target = idx + dir;  
-      if (idx < 0 || target < 0 || target >= editor.exerciseBlocks.length) return;  
-      [editor.exerciseBlocks[idx], editor.exerciseBlocks[target]] = [editor.exerciseBlocks[target], editor.exerciseBlocks[idx]];  
-      renderEditor('builder');  
-    };  
-  });
-
-$$('[data-position-block]').forEach(input => {  
     input.onchange = () => {  
       const bid = input.dataset.positionBlock;  
       const currentIdx = editor.exerciseBlocks.findIndex(x => x.id === bid);  
