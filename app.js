@@ -1433,8 +1433,8 @@ window.scrollTo({ top: 0, behavior: 'smooth' });
     };  
   });
 
-  // Handle clicking a suggestion  
-  $$('[data-pick-name]').forEach(btn => {  
+// Handle clicking a suggestion  
+  $$('.exercise-pick-option').forEach(btn => {  
     btn.onclick = (e) => {  
       e.preventDefault();  
       const name = btn.dataset.pickName;  
@@ -1450,24 +1450,13 @@ window.scrollTo({ top: 0, behavior: 'smooth' });
       if (resultsEl) resultsEl.hidden = true;  
     };  
   });
-    input.onchange = () => {
-      const block = editor.exerciseBlocks.find(x => x.id === input.dataset.block);
-      if (!block) return;
 
-      const canon = (typeof canonicalExerciseName === 'function') ? canonicalExerciseName(input.value) : null;
-      if (canon) {
-        input.value = canon;
-        block.exerciseName = canon;
-      }
-    };
-  });
-
-  $$('[data-remove-block]').forEach(button => button.onclick = () => {
-    editor.exerciseBlocks = editor.exerciseBlocks.filter(x => x.id !== button.dataset.removeBlock);
-    if (!editor.exerciseBlocks.length && plannerMethodAvailable('blankBlock')) {
-      editor.exerciseBlocks = [MomentumPlanner.blankBlock()];
-    }
-    renderEditor('builder');
+  $$('[data-remove-block]').forEach(button => button.onclick = () => {  
+    editor.exerciseBlocks = editor.exerciseBlocks.filter(x => x.id !== button.dataset.removeBlock);  
+    if (!editor.exerciseBlocks.length && plannerMethodAvailable('blankBlock')) {  
+      editor.exerciseBlocks = [MomentumPlanner.blankBlock()];  
+    }  
+    renderEditor('builder');  
   });
 $$('[data-move-block]').forEach(button => {  
     button.onclick = () => {  
