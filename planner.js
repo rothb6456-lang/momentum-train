@@ -6,22 +6,23 @@ const MomentumPlanner = (() => {
   const clone = value => JSON.parse(JSON.stringify(value));
   const load = () => { try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]'); } catch { return []; } };
   const save = workouts => localStorage.setItem(QUEUE_KEY, JSON.stringify(workouts));
-  const blankBlock = (order = 1) => ({
-    id: id(),
-    order,
-    exerciseName: '',
-    targetSets: '',
-    targetRepsOrDuration: '',
-    targetWeightOrLoad: '',
-    tempo: '',
-    rir: '',
-    rest: '',
-    notes: '',
-    checkpoints: '',
-    tags: [],
-    optional: false,
-    timed: false,
-    section: 'primary'
+  const blankBlock = (order = 1) => ({  
+    id: id(),  
+    order,  
+    exerciseName: '',  
+    targetSets: '',  
+    targetRepsOrDuration: '',  
+    targetWeightOrLoad: '',  
+    tempo: '',  
+    rir: '',  
+    rest: '',  
+    notes: '',  
+    checkpoints: '',  
+    tags: [],  
+    optional: false,  
+    timed: false,  
+    section: 'primary',  
+    sectionLabel: 'Working'  
   });
   const blankWorkout = () => ({ id: id(), title: 'Untitled workout', canonicalTitle: '', subtitle: '', scheduledDate: '', phaseId: '', week: '', day: '', sourceType: 'manual', sourceRawText: '', status: 'queued', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), exerciseBlocks: [blankBlock()] });
   function parseLine(line, order) {
@@ -81,23 +82,28 @@ const MomentumPlanner = (() => {
     workout.targetDuration = parsed.targetDuration || '';
     workout.confidence = parsed.confidence || '';
 
-    workout.exerciseBlocks = (parsed.exercises || []).length
-      ? parsed.exercises.map((ex, index) => ({
-          ...blankBlock(index + 1),
-          exerciseName: ex.name || '',
-          targetSets: ex.sets || '',
-          targetRepsOrDuration: ex.reps || '',
-          targetWeightOrLoad: ex.load || '',
-          tempo: ex.tempo || '',
-          rir: ex.rir || '',
-          rest: ex.rest || '',
-          notes: ex.notes || '',
-          optional: ex.optional || false,
-          timed: ex.timed || false,
-          section: ex.section || 'primary',
-          checkpoints: '',
-          tags: []
-        }))
+    workout.exerciseBlocks = (parsed.exercises || []).length  
+      ? parsed.exercises.map((ex, index) => {  
+          const section = ex.section || (ex.optional ? 'optional' : 'primary');  
+          const sectionLabelMap = { warmup: 'Warm-Up', primary: 'Working', optional: 'Optional', finisher: 'Finisher', cooldown: 'Cool-Down' };  
+          return {  
+            ...blankBlock(index + 1),  
+            exerciseName: ex.name || '',  
+            targetSets: ex.sets || '',  
+            targetRepsOrDuration: ex.reps || '',  
+            targetWeightOrLoad: ex.load || '',  
+            tempo: ex.tempo || '',  
+            rir: ex.rir || '',  
+            rest: ex.rest || '',  
+            notes: ex.notes || '',  
+            optional: ex.optional || false,  
+            timed: ex.timed || false,  
+            section: section,  
+            sectionLabel: sectionLabelMap[section] || 'Working',  
+            checkpoints: '',  
+            tags: []  
+          };  
+        })  
       : [blankBlock(1)];
 
     return workout;
@@ -1188,9 +1194,9 @@ function toCockpitExercise(block, index) {
     prescribedRest: normalizeRest(block.rest || ''),
     notes: clean(block.notes || ''),
     optional: isOpt,
-    section: block.section || (isOpt ? 'optional' : (/warm-?up|preparation/i.test(cleanName) ? 'warmup' : 'primary')),
+    section: block.section || (isOpt ? 'optional' : (/warm-?up|preparation/i.test(cleanName) ? 'warmup' : 'primary')),  
+    sectionLabel: block.sectionLabel || '',  
     establishLoad: isEstablishLoad(block),
-    unilateral: isUnilateralPrescription(block),
     timed: timed,
     completedSets: [],
     skipped: false,
