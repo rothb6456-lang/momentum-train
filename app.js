@@ -2366,31 +2366,183 @@ document.addEventListener('visibilitychange', () => {
     };
   }
 
-  if (!has('csv')) {
-    window.csv = function csv(session) {
-      const sets = Array.isArray(session.sets) ? session.sets : [];
-      const header = ['Set', 'Section', 'Exercise', 'Load', 'Reps_Or_Duration', 'Is_Timed', 'Tempo', 'RIR', 'Rest', 'Notes'];
-      const rows = sets.map((s, i) => {
-        const exName = s.exerciseName || s.exercise || '';
-        const reps = s.reps || s.result || '';
-        const isTimed = s.timed || /\b(sec|min|s|m)\b/i.test(reps) || (typeof isTimedExercise === 'function' && isTimedExercise(exName, reps));
-        const section = s.section || (s.optional ? 'Optional' : (/warm-?up|preparation/i.test(exName) ? 'Warm-Up' : 'Primary'));
-        return [
-          i + 1,
-          section,
-          exName,
-          s.load || '',
-          reps,
-          isTimed ? 'true' : 'false',
-          s.tempo || '',
-          s.rir || '',
-          s.rest || '',
-          s.notes || ''
-        ];
+  if (!has('csv')) {  
+    window.csv = function csv(session) {  
+      const sets = Array.isArray(session.sets) ? session.sets : [];  
+      const now = new Date().toISOString();  
+      const sessionDate = dateIso(session.completedAt || session.startedAt);  
+      const sessionId = session.id || ('S-' + sessionDate.replace(/-/g, '') + '-01');  
+      const workoutName = session.canonicalTitle || session.workoutName || '';  
+      const startTime = session.startedAt || '';  
+      const endTime = session.completedAt || '';  
+      const durationMins = (startTime && endTime)  
+        ? Math.round((new Date(endTime) - new Date(startTime)) / 60000)  
+        : '';  
+      const coachQ = session.coachQuestions || '';  
+      const plan = session.plannedWorkout || null;  
+      const prescribedId = (plan && plan.id) ? plan.id : '';  
+      const phaseId = session.phase || (plan && plan.phaseId) || '';  
+      const week = session.week || (plan && plan.week) || '';  
+      const day = session.day || (plan && plan.day) || '';  
+      const focus = (plan && plan.subtitle) || '';
+
+      const header = [  
+        'SessionID','SessionDate','PhaseID','PhaseWeek','ProgramDay',  
+        'WorkoutName','WorkoutFocus','PrescribedWorkoutID','GymLocation',  
+        'SessionStartTime','SessionEndTime','DurationMinutes','BodyweightLbs',  
+        'PreSessionEnergy','PreSessionShoulderStatus','PreSessionGripStatus',  
+        'SessionGeneralNotes','CoachQuestions',  
+        'ExerciseLogID','ExerciseOrder','ExerciseName','PrescribedExerciseName',  
+        'ExerciseAliasUsed','Category','Equipment',  
+        'SetNumber','IsWarmup','IsWorkingSet','IsBackoffSet','IsAMRAP',  
+        'IsRestPause','IsTimed',  
+        'WeightLbs','WeightPerHandLbs','Reps','DurationSeconds',  
+        'DistanceValue','DistanceUnit',  
+        'TempoEccentric','TempoPause','TempoConcentric','TempoRaw',  
+        'RIR','TechnicalCheckpoint','JointPerformanceNote',  
+        'ExerciseDateTime','SupersetGroupID','RestSecondsAfter',  
+        'CompletedAsPlanned','IsSubstitution','SubstitutionReason',  
+        'PerceivedDifficulty','ShoulderStatusTag','GripStatusTag',  
+        'SetTags','SetGeneralNotes',  
+        'ExportCreatedAt','ExportSource','ExportVersion'  
+      ];
+
+      // Track set numbers per exercise  
+      const setCounters = {};
+
+      const rows = sets.map((s, i) => {  
+        const exName = s.exerciseName || s.exercise || '';  
+        const reps = s.reps || s.result || '';  
+        const isTimed = s.timed || /\b(sec|min|s|m)\b/i.test(reps) ||  
+          (typeof isTimedExercise === 'function' && isTimedExercise(exName, reps));
+
+        // Per-exercise set number  
+        if (!setCounters[exName]) setCounters[exName] = 0;  
+        setCounters[exName]++;  
+        const setNum = setCounters[exName];
+
+        // Section flags  
+        const section = s.section || '';  
+        const isWarmup = section === 'warmup' || /warm-?up|preparation/i.test(exName);  
+        const isWorking = !isWarmup && section !== 'optional';
+
+        // Load parsing  
+        const rawLoad = String(s.load || '').trim();  
+        const loadNum = rawLoad.replace(/[^0-9.]/g, '') || '';
+
+        // Reps vs duration  
+        let repsVal = '';  
+        let durationSecs = '';  
+        if (isTimed) {  
+          // Try to extract seconds  
+          const minMatch = reps.match(/(\d+(?:\.\d+)?)\s*min/i);  
+          const secMatch = reps.match(/(\d+(?:\.\d+)?)\s*(?:sec|s)\b/i);  
+          const mmss = reps.match(/^(\d+):(\d{2})$/);  
+          if (minMatch) {  
+            durationSecs = String(Math.round(parseFloat(minMatch[1]) * 60));  
+          } else if (secMatch) {  
+            durationSecs = String(Math.round(parseFloat(secMatch[1])));  
+          } else if (mmss) {  
+            durationSecs = String(parseInt(mmss[1]) * 60 + parseInt(mmss[2]));  
+          } else {  
+            durationSecs = reps.replace(/[^0-9]/g, '') || reps;  
+          }  
+        } else {  
+          repsVal = reps.replace(/[^0-9]/g, '') || reps;  
+        }
+
+        // Tempo split  
+        const tempoParts = String(s.tempo || '').split('-');  
+        const tempoE = tempoParts[0] || '';  
+        const tempoP = tempoParts[1] || '';  
+        const tempoC = tempoParts[2] || '';  
+        const tempoRaw = s.tempo || '';
+
+        // Rest seconds  
+        const restSecs = (typeof restSecondsFromPrescription === 'function')  
+          ? restSecondsFromPrescription(s.rest || '')  
+          : '';
+
+        // Prescribed exercise name (from plan if available)  
+        const plannedBlock = plan && Array.isArray(plan.exerciseBlocks)  
+          ? plan.exerciseBlocks.find(b => b && b.exerciseName === exName)  
+          : null;  
+        const prescribedName = (plannedBlock && plannedBlock.exerciseName) || exName;  
+        const checkpoint = (plannedBlock && plannedBlock.checkpoints) || '';
+
+        // Exercise log ID  
+        const dateStamp = sessionDate.replace(/-/g, '');  
+        const exLogId = 'E-' + dateStamp + '-' + String(i + 1).padStart(4, '0');
+
+        // Set tags from section  
+        const setTags = s.section || (isWarmup ? 'warmup' : 'primary');
+
+        return [  
+          sessionId,                           // SessionID  
+          sessionDate,                         // SessionDate  
+          phaseId,                             // PhaseID  
+          week,                                // PhaseWeek  
+          day,                                 // ProgramDay  
+          workoutName,                         // WorkoutName  
+          focus,                               // WorkoutFocus  
+          prescribedId,                        // PrescribedWorkoutID  
+          '',                                  // GymLocation  
+          startTime,                           // SessionStartTime  
+          endTime,                             // SessionEndTime  
+          durationMins,                        // DurationMinutes  
+          '',                                  // BodyweightLbs  
+          '',                                  // PreSessionEnergy  
+          '',                                  // PreSessionShoulderStatus  
+          '',                                  // PreSessionGripStatus  
+          '',                                  // SessionGeneralNotes  
+          coachQ,                              // CoachQuestions  
+          exLogId,                             // ExerciseLogID  
+          i + 1,                               // ExerciseOrder  
+          exName,                              // ExerciseName  
+          prescribedName,                      // PrescribedExerciseName  
+          exName,                              // ExerciseAliasUsed  
+          '',                                  // Category  
+          '',                                  // Equipment  
+          setNum,                              // SetNumber  
+          isWarmup ? 'TRUE' : 'FALSE',         // IsWarmup  
+          isWorking ? 'TRUE' : 'FALSE',        // IsWorkingSet  
+          'FALSE',                             // IsBackoffSet  
+          'FALSE',                             // IsAMRAP  
+          'FALSE',                             // IsRestPause  
+          isTimed ? 'TRUE' : 'FALSE',          // IsTimed  
+          loadNum,                             // WeightLbs  
+          '',                                  // WeightPerHandLbs  
+          repsVal,                             // Reps  
+          durationSecs,                        // DurationSeconds  
+          '',                                  // DistanceValue  
+          '',                                  // DistanceUnit  
+          tempoE,                              // TempoEccentric  
+          tempoP,                              // TempoPause  
+          tempoC,                              // TempoConcentric  
+          tempoRaw,                            // TempoRaw  
+          s.rir || '',                         // RIR  
+          checkpoint,                          // TechnicalCheckpoint  
+          '',                                  // JointPerformanceNote  
+          s.loggedAt || now,                   // ExerciseDateTime  
+          '',                                  // SupersetGroupID  
+          restSecs || '',                      // RestSecondsAfter  
+          'TRUE',                              // CompletedAsPlanned  
+          'FALSE',                             // IsSubstitution  
+          '',                                  // SubstitutionReason  
+          '',                                  // PerceivedDifficulty  
+          '',                                  // ShoulderStatusTag  
+          '',                                  // GripStatusTag  
+          setTags,                             // SetTags  
+          s.notes || '',                       // SetGeneralNotes  
+          now,                                 // ExportCreatedAt  
+          'Momentum',                          // ExportSource  
+          '1.0'                                // ExportVersion  
+        ];  
       });
-      const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
-      return [header, ...rows].map(r => r.map(q).join(',')).join('\n');
-    };
+
+      const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;  
+      return [header, ...rows].map(r => r.map(q).join(',')).join('\n');  
+    };  
   }
 
   if (!has('copy')) {
