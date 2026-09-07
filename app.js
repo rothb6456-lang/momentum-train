@@ -964,11 +964,11 @@ function renderToday() {
                     <div class="target">${esc(planSummary(plan))}</div>
                     <div class="quiet">${plan.exerciseBlocks.length} exercises · ${esc(plan.sourceType)}</div>
                   </div>
-                  <div class="row-actions">
-                    <button class="icon-btn" title="Move up" data-move="${plan.id}" data-direction="-1">↑</button>
-                    <button class="icon-btn" title="Move down" data-move="${plan.id}" data-direction="1">↓</button>
-                  </div>
-                </div>
+                  <div class="row-actions">  
+          <input class="position-input" data-position-block="${bid}" type="number" min="1" max="99" value="${index + 1}" title="Type position number to reorder" inputmode="numeric">  
+          <button class="icon-btn" title="Move up" data-move-block="${bid}" data-dir="-1">↑</button>  
+          <button class="icon-btn" title="Move down" data-move-block="${bid}" data-dir="1">↓</button>  
+        </div></div>
                 <div class="actions">
                   <button class="secondary" data-edit="${plan.id}">Open / edit</button>
                   <button class="secondary" data-duplicate="${plan.id}">Duplicate</button>
@@ -980,77 +980,23 @@ function renderToday() {
         }
       </article>
 
-      <details class="card section glossary-card">
-        <summary><b>Glossary + training guide</b>Tap to expand</summary>
+<details class="card section glossary-card">  
+        <summary><b>Glossary + training guide</b> — Tap to expand</summary>  
         <div class="glossary-body">
-          <div class="insight">
-            <i class="dot"></i>
-            <div>
-              <b>Tempo</b>
-              Tempo tells you how fast to perform each part of a repetition.
-              Starter cards use: lower - pause - lift
-              Coach / pasted cards use: eccentric - pause - concentric
-              Example: 3-1-2 = lower for 3 sec, pause for 1 sec, lift for 2 sec.
-            </div>
-          </div>
 
-          <div class="insight">
-            <i class="dot"></i>
-            <div>
-              <b>RIR</b>
-              RIR = Reps in Reserve.
-              RIR 3 — finish knowing you had about 3 good reps left.
-              Why it matters: autoregulation methods like RIR are widely used in evidence-based coaching and supported in the training literature for helping lifters select appropriate loads and manage effort as fatigue changes.
-            </div>
-          </div>
-
-          <div class="insight">
-            <i class="dot amber"></i>
-            <div>
-              <b>How Momentum teaches training</b>
-              Movement → Control → Effort → Load → Progression
-              A novice should first learn the movement, then control it, then judge effort honestly, then add load, and only then chase progression.
-            </div>
-          </div>
-
-          <div class="insight">
-            <i class="dot"></i>
-            <div>
-              <b>Why tempo and RIR matter</b>
-              Tempo teaches control. RIR teaches autoregulation. Together they teach stimulus awareness so load progression becomes more meaningful.
-            </div>
-          </div>
-
-          <div class="insight">
-            <i class="dot"></i>
-            <div>
-              <b>Rest</b>
-              Rest is recovery between sets. More demanding sets usually need longer rest to keep movement quality and effort honest.
-            </div>
-          </div>
-
-          <div class="insight">
-            <i class="dot"></i>
-            <div>
-              <b>Load selection</b>
-              Choose a weight that lets you complete the prescribed reps with clean technique while still having about 2-4 good reps left unless the card says otherwise.
-            </div>
-          </div>
-        </div>
-      </details>
-<div class="insight">  
+          <div class="insight">  
             <i class="dot"></i>  
             <div>  
-              <b>Consolidation</b>  
-              A training phase where load stays the same while you focus on improving movement quality, consistency, and ownership of the weight. Progress is measured by how clean and repeatable the reps become — not by adding load.  
+              <b>Compound vs. Isolation</b>  
+              Compound exercises work multiple joints and muscle groups (squat, row, press). Isolation exercises target one muscle group (curl, lateral raise). Most programs use compounds for the main work and isolation for targeted development.  
             </div>  
           </div>
 
           <div class="insight">  
             <i class="dot"></i>  
             <div>  
-              <b>Load (working load)</b>  
-              The weight you use for your working sets. It should allow you to complete the prescribed reps with good technique while respecting the RIR target. "Load" in Momentum always means the total external resistance — dumbbells, barbell, cable stack, etc.  
+              <b>Consolidation</b>  
+              A training phase where load stays the same while you focus on improving movement quality, consistency, and ownership of the weight. Progress is measured by how clean and repeatable the reps become — not by adding load.  
             </div>  
           </div>
 
@@ -1063,18 +1009,27 @@ function renderToday() {
           </div>
 
           <div class="insight">  
-            <i class="dot"></i>  
+            <i class="dot amber"></i>  
             <div>  
-              <b>Superset</b>  
-              Two exercises performed back-to-back with minimal rest between them. Rest is taken after both exercises are complete. Supersets save time and can increase training density.  
+              <b>How Momentum teaches training</b>  
+              Movement → Control → Effort → Load → Progression.  
+              A novice should first learn the movement, then control it, then judge effort honestly, then add load, and only then chase progression.  
             </div>  
           </div>
 
           <div class="insight">  
             <i class="dot"></i>  
             <div>  
-              <b>Unilateral</b>  
-              Training one side at a time (e.g., single-arm curl, split squat). Unilateral work helps identify and correct strength imbalances between your left and right sides.  
+              <b>Load (working load)</b>  
+              The weight you use for your working sets. It should allow you to complete the prescribed reps with good technique while respecting the RIR target. "Load" in Momentum always means the total external resistance — dumbbells, barbell, cable stack, etc.  
+            </div>  
+          </div>
+
+          <div class="insight">  
+            <i class="dot"></i>  
+            <div>  
+              <b>Load selection</b>  
+              Choose a weight that lets you complete the prescribed reps with clean technique while still having about 2–4 good reps left unless the card says otherwise.  
             </div>  
           </div>
 
@@ -1089,10 +1044,58 @@ function renderToday() {
           <div class="insight">  
             <i class="dot"></i>  
             <div>  
-              <b>Compound vs. Isolation</b>  
-              Compound exercises work multiple joints and muscle groups (squat, row, press). Isolation exercises target one muscle group (curl, lateral raise). Most programs use compounds for the main work and isolation for targeted development.  
+              <b>Rest</b>  
+              Recovery between sets. More demanding sets usually need longer rest to keep movement quality and effort honest.  
             </div>  
           </div>
+
+          <div class="insight">  
+            <i class="dot"></i>  
+            <div>  
+              <b>RIR (Reps in Reserve)</b>  
+              RIR = Reps in Reserve.  
+              RIR 3 — finish knowing you had about 3 good reps left.  
+              Why it matters: autoregulation methods like RIR are widely used in evidence-based coaching and supported in the training literature for helping lifters select appropriate loads and manage effort as fatigue changes.  
+            </div>  
+          </div>
+
+          <div class="insight">  
+            <i class="dot"></i>  
+            <div>  
+              <b>Superset</b>  
+              Two exercises performed back-to-back with minimal rest between them. Rest is taken after both exercises are complete. Supersets save time and can increase training density.  
+            </div>  
+          </div>
+
+          <div class="insight">  
+            <i class="dot"></i>  
+            <div>  
+              <b>Tempo</b>  
+              Tempo tells you how fast to perform each part of a repetition.  
+              Starter cards use: lower – pause – lift.  
+              Coach / pasted cards use: eccentric – pause – concentric.  
+              Example: 3-1-2 = lower for 3 sec, pause for 1 sec, lift for 2 sec.  
+            </div>  
+          </div>
+
+          <div class="insight">  
+            <i class="dot"></i>  
+            <div>  
+              <b>Unilateral</b>  
+              Training one side at a time (e.g., single-arm curl, split squat). Unilateral work helps identify and correct strength imbalances between your left and right sides.  
+            </div>  
+          </div>
+
+          <div class="insight">  
+            <i class="dot"></i>  
+            <div>  
+              <b>Why tempo and RIR matter</b>  
+              Tempo teaches control. RIR teaches autoregulation. Together they teach stimulus awareness so load progression becomes more meaningful.  
+            </div>  
+          </div>
+
+        </div>  
+      </details>          </div>
       <section id="plannerEditor" class="section"></section>
     </div>
   `;
@@ -1380,14 +1383,73 @@ window.scrollTo({ top: 0, behavior: 'smooth' });
     block[field] = value;
   });
 
-  $$('[data-block][data-field="exerciseName"]').forEach(input => {
-    input.oninput = () => {
-      const block = editor.exerciseBlocks.find(x => x.id === input.dataset.block);
-      if (block) block.exerciseName = input.value;
-      const card = input.closest('[data-block-card]');
-      const h2 = card && card.querySelector('h2');
+  $$('[data-block][data-field="exerciseName"]').forEach(input => {  
+    const bid = input.dataset.block;  
+    const resultsEl = $(`[data-results-for="${bid}"]`);
+
+    input.oninput = () => {  
+      const block = editor.exerciseBlocks.find(x => x.id === bid);  
+      if (block) block.exerciseName = input.value;  
+      const card = input.closest('[data-block-card]');  
+      const h2 = card && card.querySelector('h2');  
       if (h2) h2.textContent = input.value || 'Untitled exercise';
+
+      // Show filtered exercise suggestions  
+      if (resultsEl) {  
+        const query = input.value.trim().toLowerCase();  
+        if (query.length < 2) {  
+          resultsEl.hidden = true;  
+          return;  
+        }  
+        const library = (typeof allExercises === 'function') ? allExercises() : [];  
+        const matches = library.filter(name =>  
+          name.toLowerCase().includes(query)  
+        ).slice(0, 12);
+
+        if (matches.length) {  
+          resultsEl.innerHTML = matches.map(name =>  
+            `<button type="button" class="exercise-pick-option" data-pick-name="${esc(name)}" data-pick-block="${esc(bid)}">${esc(name)}</button>`  
+          ).join('');  
+          resultsEl.hidden = false;  
+        } else {  
+          resultsEl.hidden = true;  
+        }  
+      }  
     };
+
+    input.onchange = () => {  
+      const block = editor.exerciseBlocks.find(x => x.id === bid);  
+      if (!block) return;  
+      const canon = (typeof canonicalExerciseName === 'function') ? canonicalExerciseName(input.value) : null;  
+      if (canon) {  
+        input.value = canon;  
+        block.exerciseName = canon;  
+      }  
+      if (resultsEl) resultsEl.hidden = true;  
+    };
+
+    input.onfocus = () => {  
+      if (input.value.trim().length >= 2) input.oninput();  
+    };  
+  });
+
+  // Handle clicking a suggestion  
+  $$('[data-pick-name]').forEach(btn => {  
+    btn.onclick = (e) => {  
+      e.preventDefault();  
+      const name = btn.dataset.pickName;  
+      const bid = btn.dataset.pickBlock;  
+      const block = editor.exerciseBlocks.find(x => x.id === bid);  
+      if (block) block.exerciseName = name;  
+      const input = $(`[data-block="${bid}"][data-field="exerciseName"]`);  
+      if (input) input.value = name;  
+      const card = input && input.closest('[data-block-card]');  
+      const h2 = card && card.querySelector('h2');  
+      if (h2) h2.textContent = name;  
+      const resultsEl = $(`[data-results-for="${bid}"]`);  
+      if (resultsEl) resultsEl.hidden = true;  
+    };  
+  });
     input.onchange = () => {
       const block = editor.exerciseBlocks.find(x => x.id === input.dataset.block);
       if (!block) return;
@@ -1416,6 +1478,24 @@ $$('[data-move-block]').forEach(button => {
       if (idx < 0 || target < 0 || target >= editor.exerciseBlocks.length) return;  
       [editor.exerciseBlocks[idx], editor.exerciseBlocks[target]] = [editor.exerciseBlocks[target], editor.exerciseBlocks[idx]];  
       renderEditor('builder');  
+    };  
+  });
+
+$$('[data-position-block]').forEach(input => {  
+    input.onchange = () => {  
+      const bid = input.dataset.positionBlock;  
+      const currentIdx = editor.exerciseBlocks.findIndex(x => x.id === bid);  
+      if (currentIdx < 0) return;  
+      const targetPos = parseInt(input.value, 10) - 1;  
+      if (isNaN(targetPos) || targetPos < 0 || targetPos >= editor.exerciseBlocks.length) {  
+        input.value = currentIdx + 1;  
+        return;  
+      }  
+      if (targetPos === currentIdx) return;  
+      const [block] = editor.exerciseBlocks.splice(currentIdx, 1);  
+      editor.exerciseBlocks.splice(targetPos, 0, block);  
+      renderEditor('builder');  
+      toast(`Moved to position ${targetPos + 1}`);  
     };  
   });
 
@@ -2166,6 +2246,7 @@ document.addEventListener('visibilitychange', () => {
       return `<div class="exercise-card" data-block-card="${bid}">  
         <div class="card-head"><div><div class="eyebrow">${esc(sectionLabel)} · Exercise ${index + 1}</div><h2 style="margin-top:4px">${esc(block.exerciseName || 'Untitled exercise')}</h2></div>  
         <div class="row-actions">  
+          <input class="position-input" data-position-block="${bid}" type="number" min="1" max="99" value="${index + 1}" title="Type position number to reorder" inputmode="numeric">  
           <button class="icon-btn" title="Move up" data-move-block="${bid}" data-dir="-1">↑</button>  
           <button class="icon-btn" title="Move down" data-move-block="${bid}" data-dir="1">↓</button>  
         </div></div>  
@@ -2545,7 +2626,7 @@ document.addEventListener('visibilitychange', () => {
   if (typeof document !== 'undefined' && !document.getElementById('momentumLogStyles')) {  
     const _ls = document.createElement('style');  
     _ls.id = 'momentumLogStyles';  
-    _ls.textContent = `.set-entry-card{padding:16px 17px}.toast{max-width:calc(100vw - 28px);left:50%;transform:translateX(-50%)}.set-entry-card .set-form{gap:10px}.set-entry-card .input{font-size:18px;min-height:52px}.set-entry-card .actions{display:flex;flex-direction:column;gap:10px;margin-top:14px}.set-entry-card .actions button{width:100%;min-height:52px;font-size:16px}.prescription-summary{margin-top:6px;font-size:13px;line-height:1.45}.rest-banner{display:flex;align-items:center;gap:10px;justify-content:center;background:#16323a;border:1px solid var(--mint);border-radius:14px;padding:11px 14px;margin-bottom:12px;font-size:15px;position:sticky;top:60px;z-index:2}.rest-banner #restTime{font-size:22px;color:var(--mint);min-width:48px;text-align:center}.rest-banner #skipRest{margin-left:auto}.collapsible{margin-top:12px;padding:13px 16px}.collapsible summary{cursor:pointer;list-style:none;color:var(--muted);font-weight:700;font-size:13px}.collapsible summary::-webkit-details-marker{display:none}.next-exercise{background:var(--blue);color:#06182e}.active-session.compact-bar{padding:7px 10px;margin-bottom:10px;gap:8px;flex-wrap:nowrap}.bar-title-wrap{display:flex;align-items:center;gap:8px;min-width:0;flex:1 1 auto}.bar-title{font-size:16px;font-weight:780;margin:0;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.15}.bar-badge{flex:0 0 auto;font-size:11px;font-weight:700;color:var(--mint);border:1px solid #2f7664;border-radius:99px;padding:3px 8px;white-space:nowrap}.compact-bar .session-tools{display:flex;gap:6px;flex:0 0 auto}.mini{min-height:30px;padding:5px 9px;font-size:11px}.rx-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:10px}.rx-badge{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mint);border:1px solid #2f7664;border-radius:99px;padding:3px 9px;white-space:nowrap}.rx-line{color:var(--muted);font-size:12.5px;line-height:1.35;flex:1 1 200px}.logged-set-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--line)}.logged-set-row:first-child{border-top:0}.logged-set-actions{display:flex;gap:4px;margin-left:auto;flex-shrink:0}.logged-set-actions button{min-height:28px;padding:3px 8px;font-size:11px}@media(max-width:720px){.set-entry-card .input{font-size:20px;min-height:56px}.set-entry-card .actions button{min-height:56px;font-size:17px}.compact-bar{flex-wrap:nowrap}.bar-title{font-size:15px}.rx-line{flex:1 1 100%}.session-tools button{min-height:34px}.set-form{grid-template-columns:1fr !important}}`;  
+    _ls.textContent = `.set-entry-card{padding:16px 17px}.toast{max-width:calc(100vw - 28px);left:50%;transform:translateX(-50%)}.set-entry-card .set-form{gap:10px}.set-entry-card .input{font-size:18px;min-height:52px}.set-entry-card .actions{display:flex;flex-direction:column;gap:10px;margin-top:14px}.set-entry-card .actions button{width:100%;min-height:52px;font-size:16px}.prescription-summary{margin-top:6px;font-size:13px;line-height:1.45}.rest-banner{display:flex;align-items:center;gap:10px;justify-content:center;background:#16323a;border:1px solid var(--mint);border-radius:14px;padding:11px 14px;margin-bottom:12px;font-size:15px;position:sticky;top:60px;z-index:2}.rest-banner #restTime{font-size:22px;color:var(--mint);min-width:48px;text-align:center}.rest-banner #skipRest{margin-left:auto}.collapsible{margin-top:12px;padding:13px 16px}.collapsible summary{cursor:pointer;list-style:none;color:var(--muted);font-weight:700;font-size:13px}.collapsible summary::-webkit-details-marker{display:none}.next-exercise{background:var(--blue);color:#06182e}.active-session.compact-bar{padding:7px 10px;margin-bottom:10px;gap:8px;flex-wrap:nowrap}.bar-title-wrap{display:flex;align-items:center;gap:8px;min-width:0;flex:1 1 auto}.bar-title{font-size:16px;font-weight:780;margin:0;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.15}.bar-badge{flex:0 0 auto;font-size:11px;font-weight:700;color:var(--mint);border:1px solid #2f7664;border-radius:99px;padding:3px 8px;white-space:nowrap}.compact-bar .session-tools{display:flex;gap:6px;flex:0 0 auto}.mini{min-height:30px;padding:5px 9px;font-size:11px}.rx-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:10px}.rx-badge{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mint);border:1px solid #2f7664;border-radius:99px;padding:3px 9px;white-space:nowrap}.rx-line{color:var(--muted);font-size:12.5px;line-height:1.35;flex:1 1 200px}.logged-set-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--line)}.logged-set-row:first-child{border-top:0}.logged-set-actions{display:flex;gap:4px;margin-left:auto;flex-shrink:0}.logged-set-actions button{min-height:28px;padding:3px 8px;font-size:11px}@media(max-width:720px){.set-entry-card .input{font-size:20px;min-height:56px}.set-entry-card .actions button{min-height:56px;font-size:17px}.compact-bar{flex-wrap:nowrap}.bar-title{font-size:15px}.rx-line{flex:1 1 100%}.session-tools button{min-height:34px}.set-form{grid-template-columns:1fr !important}}.exercise-search-wrap{position:relative}.exercise-search-results{position:absolute;top:100%;left:0;right:0;z-index:10;background:var(--panel2);border:1px solid var(--line);border-radius:10px;max-height:240px;overflow-y:auto;box-shadow:0 8px 24px #0004;margin-top:4px}.exercise-pick-option{display:block;width:100%;text-align:left;padding:10px 14px;border:0;background:none;color:var(--ink);font-size:14px;cursor:pointer;border-bottom:1px solid var(--line)}.exercise-pick-option:last-child{border-bottom:0}.exercise-pick-option:hover,.exercise-pick-option:focus{background:var(--mint);color:#06182e}.position-input{width:42px;height:30px;text-align:center;border:1px solid var(--line);border-radius:8px;background:var(--panel2);color:var(--ink);font-size:13px;font-weight:700;padding:0}`;  
     (document.head || document.documentElement).appendChild(_ls);  
   }  
 })();  
