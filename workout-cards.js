@@ -308,6 +308,65 @@ Object.assign(window.MomentumWorkoutCards, {
           checkpoints: ''  
         }  
       ]  
-    }  
+    },
+{  
+  key: 'upper-push',  
+  title: 'Upper Body — Push Focus',  
+  descriptor: 'Chest, shoulders, triceps. Machine + dumbbell friendly.',  
+  equipment: 'Dumbbells, cable machine, bench',  
+  duration: '40–50 min',  
+  lesson: 'Pressing patterns and overhead stability',  
+  exerciseBlocks: [  
+    { id: 'up1', order: 1, exerciseName: 'Flat Dumbbell Press', targetSets: '3', targetRepsOrDuration: '8-12', targetWeightOrLoad: '', tempo: '3-1-2', rir: '2', rest: '2 min', notes: '', section: 'primary', timed: false, optional: false },  
+    { id: 'up2', order: 2, exerciseName: 'Incline Dumbbell Press', targetSets: '3', targetRepsOrDuration: '8-12', targetWeightOrLoad: '', tempo: '3-1-2', rir: '2', rest: '90 sec', notes: '', section: 'primary', timed: false, optional: false },  
+    { id: 'up3', order: 3, exerciseName: 'Cable Lateral Raise', targetSets: '3', targetRepsOrDuration: '12-15', targetWeightOrLoad: '', tempo: '2-1-2', rir: '2', rest: '60 sec', notes: '', section: 'primary', timed: false, optional: false },  
+    { id: 'up4', order: 4, exerciseName: 'Overhead Dumbbell Press', targetSets: '3', targetRepsOrDuration: '8-10', targetWeightOrLoad: '', tempo: '3-1-2', rir: '2-3', rest: '2 min', notes: 'Seated or standing', section: 'primary', timed: false, optional: false },  
+    { id: 'up5', order: 5, exerciseName: 'Rope Triceps Pushdown', targetSets: '3', targetRepsOrDuration: '10-15', targetWeightOrLoad: '', tempo: '2-1-2', rir: '1-2', rest: '60 sec', notes: '', section: 'primary', timed: false, optional: false }  
+  ]  
+},  
+{  
+  key: 'upper-pull',  
+  title: 'Upper Body — Pull Focus',  
+  descriptor: 'Back, biceps, rear delts. Row and curl variations.',  
+  equipment: 'Cable machine, dumbbells, pull-up bar optional',  
+  duration: '40–50 min',  
+  lesson: 'Pulling patterns and scapular control',  
+  exerciseBlocks: [  
+    { id: 'upl1', order: 1, exerciseName: 'Lat Pulldown', targetSets: '3', targetRepsOrDuration: '8-12', targetWeightOrLoad: '', tempo: '3-1-2', rir: '2', rest: '2 min', notes: '', section: 'primary', timed: false, optional: false },  
+    { id: 'upl2', order: 2, exerciseName: 'Chest-Supported DB Row', targetSets: '3', targetRepsOrDuration: '8-12', targetWeightOrLoad: '', tempo: '3-1-2', rir: '2', rest: '90 sec', notes: '', section: 'primary', timed: false, optional: false },  
+    { id: 'upl3', order: 3, exerciseName: 'Reverse Pec Deck', targetSets: '3', targetRepsOrDuration: '12-15', targetWeightOrLoad: '', tempo: '2-1-2', rir: '2', rest: '60 sec', notes: '', section: 'primary', timed: false, optional: false },  
+    { id: 'upl4', order: 4, exerciseName: 'Standing Cable Curl', targetSets: '3', targetRepsOrDuration: '10-12', targetWeightOrLoad: '', tempo: '2-1-2', rir: '1-2', rest: '60 sec', notes: '', section: 'primary', timed: false, optional: false },  
+    { id: 'upl5', order: 5, exerciseName: 'Hammer Curl', targetSets: '2', targetRepsOrDuration: '10-12', targetWeightOrLoad: '', tempo: '2-1-2', rir: '2', rest: '60 sec', notes: 'Optional finisher', section: 'optional', timed: false, optional: true }  
+  ]  
+},  
+{  
+  key: 'lower-body',  
+  title: 'Lower Body — Strength',  
+  descriptor: 'Quads, hamstrings, glutes. Squat and hinge patterns.',  
+  equipment: 'Barbell or dumbbells, leg press optional',  
+  duration: '45–55 min',  
+  lesson: 'Hip hinge and squat mechanics under load',  
+  exerciseBlocks: [  
+    { id: 'lb1', order: 1, exerciseName: 'Goblet Squat', targetSets: '3', targetRepsOrDuration: '8-12', targetWeightOrLoad: '', tempo: '3-1-2', rir: '2', rest: '2 min', notes: 'Focus on depth and upright torso', section: 'primary', timed: false, optional: false },  
+    { id: 'lb2', order: 2, exerciseName: 'Romanian Deadlift', targetSets: '3', targetRepsOrDuration: '8-10', targetWeightOrLoad: '', tempo: '3-1-2', rir: '2-3', rest: '2 min', notes: 'DB or barbell', section: 'primary', timed: false, optional: false },  
+    { id: 'lb3', order: 3, exerciseName: 'Walking Lunge', targetSets: '3', targetRepsOrDuration: '10-12/side', targetWeightOrLoad: '', tempo: '2-1-2', rir: '2', rest: '90 sec', notes: '', section: 'primary', timed: false, optional: false },  
+    { id: 'lb4', order: 4, exerciseName: 'Leg Curl Machine', targetSets: '3', targetRepsOrDuration: '10-15', targetWeightOrLoad: '', tempo: '2-1-2', rir: '1-2', rest: '60 sec', notes: '', section: 'primary', timed: false, optional: false },  
+    { id: 'lb5', order: 5, exerciseName: 'Calf Raise', targetSets: '3', targetRepsOrDuration: '12-15', targetWeightOrLoad: '', tempo: '2-2-1', rir: '1', rest: '45 sec', notes: '', section: 'primary', timed: false, optional: false }  
+  ]  
+},  
+{  
+  key: 'full-body-express',  
+  title: 'Full Body — Express',  
+  descriptor: 'Time-efficient full body session. One push, one pull, one lower.',  
+  equipment: 'Dumbbells, bench, cable machine',  
+  duration: '30–35 min',  
+  lesson: 'Efficient compound selection under time constraints',  
+  exerciseBlocks: [  
+    { id: 'fb1', order: 1, exerciseName: 'Dumbbell Bench Press', targetSets: '3', targetRepsOrDuration: '8-12', targetWeightOrLoad: '', tempo: '3-1-2', rir: '2', rest: '90 sec', notes: '', section: 'primary', timed: false, optional: false },  
+    { id: 'fb2', order: 2, exerciseName: 'Cable Row', targetSets: '3', targetRepsOrDuration: '8-12', targetWeightOrLoad: '', tempo: '3-1-2', rir: '2', rest: '90 sec', notes: '', section: 'primary', timed: false, optional: false },  
+    { id: 'fb3', order: 3, exerciseName: 'Goblet Squat', targetSets: '3', targetRepsOrDuration: '8-12', targetWeightOrLoad: '', tempo: '3-1-2', rir: '2', rest: '90 sec', notes: '', section: 'primary', timed: false, optional: false },  
+    { id: 'fb4', order: 4, exerciseName: "Farmer's Carry", targetSets: '2', targetRepsOrDuration: '40 sec', targetWeightOrLoad: '', tempo: '', rir: '', rest: '60 sec', notes: 'Grip and core finisher', section: 'finisher', timed: true, optional: false }  
+  ]  
+}  	
   ]  
 });  

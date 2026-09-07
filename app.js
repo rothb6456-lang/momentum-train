@@ -1038,7 +1038,61 @@ function renderToday() {
           </div>
         </div>
       </details>
+<div class="insight">  
+            <i class="dot"></i>  
+            <div>  
+              <b>Consolidation</b>  
+              A training phase where load stays the same while you focus on improving movement quality, consistency, and ownership of the weight. Progress is measured by how clean and repeatable the reps become — not by adding load.  
+            </div>  
+          </div>
 
+          <div class="insight">  
+            <i class="dot"></i>  
+            <div>  
+              <b>Load (working load)</b>  
+              The weight you use for your working sets. It should allow you to complete the prescribed reps with good technique while respecting the RIR target. "Load" in Momentum always means the total external resistance — dumbbells, barbell, cable stack, etc.  
+            </div>  
+          </div>
+
+          <div class="insight">  
+            <i class="dot amber"></i>  
+            <div>  
+              <b>Deload</b>  
+              A planned reduction in training stress — usually lighter loads, fewer sets, or both. Deloads let your body recover and adapt so you can train harder in the next block. They are not a sign of weakness; they are a tool for long-term progress.  
+            </div>  
+          </div>
+
+          <div class="insight">  
+            <i class="dot"></i>  
+            <div>  
+              <b>Superset</b>  
+              Two exercises performed back-to-back with minimal rest between them. Rest is taken after both exercises are complete. Supersets save time and can increase training density.  
+            </div>  
+          </div>
+
+          <div class="insight">  
+            <i class="dot"></i>  
+            <div>  
+              <b>Unilateral</b>  
+              Training one side at a time (e.g., single-arm curl, split squat). Unilateral work helps identify and correct strength imbalances between your left and right sides.  
+            </div>  
+          </div>
+
+          <div class="insight">  
+            <i class="dot"></i>  
+            <div>  
+              <b>Progressive overload</b>  
+              Gradually increasing the demands on your muscles over time — through more weight, more reps, better tempo control, or less rest. This is the fundamental driver of strength and muscle adaptation.  
+            </div>  
+          </div>
+
+          <div class="insight">  
+            <i class="dot"></i>  
+            <div>  
+              <b>Compound vs. Isolation</b>  
+              Compound exercises work multiple joints and muscle groups (squat, row, press). Isolation exercises target one muscle group (curl, lateral raise). Most programs use compounds for the main work and isolation for targeted development.  
+            </div>  
+          </div>
       <section id="plannerEditor" class="section"></section>
     </div>
   `;
@@ -1353,6 +1407,17 @@ window.scrollTo({ top: 0, behavior: 'smooth' });
     }
     renderEditor('builder');
   });
+$$('[data-move-block]').forEach(button => {  
+    button.onclick = () => {  
+      const bid = button.dataset.moveBlock;  
+      const dir = parseInt(button.dataset.dir, 10);  
+      const idx = editor.exerciseBlocks.findIndex(x => x.id === bid);  
+      const target = idx + dir;  
+      if (idx < 0 || target < 0 || target >= editor.exerciseBlocks.length) return;  
+      [editor.exerciseBlocks[idx], editor.exerciseBlocks[target]] = [editor.exerciseBlocks[target], editor.exerciseBlocks[idx]];  
+      renderEditor('builder');  
+    };  
+  });
 
   const addBlock = $('#addBlock');
   if (addBlock) {
@@ -1631,9 +1696,10 @@ function renderLog() {
       ${restBannerMarkup()}
 
       <article class="card set-entry-card">
-        <div class="rx-head">
-          <span class="rx-badge">${esc(setLabel)}</span>
-          <span class="rx-line">${esc(summary)}</span>
+        <div class="rx-head">  
+          <span class="rx-badge">${esc(block.sectionLabel || (isWarmupBlock ? 'Warm-Up' : (rx.optional ? 'Optional' : 'Working')))}</span>  
+          <span class="rx-badge">${esc(setLabel)}</span>  
+          <span class="rx-line">${esc(summary)}</span>  
         </div>
         <div class="set-form">
           <label class="field">Load<input id="load" class="input" inputmode="decimal" value="${esc(loadVal)}" placeholder="0"></label>
@@ -2075,31 +2141,49 @@ document.addEventListener('visibilitychange', () => {
 
   // Editable exercise block for the Workout Builder. Inputs carry data-block +
   // data-field so renderEditor's existing handlers keep them in sync.
-  if (!has('builderBlock')) {
-    window.builderBlock = function builderBlock(block, index) {
-      block = block || { id: uid('block'), exerciseName: '' };
-      if (!block.id) block.id = uid('block');
-      const bid = esc(block.id);
-      const input = (field, label, attrs = '') =>
-        `<label class="field">${esc(label)}<input class="input" data-block="${bid}" data-field="${esc(field)}" value="${esc(block[field] ?? '')}" ${attrs}></label>`;
-      const area = (field, label) =>
+  if (!has('builderBlock')) {  
+    window.builderBlock = function builderBlock(block, index) {  
+      block = block || { id: uid('block'), exerciseName: '' };  
+      if (!block.id) block.id = uid('block');  
+      const bid = esc(block.id);  
+      const sectionOptions = [  
+        ['warmup', 'Warm-Up'],  
+        ['primary', 'Working'],  
+        ['optional', 'Optional'],  
+        ['finisher', 'Finisher'],  
+        ['cooldown', 'Cool-Down']  
+      ];  
+      const currentSection = block.section || 'primary';  
+      const sectionSelect = `<label class="field">Section<select class="input" data-block="${bid}" data-field="section">${sectionOptions.map(([val, label]) => `<option value="${val}" ${currentSection === val ? 'selected' : ''}>${label}</option>`).join('')}</select></label>`;
+
+      const input = (field, label, attrs = '') =>  
+        `<label class="field">${esc(label)}<input class="input" data-block="${bid}" data-field="${esc(field)}" value="${esc(block[field] ?? '')}" ${attrs}></label>`;  
+      const area = (field, label) =>  
         `<label class="field full">${esc(label)}<textarea data-block="${bid}" data-field="${esc(field)}">${esc(block[field] ?? '')}</textarea></label>`;
-      return `<div class="exercise-card" data-block-card="${bid}">
-        <div class="card-head"><div><div class="eyebrow">Exercise ${index + 1}</div><h2 style="margin-top:4px">${esc(block.exerciseName || 'Untitled exercise')}</h2></div></div>
-        <div class="set-form" style="margin-top:10px">
-          ${input('exerciseName', 'Exercise name')}
-          ${input('targetSets', 'Target sets', 'inputmode="numeric"')}
-          ${input('targetRepsOrDuration', 'Reps / duration')}
-          ${input('targetWeightOrLoad', 'Load (lbs)', 'inputmode="decimal"')}
-          ${input('tempo', 'Tempo')}
-          ${input('rir', 'RIR')}
-          ${input('rest', 'Rest')}
-          ${area('notes', 'Notes')}
-          ${area('checkpoints', 'Technical checkpoint')}
-        </div>
-        <div class="actions"><button class="danger" data-remove-block="${bid}">Remove exercise</button></div>
-      </div>`;
-    };
+
+      const sectionLabel = (sectionOptions.find(s => s[0] === currentSection) || ['', 'Working'])[1];
+
+      return `<div class="exercise-card" data-block-card="${bid}">  
+        <div class="card-head"><div><div class="eyebrow">${esc(sectionLabel)} · Exercise ${index + 1}</div><h2 style="margin-top:4px">${esc(block.exerciseName || 'Untitled exercise')}</h2></div>  
+        <div class="row-actions">  
+          <button class="icon-btn" title="Move up" data-move-block="${bid}" data-dir="-1">↑</button>  
+          <button class="icon-btn" title="Move down" data-move-block="${bid}" data-dir="1">↓</button>  
+        </div></div>  
+        <div class="set-form" style="margin-top:10px">  
+          ${input('exerciseName', 'Exercise name')}  
+          ${sectionSelect}  
+          ${input('targetSets', 'Target sets', 'inputmode="numeric"')}  
+          ${input('targetRepsOrDuration', 'Reps / duration')}  
+          ${input('targetWeightOrLoad', 'Load (lbs)', 'inputmode="decimal"')}  
+          ${input('tempo', 'Tempo')}  
+          ${input('rir', 'RIR')}  
+          ${input('rest', 'Rest')}  
+          ${area('notes', 'Notes')}  
+          ${area('checkpoints', 'Technical checkpoint')}  
+        </div>  
+        <div class="actions"><button class="danger" data-remove-block="${bid}">Remove exercise</button></div>  
+      </div>`;  
+    };  
   }
 
   // Preview a starter card in the planner editor with a "Use this card" action.
