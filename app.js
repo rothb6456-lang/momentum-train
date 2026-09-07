@@ -623,13 +623,14 @@ function renderHome() {
       }
     : null;
 
-  const hasActiveSession = !!(
-    typeof active !== 'undefined' &&
-    active &&
-    (
-      (Array.isArray(active.sets) && active.sets.length) ||
-      (state.cockpit && Array.isArray(state.cockpit.exercises) && state.cockpit.exercises.length)
-    )
+  const hasActiveSession = !!(  
+    typeof active !== 'undefined' &&  
+    active &&  
+    active.status === 'active' &&  
+    (  
+      (Array.isArray(active.sets) && active.sets.length) ||  
+      (state.cockpit && Array.isArray(state.cockpit.exercises) && state.cockpit.exercises.length)  
+    )  
   );
 
   const activeSetCount = (typeof active !== 'undefined' && active && Array.isArray(active.sets))
@@ -965,10 +966,10 @@ function renderToday() {
                     <div class="quiet">${plan.exerciseBlocks.length} exercises · ${esc(plan.sourceType)}</div>
                   </div>
                   <div class="row-actions">  
-          <input class="position-input" data-position-block="${bid}" type="number" min="1" max="99" value="${index + 1}" title="Type position number to reorder" inputmode="numeric">  
-          <button class="icon-btn" title="Move up" data-move-block="${bid}" data-dir="-1">↑</button>  
-          <button class="icon-btn" title="Move down" data-move-block="${bid}" data-dir="1">↓</button>  
-        </div></div>
+                    <button class="icon-btn" title="Move up" data-move="${plan.id}" data-direction="-1">↑</button>  
+                    <button class="icon-btn" title="Move down" data-move="${plan.id}" data-direction="1">↓</button>  
+                  </div>  
+                </div>
                 <div class="actions">
                   <button class="secondary" data-edit="${plan.id}">Open / edit</button>
                   <button class="secondary" data-duplicate="${plan.id}">Duplicate</button>
@@ -1095,9 +1096,10 @@ function renderToday() {
           </div>
 
         </div>  
-      </details>          </div>
-      <section id="plannerEditor" class="section"></section>
-    </div>
+      </details>
+
+      <section id="plannerEditor" class="section"></section>  
+    </div>  
   `;
 
   bindToday();
@@ -2229,8 +2231,17 @@ document.addEventListener('visibilitychange', () => {
       const currentSection = block.section || 'primary';  
       const sectionSelect = `<label class="field">Section<select class="input" data-block="${bid}" data-field="section">${sectionOptions.map(([val, label]) => `<option value="${val}" ${currentSection === val ? 'selected' : ''}>${label}</option>`).join('')}</select></label>`;
 
-      const input = (field, label, attrs = '') =>  
-        `<label class="field">${esc(label)}<input class="input" data-block="${bid}" data-field="${esc(field)}" value="${esc(block[field] ?? '')}" ${attrs}></label>`;  
+      const input = (field, label, attrs = '') => {  
+        if (field === 'exerciseName') {  
+          return `<label class="field">${esc(label)}  
+            <div class="exercise-search-wrap">  
+              <input class="input exercise-search-input" data-block="${bid}" data-field="exerciseName" value="${esc(block.exerciseName ?? '')}" autocomplete="off" placeholder="Search or type exercise name…" ${attrs}>  
+              <div class="exercise-search-results" data-results-for="${bid}" hidden></div>  
+            </div>  
+          </label>`;  
+        }  
+        return `<label class="field">${esc(label)}<input class="input" data-block="${bid}" data-field="${esc(field)}" value="${esc(block[field] ?? '')}" ${attrs}></label>`;  
+      };  
       const area = (field, label) =>  
         `<label class="field full">${esc(label)}<textarea data-block="${bid}" data-field="${esc(field)}">${esc(block[field] ?? '')}</textarea></label>`;
 
