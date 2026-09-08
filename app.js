@@ -1272,7 +1272,10 @@ function renderEditor(mode) {
         editor = parsed;  
         editor.exerciseBlocks = safeBlocks(editor.exerciseBlocks);  
         renderEditor('builder');  
-        window.scrollTo({ top: 0, behavior: 'smooth' });  
+        setTimeout(() => {  
+          const editorEl = $('#plannerEditor');  
+          if (editorEl) editorEl.scrollIntoView({ behavior: 'smooth', block: 'start' });  
+        }, 50);  
       };  
     }
 
