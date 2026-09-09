@@ -79,6 +79,43 @@ html,body{overscroll-behavior-y:none}body{overflow-x:hidden}.app,.view{overscrol
 
   <div class="toast" id="toast"></div>
 
+  <!-- Sanctum Authentication Modal -->
+  <div id="sanctum-login-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <span class="auth-badge">Statbook Auth Required</span>
+          <h3>Cloud Sync &amp; Coach AI Access</h3>
+        </div>
+        <button type="button" class="modal-close-btn" onclick="MomentumAuthModal.close()" aria-label="Close authentication dialog">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <p class="modal-description">
+          Workout logging remains 100% free offline. Log in with your <strong>Bulldog Statbook</strong> account to flush gym-floor logs to the cloud and generate Coach AI workout cards.
+        </p>
+
+        <div id="auth-error-banner" class="auth-error-banner" style="display: none;"></div>
+
+        <form id="sanctum-login-form" onsubmit="MomentumAuthModal.handleLogin(event)">
+          <div class="form-group">
+            <label for="auth-email">Account Email</label>
+            <input type="email" id="auth-email" value="rothb6456@gmail.com" required placeholder="name@example.com">
+          </div>
+
+          <div class="form-group">
+            <label for="auth-password">Password</label>
+            <input type="password" id="auth-password" required placeholder="********">
+          </div>
+
+          <button type="submit" id="auth-submit-btn" class="btn-primary auth-submit-btn">
+            Log In &amp; Authenticate
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <script src="/data.js"></script>  
   <script src="/workout-cards.js"></script>  
   <script src="/planner.js"></script>  
