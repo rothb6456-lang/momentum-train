@@ -126,18 +126,20 @@ const MomentumPlanner = (() => {
       return;
     }
 
+    const token = typeof MomentumSync !== 'undefined' && typeof MomentumSync.getToken === 'function'
+      ? MomentumSync.getToken()
+      : localStorage.getItem('momentum_sanctum_token');
+    if (!token) {
+      MomentumAuthModal.open(() => generateCoachCard());
+      return;
+    }
+
     btn.disabled = true;
     spinner.classList.remove('hidden');
     btn.querySelector('.btn-text').textContent = 'Evaluating Guardrails & Generating...';
     showStatus('Coach is compiling your active joint profile, PRs, and recent session notes...', 'info');
 
     try {
-      const token = typeof MomentumSync !== 'undefined' && typeof MomentumSync.getToken === 'function'
-        ? MomentumSync.getToken()
-        : localStorage.getItem('momentum_auth_token');
-
-      if (!token) throw new Error('User not authenticated. Please log in via Statbook setting.');
-
       const response = await fetch('/api/v1/training/coach/generate-card', {
         method: 'POST',
         headers: {
@@ -148,6 +150,11 @@ const MomentumPlanner = (() => {
         body: JSON.stringify({ request_type: 'queue_next' })
       });
       const result = await response.json();
+
+      if (response.status === 401) {
+        MomentumAuthModal.open(() => generateCoachCard());
+        return;
+      }
 
       if (!response.ok || !result.success) {
         throw new Error(result.message || 'Failed to generate card from Coach AI.');

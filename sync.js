@@ -4,6 +4,74 @@
  * with the Bulldog Statbook Laravel Backend API.
  */
 
+const MomentumAuthModal = {
+    pendingCallback: null,
+
+    open(onSuccessCallback = null) {
+        this.pendingCallback = onSuccessCallback;
+        const modal = document.getElementById('sanctum-login-modal');
+        const errorBanner = document.getElementById('auth-error-banner');
+        if (errorBanner) errorBanner.style.display = 'none';
+        if (modal) modal.style.display = 'flex';
+        document.getElementById('auth-email')?.focus();
+    },
+
+    close() {
+        const modal = document.getElementById('sanctum-login-modal');
+        if (modal) modal.style.display = 'none';
+        this.pendingCallback = null;
+    },
+
+    async handleLogin(event) {
+        event.preventDefault();
+        const email = document.getElementById('auth-email').value.trim();
+        const password = document.getElementById('auth-password').value;
+        const submitBtn = document.getElementById('auth-submit-btn');
+        const errorBanner = document.getElementById('auth-error-banner');
+
+        submitBtn.disabled = true;
+        submitBtn.innerText = 'Authenticating...';
+        if (errorBanner) errorBanner.style.display = 'none';
+
+        try {
+            const response = await fetch('https://statbook.bulldogstats.com/api/v1/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+            const data = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                throw new Error(data.message || 'Invalid credentials. Please verify your email and password.');
+            }
+            if (!data.token) throw new Error('Authentication succeeded without a bearer token.');
+
+            MomentumSync.setToken(data.token);
+            const callback = this.pendingCallback;
+            this.close();
+            if (typeof callback === 'function') await callback();
+        } catch (error) {
+            if (errorBanner) {
+                errorBanner.innerText = error.message;
+                errorBanner.style.display = 'block';
+            }
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerText = 'Log In & Authenticate';
+        }
+    }
+};
+
+function ensureAuthenticated(actionCallback) {
+    const token = typeof MomentumSync !== 'undefined' ? MomentumSync.getToken() : null;
+    if (!token) {
+        MomentumAuthModal.open(actionCallback);
+        return false;
+    }
+    actionCallback();
+    return true;
+}
+
 const MomentumSync = (function () {
     const CONFIG = {
         apiBaseUrl: localStorage.getItem('momentum_api_url') || 'https://statbook.bulldogstats.com/api',
@@ -18,7 +86,7 @@ const MomentumSync = (function () {
      * Retrieve the Sanctum bearer token.
      */
     function getToken() {
-        return localStorage.getItem(CONFIG.storageKeys.token);
+        return localStorage.getItem('momentum_sanctum_token') || localStorage.getItem(CONFIG.storageKeys.token);
     }
 
     /**
@@ -26,6 +94,7 @@ const MomentumSync = (function () {
      */
     function setToken(token) {
         localStorage.setItem(CONFIG.storageKeys.token, token);
+        localStorage.setItem('momentum_sanctum_token', token);
     }
 
     /**
@@ -153,6 +222,7 @@ const MomentumSync = (function () {
         const token = getToken();
         if (!token) {
             updateSyncUiStatus('Auth required');
+            MomentumAuthModal.open(() => flushQueue());
             return { synced: false, message: 'Unauthenticated' };
         }
 
