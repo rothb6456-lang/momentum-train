@@ -151,6 +151,9 @@ function normalizeWorkoutText(input) {
   return String(input || '')
     .replace(/\r/g, '')
     .replace(/\u00A0/g, ' ')
+    .replace(/^\s*#{1,6}\s*/gm, '')
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/__(.*?)__/g, '$1')
     .replace(/[“”]/g, '"')
     .replace(/[‘’]/g, "'")
     .replace(/[‐‑–—]/g, '-')
@@ -169,7 +172,7 @@ function parseWorkoutMeta(text) {
   const lines = text.split('\n').map(s => s.trim()).filter(Boolean);
 
   const phaseMatch = text.match(/\bPHASE\s+(\d+)\b/i);
-  const weekDayMatch = text.match(/\bWEEK\s+(\d+)\s*[•|\/-]?\s*DAY\s+(\d+)\b/i) ||
+  const weekDayMatch = text.match(/\bWEEK\s+(\d+)\s*[•·|\/-]?\s*DAY\s+(\d+)\b/i) ||
                        text.match(/\bDAY\s+(\d+)\b/i);
   const week = weekDayMatch ? (weekDayMatch[2] ? weekDayMatch[1] : '') : '';
   const day = weekDayMatch ? (weekDayMatch[2] ? weekDayMatch[2] : weekDayMatch[1]) : '';
@@ -525,7 +528,11 @@ function parseNarrativeWorkout(text) {
     warmExercises.forEach(ex => exercises.push(ex));
   }
 
-  let i = firstNumberedIndex >= 0 ? firstNumberedIndex : 0;
+  if (firstNumberedIndex < 0) {
+    return parseUnnumberedNarrativeWorkout(lines);
+  }
+
+  let i = firstNumberedIndex;
 
   while (i < lines.length) {
     const line = (lines[i] || '').trim();
@@ -567,6 +574,66 @@ function parseNarrativeWorkout(text) {
   }
 
   return exercises;
+}
+
+function parseUnnumberedNarrativeWorkout(lines) {
+  const exercises = [];
+  let section = 'primary';
+  let sectionStarted = false;
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = (lines[i] || '').trim();
+    if (!line) {
+      i++;
+      continue;
+    }
+
+    const sectionMatch = line.match(/^(warm-?up|primary pull|secondary pull|grip specialization|shoulder support|cool-?down|finisher)\s*:?[\s]*$/i);
+    if (sectionMatch) {
+      sectionStarted = true;
+      section = /warm-?up/i.test(sectionMatch[1]) ? 'warmup'
+        : /optional|finisher|grip specialization/i.test(sectionMatch[1]) ? (/grip specialization/i.test(sectionMatch[1]) ? 'primary' : 'optional')
+          : 'primary';
+      i++;
+      continue;
+    }
+
+    if (!sectionStarted || !isUnnumberedExerciseHeading(lines, i)) {
+      i++;
+      continue;
+    }
+
+    const rawName = line;
+    const block = [];
+    i++;
+    while (i < lines.length && !isUnnumberedExerciseHeading(lines, i) && !/^(warm-?up|primary pull|secondary pull|grip specialization|shoulder support|cool-?down|finisher)\s*:?[\s]*$/i.test((lines[i] || '').trim())) {
+      block.push((lines[i] || '').trim());
+      i++;
+    }
+
+    const exercise = parseNarrativeExerciseBlock(String(exercises.length + 1), rawName, block);
+    if (exercise && hasMeaningfulExercise(exercise)) {
+      exercise.section = exercise.optional ? 'optional' : section;
+      exercises.push(exercise);
+    }
+  }
+
+  return exercises;
+}
+
+function isUnnumberedExerciseHeading(lines, index) {
+  const line = String(lines[index] || '').trim();
+  if (!line || line.includes('|') || /^[-•*]/.test(line) || /^[🟢🟡🔴]/u.test(line)) return false;
+  if (/^(phase|week|day|session intent|intent|execution|checkpoint|stoplight|cue|progression|load target|target duration|confidence|primary targets|secondary|overall)\b/i.test(line)) return false;
+  if (/^(warm-?up|primary pull|secondary pull|grip specialization|shoulder support|cool-?down|finisher)\s*:?[\s]*$/i.test(line)) return false;
+
+  for (let lookahead = index + 1; lookahead < Math.min(index + 8, lines.length); lookahead++) {
+    const next = String(lines[lookahead] || '').trim();
+    if (/^\d+(?:\s*x\s*|:\d{2})/.test(next) && next.includes('|')) return true;
+    if (/^(?:warm-?up|primary pull|secondary pull|grip specialization|shoulder support|cool-?down|finisher)\s*:?[\s]*$/i.test(next)) return false;
+  }
+  return false;
 }
 
 function parseCompoundWarmupBlock(heading, blockLines) {
@@ -631,7 +698,7 @@ function parseNarrativeExerciseBlock(number, rawName, blockLines) {
   const cleanName = normalizeExerciseName(rawName);
 
   const prescriptionLine = nonEmpty.find(line =>
-    line.includes('|') && /\b\d+\s*x\s*/i.test(line)
+    line.includes('|') && (/\b\d+\s*x\s*/i.test(line) || /^\d+:\d{2}\s*\|/.test(line))
   );
 
   let parsed = {

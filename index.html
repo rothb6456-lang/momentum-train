@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#0b1117">
+  <meta name="theme-color" content="#0b1d2d">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="icon" href="/icon.svg" type="image/svg+xml">
@@ -18,10 +18,48 @@ html,body{overscroll-behavior-y:none}body{overflow-x:hidden}.app,.view{overscrol
 .cockpit-complete{border-color:var(--mint)}.cockpit-next-btn{border-color:var(--mint);color:var(--mint);font-weight:700}.cockpit-header{align-items:center}
 .modal-overlay{position:fixed;inset:0;z-index:100;background:rgba(4,8,12,0.84);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:20px}.modal-overlay.hidden{display:none!important}.modal-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:24px;max-width:440px;width:100%;box-shadow:0 20px 48px rgba(0,0,0,0.6)}.error-banner{background:#3b1717;border:1px solid #8e4747;color:var(--red);border-radius:9px;padding:10px 12px;font-size:13px;margin-top:10px}.error-banner.hidden{display:none!important}
   </style>
+  <style>
+    :root {
+      --bg: #071521;
+      --panel: #0d2232;
+      --panel2: #123049;
+      --ink: #f4f7fa;
+      --muted: #a8b8c6;
+      --line: #29465c;
+      --mint: #43c5f2;
+      --blue: #2c78b8;
+      --amber: #e7b75f;
+      --red: #f1847d;
+      --shadow: 0 14px 36px rgba(0, 0, 0, 0.42);
+    }
+
+    .brand {
+      gap: 9px;
+      color: var(--ink);
+    }
+
+    .mark {
+      width: 30px;
+      height: 30px;
+      border-radius: 7px;
+      object-fit: contain;
+      background: #f4f7fa;
+      box-shadow: 0 0 0 1px rgba(67, 197, 242, 0.35);
+    }
+
+    .subtitle {
+      color: #c0d0dc;
+      font-weight: 600;
+    }
+
+    .top {
+      border-bottom-color: #31536b;
+    }
+  </style>
 </head>
 <body>  
   <main class="app">  
-    <header class="top"><div class="brand"><i class="mark"></i>Momentum</div><div class="subtitle">Training intelligence · TSR-aware</div><span class="status" id="dataStatus">Loading training data…</span></header>  
+    <header class="top"><div class="brand"><img class="mark" src="/bulldogstats-logo-dog_head.png" alt="Bulldog Stats">Momentum</div><div class="subtitle">Plan, Review, Perform</div><span class="status" id="dataStatus">Loading training data…</span></header>
     <nav class="tabs" aria-label="Momentum navigation"><button class="tab active" data-view="home">Today</button><button class="tab" data-view="today">Plan</button><button class="tab" data-view="log">Log</button><button class="tab" data-view="review">Review</button><button class="tab" data-view="history">History</button></nav>  
     <div class="mobile-title" id="mobileTitle">Today</div>  
     <section class="view active" id="home"></section>  
