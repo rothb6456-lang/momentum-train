@@ -1,10 +1,15 @@
-/**
- * Momentum PWA � Cloud Sync & Sanctum Auth Integration Layer
+﻿/**
+ * Momentum PWA - Cloud Sync & Sanctum Auth Integration Layer
  * Unified with Bulldog Statbook Backend (Patch V1.1.2)
  */
 
-const API_BASE_URL = localStorage.getItem('momentum_api_url') || 'https://statbook.bulldogstats.com/api/v1/training';
-const AUTH_API_URL = API_BASE_URL.replace(/\/training\/?$/, '/auth');
+const API_BASE_URL = (typeof localStorage !== 'undefined' && localStorage.getItem('momentum_api_url')
+  ? localStorage.getItem('momentum_api_url')
+  : 'https://statbook.bulldogstats.com/api/v1/training').replace(/\/+$/, '');
+
+const AUTH_API_URL = (typeof localStorage !== 'undefined' && localStorage.getItem('momentum_auth_url')
+  ? localStorage.getItem('momentum_auth_url')
+  : 'https://statbook.bulldogstats.com/api/v1/auth').replace(/\/+$/, '');
 
 const MomentumSync = (() => {
   const TOKEN_KEY = 'momentum_sanctum_token';
@@ -67,7 +72,7 @@ const MomentumSync = (() => {
 
         if (btn) btn.textContent = 'Connecting...';
         try {
-          const res = await fetch(`${AUTH_API_URL}/token`, {
+          let res = await fetch(`${AUTH_API_URL}/login`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -80,6 +85,21 @@ const MomentumSync = (() => {
             })
           });
 
+          if (res.status === 404 || res.status === 405) {
+            res = await fetch(`${AUTH_API_URL}/token`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+              },
+              body: JSON.stringify({
+                email,
+                password,
+                device_name: 'Momentum PWA'
+              })
+            });
+          }
+
           const data = await res.json().catch(() => ({}));
 
           if (!res.ok || !data.token) {
@@ -88,7 +108,7 @@ const MomentumSync = (() => {
 
           setToken(data.token);
           modal.classList.add('hidden');
-          showToast('? Connected to Bulldog Statbook', 'success');
+          showToast('Connected to Bulldog Statbook', 'success');
 
           if (typeof onSuccess === 'function') {
             onSuccess(data.token);
@@ -115,36 +135,25 @@ const MomentumSync = (() => {
     }
 
     try {
-      const numericValue = value => {
-        const match = String(value ?? '').match(/-?\d+(?:\.\d+)?/);
-        return match ? Number(match[0]) : null;
-      };
-      const apiSection = value => {
-        const section = String(value || '').toLowerCase();
-        return ['primary', 'warmup', 'cooldown', 'accessory'].includes(section) ? section : 'accessory';
-      };
-      const sessionDate = (sessionData.completedAt || sessionData.completed_at || sessionData.startedAt || new Date().toISOString()).slice(0, 10);
-
       const payload = {
         session_id: sessionData.id || sessionData.session_id,
         workout_name: sessionData.canonicalTitle || sessionData.workoutName || sessionData.workout_name || 'Workout',
-        session_date: sessionData.sessionDate || sessionData.session_date || sessionDate,
-        program_day: numericValue(sessionData.day || sessionData.programDay),
         phase: sessionData.phase || '',
         week: sessionData.week || '',
         day: sessionData.day || '',
         completed_at: sessionData.completedAt || sessionData.completed_at || sessionData.startedAt || new Date().toISOString(),
         coach_questions: sessionData.coachQuestions || sessionData.coach_questions || '',
-        sets: (sessionData.sets || []).map((s, index) => ({
-          set_number: Number(s.setNumber || s.set_number || index + 1),
+        sets: (sessionData.sets || []).map(s => ({
           exercise_name: s.exerciseName || s.exercise || s.exercise_name || '',
-          weight_lbs: numericValue(s.weightLbs ?? s.weight_lbs ?? s.load),
-          reps: (s.timed || s.is_timed) ? null : numericValue(s.reps ?? s.result ?? s.reps_or_duration),
-          duration_seconds: (s.timed || s.is_timed) ? numericValue(s.durationSeconds ?? s.duration_seconds ?? s.reps ?? s.result ?? s.reps_or_duration) : null,
+          load: s.load || '',
+          reps_or_duration: s.reps || s.result || s.reps_or_duration || '',
+          is_timed: !!(s.timed || s.is_timed),
           tempo: s.tempo || '',
           rir: s.rir || '',
-          section: apiSection(s.section),
-          set_notes: s.notes || s.set_notes || ''
+          rest: s.rest || '',
+          section: s.section || 'primary',
+          optional: !!(s.optional || s.is_optional),
+          notes: s.notes || ''
         }))
       };
 
@@ -170,11 +179,11 @@ const MomentumSync = (() => {
       }
 
       const result = await response.json();
-      showToast('? Workout Synced to Statbook!', 'success');
+      showToast('Workout Synced to Statbook!', 'success');
       return result;
     } catch (err) {
       console.error('Statbook Sync Error:', err);
-      showToast(`Sync failed (${API_BASE_URL}): ${err.message}`, 'error');
+      showToast(`Sync Failed: ${err.message}`, 'error');
     }
   }
 
@@ -203,12 +212,12 @@ const MomentumSync = (() => {
       }
 
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || data.error || `HTTP ${res.status}: Coach AI generation failed`);
+      if (!res.ok) throw new Error(data.message || 'Coach AI generation failed');
 
-      showToast('? Workout card generated by Coach AI', 'success');
-      return data.card_markdown || data.card || data.workout_card || data.text || '';
+      showToast('Workout card generated by Coach AI', 'success');
+      return data.card || data.workout_card || data.text || '';
     } catch (err) {
-      showToast(`Coach AI failed (${API_BASE_URL}): ${err.message}`, 'error');
+      showToast(`Coach AI: ${err.message}`, 'error');
       throw err;
     }
   }
