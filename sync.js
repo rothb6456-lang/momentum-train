@@ -6,7 +6,7 @@
 
 const MomentumSync = (function () {
     const CONFIG = {
-        apiBaseUrl: localStorage.getItem('momentum_api_url') || 'https://statbook.bulldogstats.com/api/v1',
+        apiBaseUrl: localStorage.getItem('momentum_api_url') || 'https://statbook.bulldogstats.com/api',
         storageKeys: {
             token: 'bulldog_sanctum_token',
             queue: 'momentum_sync_queue',
