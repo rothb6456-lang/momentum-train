@@ -2,6 +2,7 @@
 const MomentumPlanner = (() => {
   const QUEUE_KEY = 'momentum.queued-workouts.v1';
   const clean = value => String(value ?? '').trim();
+  const escapeHtml = value => clean(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
   const id = () => `workout-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const clone = value => JSON.parse(JSON.stringify(value));
   const load = () => { try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]'); } catch { return []; } };
@@ -1149,13 +1150,14 @@ function renderWeeklyCalendarStrip() {
 
     const planForDay = queuedPlans.find(p => (p.scheduled_date === dateStr || p.scheduledDate === dateStr));
     const hasPlan = !!planForDay;
+    const planTitle = planForDay ? (planForDay.canonicalTitle || planForDay.title || 'Workout') : 'Rest';
 
     html += `
       <div class="calendar-day-card ${hasPlan ? 'has-plan' : ''} ${i === 0 ? 'is-today' : ''}" 
            onclick="window.launchPlannedCard('${dateStr}')">
         <span class="day-name">${dayName}</span>
         <span class="day-num">${dayNum}</span>
-        <span class="plan-indicator">${hasPlan ? '• Card' : 'Rest'}</span>
+        <span class="plan-indicator">${escapeHtml(planTitle)}</span>
       </div>
     `;
   }

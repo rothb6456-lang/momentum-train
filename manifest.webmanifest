@@ -4,8 +4,8 @@
   "description": "Private training intelligence and gym-floor workout capture.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0c141b",
-  "theme_color": "#0c141b",
+  "background_color": "#0b1117",
+  "theme_color": "#0b1117",
   "icons": [
     {
       "src": "/icon.svg",

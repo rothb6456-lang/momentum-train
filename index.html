@@ -18,20 +18,6 @@ html,body{overscroll-behavior-y:none}body{overflow-x:hidden}.app,.view{overscrol
 .cockpit-complete{border-color:var(--mint)}.cockpit-next-btn{border-color:var(--mint);color:var(--mint);font-weight:700}.cockpit-header{align-items:center}
 .modal-overlay{position:fixed;inset:0;z-index:100;background:rgba(4,8,12,0.84);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:20px}.modal-overlay.hidden{display:none!important}.modal-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:24px;max-width:440px;width:100%;box-shadow:0 20px 48px rgba(0,0,0,0.6)}.error-banner{background:#3b1717;border:1px solid #8e4747;color:var(--red);border-radius:9px;padding:10px 12px;font-size:13px;margin-top:10px}.error-banner.hidden{display:none!important}
 
-/* Patch V1.1.2: Theme variables & logo transparency */
-:root {
-  --bg-dark-blue: #0b132b;
-  --card-bg: #1c2541;
-  --accent-cyan: #38bdf8;
-  --text-main: #f8fafc;
-}
-.header-logo, .brand-logo-img, .brand img, .mark img {
-  background: transparent !important;
-  mix-blend-mode: screen;
-  object-fit: contain;
-  max-height: 42px;
-}
-
 /* 7-Day Weekly Calendar Strip */
 .calendar-strip-row {
   display: grid;
@@ -40,6 +26,7 @@ html,body{overscroll-behavior-y:none}body{overflow-x:hidden}.app,.view{overscrol
   margin: 14px 0 18px;
 }
 .calendar-day-card {
+  position: relative;
   background: var(--panel2, #182633);
   border: 1px solid var(--line, #2a3b47);
   border-radius: 12px;
@@ -47,7 +34,7 @@ html,body{overscroll-behavior-y:none}body{overflow-x:hidden}.app,.view{overscrol
   text-align: center;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   gap: 2px;
   cursor: pointer;
   transition: border-color 0.2s, background 0.2s;
@@ -66,12 +53,17 @@ html,body{overscroll-behavior-y:none}body{overflow-x:hidden}.app,.view{overscrol
   font-weight: 700;
 }
 .calendar-day-card .day-num {
-  font-size: 15px;
+  align-self: flex-end;
+  font-size: 12px;
   font-weight: 800;
   color: var(--ink, #f3f7f8);
 }
 .calendar-day-card .plan-indicator {
-  font-size: 9px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  text-align: left;
   color: var(--mint, #55e2b5);
   margin-top: 2px;
   font-weight: 700;
@@ -84,7 +76,7 @@ html,body{overscroll-behavior-y:none}body{overflow-x:hidden}.app,.view{overscrol
   .calendar-strip-row { gap: 4px; }
   .calendar-day-card { padding: 6px 2px; border-radius: 9px; }
   .calendar-day-card .day-name { font-size: 9px; }
-  .calendar-day-card .day-num { font-size: 13px; }
+  .calendar-day-card .day-num { font-size: 11px; }
   .calendar-day-card .plan-indicator { font-size: 8px; }
 }
 
