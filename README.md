@@ -1,54 +1,142 @@
 # Momentum Training Intelligence
 
-Static, private PWA for workout cards, direct capture, review, and training analysis.
+Momentum is a static, local-first training app for planning, logging, and reviewing workouts without requiring a backend or a live database. The current build is a mobile-first PWA with a dedicated Today/Plan/Log/Review/History flow and a local storage model for active sessions, completed workouts, and draft coaching context.
 
-## Current first-pass capabilities
+## Current build overview
 
-- Five mobile-first screens: Home, Today, Log, Review, and History.
-- Prescribed Phase 9 / Week 3 / Day 2 card with exercise-level logging launch points.
-- Durable device-local active-session autosave and completed-session review queue.
-- Direct set capture for load, reps or duration, three-part tempo, RIR, checkpoint, note, and structured quick tags.
-- Coach-ready debrief copy, Momentum-native JSON export, and CSV export shaped for the Momentum Excel staging path.
-- Markdown-backed historical metrics, phase workload, exercise defaults, and session history.
+This repository is the actual client app, not a dashboard deployment folder. The project root contains the deployable static assets:
 
-## Local data boundary
+- `index.html` — app shell and navigation
+- `app.js` — core UI state, rendering, session logic, exports, and view management
+- `planner.js` — workout parsing, queueing, and cockpit/session planning helpers
+- `workout-cards.js` — starter templates and prescribed-card metadata
+- `data.js` — Markdown-backed data access layer for historical metrics
+- `sw.js` — service worker for offline caching
+- `data/` — reviewed Markdown snapshots used by the app at runtime
 
-Active and completed Momentum sessions stay in the browser's local storage on the current device. They are not uploaded automatically. Export a completed session from **Review** before clearing browser data or changing devices.
+The app is intentionally plain HTML/CSS/JavaScript with no framework or build step. It runs as a static site and can be served from Cloudflare Pages, GitHub Pages, or any static host.
 
-### CSV staging fields
+## Design and UX
 
-The CSV export emits the current staging-schema fields:
+### Mobile-first app structure
 
-`Routine_Name`, `Activity_Date`, `Exercise_Name`, `Exercise_Muscle_Groups`, `Exercise_Equipment`, `Exercise_Date_Time`, `Repetitions_Or_Duration`, `Weight_Or_Distance`, `Use_Metric`, `Note`, and `Superset`.
+The interface is organized as a five-screen training flow:
 
-Tempo, RIR, quick tags, checkpoints, and performance notes are retained in `Note`. Muscle group and equipment remain intentionally blank in this first pass so the Excel lookup/staging logic can enrich them.
+- Today: landing surface and quick status overview
+- Plan: workout queue, manual workout creation, and scheduled card management
+- Log: active session capture and per-exercise logging
+- Review: completed session review, coaching summaries, and exports
+- History: historical view of recorded data and prior sessions
 
-## Safety and data boundary
+The design is optimized for gym-floor use: compact cards, dense info layout, large action buttons, and a low-friction set-entry pattern for quick logging.
 
-The deployed app never reads `Training_Database.xlsx`. It uses only the Markdown snapshots in `data/`, so the workbook remains safe to open and update in Excel.
+### Workout planning model
 
-## Data refresh
+Momentum supports three sources of workout structure:
 
-1. Refresh the Excel workbook's Power Query outputs.
-2. Export the four Markdown source snapshots.
-3. Replace the matching files in `dashboard/data/`.
-4. Deploy `dashboard/` to Cloudflare Pages.
+- Prescribed cards such as the current program day structure
+- Starter templates for Control, Strength, and Endurance sessions
+- Manual or pasted workout cards parsed into reusable queue items
 
-## Deployment
+The planner layer converts raw workout text into structured plan blocks, normalizes fields like sets, reps, tempo, load, duration, and RIR, and then builds an active session cockpit for logging.
 
-Upload all files within `dashboard/` to the `momentum-train` Cloudflare Pages project. Do not upload the parent training-source folder or any Excel workbook.
+### Logging workflow
 
-## Gym-floor workflow
+The current logging experience includes:
 
-1. Open **Today** and select the prescribed card exercise.
-2. Record each completed set in **Log workout**.
-3. Record shoulder and grip context once per session.
-4. Finish the session and copy the structured Coach debrief.
+- Exercise-level capture with set-by-set tracking
+- Reps or timed-duration mode selection
+- Load input and working-load updates
+- Tempo entry using a three-part format
+- RIR selection and technical checkpoints
+- Quick tags and notes
+- Duplicate/delete actions for a session or exercise
+- Automatic persistence of the active session in local storage
 
-For unusual, substituted, or retrospective work, use **Log workout** directly.
+This makes the app usable for live recording in the gym without a network connection.
 
-## Git setup
+## Data model and storage boundaries
 
-Initialize this `dashboard/` folder as a private GitHub repository, then connect it in Cloudflare Pages for automatic deploys. Do not commit raw health exports outside the reviewed Markdown snapshots.
+### Local-first storage
 
-The included `DEPLOYMENT_CHECKLIST.md` is the release gate.
+Momentum stores session data on the current device in browser local storage. The active session, queued plans, review queue, and completed-session records are kept locally and are not uploaded to a server automatically.
+
+This is intentional: the app is designed to behave like a private training log that you can export before changing devices or clearing browser data.
+
+### Data source safety
+
+The app does not read or require a workbook file at runtime. It uses reviewed Markdown files in `data/` as the source of truth for historical training context and analysis.
+
+The repository intentionally avoids pulling in raw Excel exports or unreviewed training files. The workbook remains a separate source artifact and is not deployed with the application.
+
+## Markdown-backed reference data
+
+The repository includes these data snapshots:
+
+- `data/01_Training_Core.md`
+- `data/02_Training_Reference.md`
+- `data/03_Training_Analysis.md`
+- `data/04_Training_Schema.md`
+
+These files supply derived training context, exercise history, reference data, and schema metadata for the app without requiring backend access. The data loader handles the current table-driven markdown formats and is resilient to both the newer structured exports and the earlier positional-core exports.
+
+## Exports and coaching output
+
+The app includes export flows tailored for training review and coaching:
+
+- Coach debrief summary for a completed workout
+- JSON export of a completed session in Momentum-native format
+- CSV export shaped for the Excel staging process
+
+The CSV is designed to keep the data in a portable staging-friendly structure. Tempo, RIR, technical notes, checkpoints, and quick tags remain associated with the training note fields so the downstream spreadsheet logic can enrich the final view.
+
+## Service worker and offline behavior
+
+The service worker caches the app shell and reviewed data snapshots so the app remains usable after the first load, even when the network is unstable or unavailable. This supports the same workflow on mobile devices and tablet browsers in the gym.
+
+## Repository layout
+
+```text
+.
+├── app.js
+├── data.js
+├── planner.js
+├── workout-cards.js
+├── sw.js
+├── index.html
+├── manifest.webmanifest
+├── README.md
+├── CHANGELOG.md
+├── DEPLOYMENT_CHECKLIST.md
+├── data/
+│   ├── 01_Training_Core.md
+│   ├── 02_Training_Reference.md
+│   ├── 03_Training_Analysis.md
+│   └── 04_Training_Schema.md
+└── _headers
+```
+
+## Deployment guidance
+
+This project is designed to deploy as a static site. The usual process is:
+
+1. Commit the app files and Markdown data snapshots.
+2. Connect the repository to a static hosting provider such as Cloudflare Pages.
+3. Publish the root directory as the deploy target.
+4. Verify the app loads, the service worker caches correctly, and the app works on a mobile browser.
+
+Do not upload raw workbook files, unreviewed health exports, or backend credentials as part of the app deployment.
+
+## Release checklist
+
+Use `DEPLOYMENT_CHECKLIST.md` as the release gate before publishing. It covers workbook safety, markdown refreshes, review of workout cards, mobile verification, and operational guardrails.
+
+## Current product intent
+
+The app is not a backend-driven analytics platform. The current direction is a disciplined, private, mobile-first training log that keeps the coach and athlete aligned through:
+
+- structured gym-floor logging
+- local durability
+- clean recap and export flows
+- reviewed markdown data context
+- zero dependence on a live database or workbook in production
