@@ -1,347 +1,200 @@
 /**
- * Momentum PWA Sync Engine (sync.js)
- * Manages authentication, payload mapping, background queueing, and network sync
- * with the Bulldog Statbook Laravel Backend API.
+ * Momentum PWA — Cloud Sync & Sanctum Auth Integration Layer
+ * Unified with Bulldog Statbook Backend
  */
 
-const MomentumAuthModal = {
-    pendingCallback: null,
+const API_BASE_URL = 'https://statbook.bulldogstats.com/api/v1/training';
+const AUTH_API_URL = 'https://statbook.bulldogstats.com/api/v1/auth';
 
-    open(onSuccessCallback = null) {
-        this.pendingCallback = onSuccessCallback;
-        const modal = document.getElementById('sanctum-login-modal');
-        const errorBanner = document.getElementById('auth-error-banner');
-        if (errorBanner) errorBanner.style.display = 'none';
-        if (modal) modal.style.display = 'flex';
-        document.getElementById('auth-email')?.focus();
-    },
+const MomentumSync = (() => {
+  const TOKEN_KEY = 'momentum_sanctum_token';
 
-    close() {
-        const modal = document.getElementById('sanctum-login-modal');
-        if (modal) modal.style.display = 'none';
-        this.pendingCallback = null;
-    },
+  function getToken() {
+    return localStorage.getItem(TOKEN_KEY) || '';
+  }
 
-    async handleLogin(event) {
-        event.preventDefault();
-        const email = document.getElementById('auth-email').value.trim();
-        const password = document.getElementById('auth-password').value;
-        const submitBtn = document.getElementById('auth-submit-btn');
-        const errorBanner = document.getElementById('auth-error-banner');
+  function setToken(token) {
+    if (token) {
+      localStorage.setItem(TOKEN_KEY, token);
+    } else {
+      localStorage.removeItem(TOKEN_KEY);
+    }
+  }
 
-        submitBtn.disabled = true;
-        submitBtn.innerText = 'Authenticating...';
-        if (errorBanner) errorBanner.style.display = 'none';
+  function isAuthenticated() {
+    return !!getToken();
+  }
 
+  function showAuthModal(onSuccess) {
+    const modal = document.getElementById('sanctumModal');
+    const errEl = document.getElementById('sanctumError');
+    if (!modal) return;
+
+    if (errEl) {
+      errEl.textContent = '';
+      errEl.classList.add('hidden');
+    }
+    modal.classList.remove('hidden');
+
+    const form = document.getElementById('sanctumForm');
+    const cancel = document.getElementById('sanctumCancelBtn');
+
+    if (cancel) {
+      cancel.onclick = () => {
+        modal.classList.add('hidden');
+      };
+    }
+
+    if (form) {
+      form.onsubmit = async (e) => {
+        e.preventDefault();
+        const emailEl = document.getElementById('sanctumEmail');
+        const passEl = document.getElementById('sanctumPassword');
+        const btn = document.getElementById('sanctumLoginBtn');
+
+        const email = emailEl ? emailEl.value.trim() : '';
+        const password = passEl ? passEl.value : '';
+
+        if (!email || !password) return;
+
+        if (btn) btn.textContent = 'Connecting...';
         try {
-            const response = await fetch('https://statbook.bulldogstats.com/api/v1/auth/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-                body: JSON.stringify({ email, password })
-            });
-            const data = await response.json().catch(() => ({}));
-
-            if (!response.ok) {
-                throw new Error(data.message || 'Invalid credentials. Please verify your email and password.');
-            }
-            if (!data.token) throw new Error('Authentication succeeded without a bearer token.');
-
-            MomentumSync.setToken(data.token);
-            const callback = this.pendingCallback;
-            this.close();
-            if (typeof callback === 'function') await callback();
-        } catch (error) {
-            if (errorBanner) {
-                errorBanner.innerText = error.message;
-                errorBanner.style.display = 'block';
-            }
-        } finally {
-            submitBtn.disabled = false;
-            submitBtn.innerText = 'Log In & Authenticate';
-        }
-    }
-};
-
-function ensureAuthenticated(actionCallback) {
-    const token = typeof MomentumSync !== 'undefined' ? MomentumSync.getToken() : null;
-    if (!token) {
-        MomentumAuthModal.open(actionCallback);
-        return false;
-    }
-    actionCallback();
-    return true;
-}
-
-const MomentumSync = (function () {
-    const CONFIG = {
-        apiBaseUrl: localStorage.getItem('momentum_api_url') || 'https://statbook.bulldogstats.com/api',
-        storageKeys: {
-            token: 'bulldog_sanctum_token',
-            queue: 'momentum_sync_queue',
-            sessions: 'momentum_completed_sessions'
-        }
-    };
-
-    /**
-     * Retrieve the Sanctum bearer token.
-     */
-    function getToken() {
-        return localStorage.getItem('momentum_sanctum_token') || localStorage.getItem(CONFIG.storageKeys.token);
-    }
-
-    /**
-     * Set Sanctum auth token (after user logs in via Statbook).
-     */
-    function setToken(token) {
-        localStorage.setItem(CONFIG.storageKeys.token, token);
-        localStorage.setItem('momentum_sanctum_token', token);
-    }
-
-    /**
-     * Check if device is currently online.
-     */
-    function isOnline() {
-        return navigator.onLine;
-    }
-
-    /**
-     * Get pending sessions from local storage queue.
-     */
-    function getQueue() {
-        try {
-            return JSON.parse(localStorage.getItem(CONFIG.storageKeys.queue) || '[]');
-        } catch (e) {
-            console.error('Failed to parse sync queue:', e);
-            return [];
-        }
-    }
-
-    /**
-     * Save queue state to local storage.
-     */
-    function saveQueue(queue) {
-        localStorage.setItem(CONFIG.storageKeys.queue, JSON.stringify(queue));
-    }
-
-    /**
-     * Transform Momentum PWA internal session format into Laravel API StoreTrainingSessionRequest payload.
-     */
-    function mapSessionToApiPayload(localSession) {
-        return {
-            workout_name: localSession.workoutName || localSession.title || 'Training Session',
-            session_date: localSession.date || new Date().toISOString().split('T')[0],
-            phase_number: localSession.phaseNumber ? parseInt(localSession.phaseNumber) : null,
-            program_day: localSession.programDay ? parseInt(localSession.programDay) : null,
-            gym_location: localSession.gymLocation || localSession.location || null,
-            general_notes: localSession.generalNotes || localSession.notes || null,
-            sets: (localSession.sets || []).map((s, index) => ({
-                set_number: s.setNumber || (index + 1),
-                exercise_name: s.exerciseName || s.name,
-                weight_lbs: s.weightLbs !== undefined ? parseFloat(s.weightLbs) : (s.weight ? parseFloat(s.weight) : 0),
-                reps: s.reps !== undefined && s.reps !== null ? parseInt(s.reps) : null,
-                duration_seconds: s.durationSeconds !== undefined && s.durationSeconds !== null
-                    ? parseFloat(s.durationSeconds)
-                    : (s.duration ? parseFloat(s.duration) : null),
-                tempo: s.tempo || null,
-                rir: s.rir ? String(s.rir) : null,
-                set_notes: s.notes || s.setNotes || null
-            }))
-        };
-    }
-
-    /**
-     * Send a single session payload to Laravel API.
-     */
-    async function sendSessionToApi(localSession) {
-        const token = getToken();
-        if (!token) {
-            throw new Error('No authentication token found. Please log in.');
-        }
-
-        const payload = mapSessionToApiPayload(localSession);
-
-        const response = await fetch(`${CONFIG.apiBaseUrl}/training/sessions`, {
+          const res = await fetch(`${AUTH_API_URL}/token`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'Authorization': `Bearer ${token}`
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
             },
-            body: JSON.stringify(payload)
-        });
+            body: JSON.stringify({
+              email,
+              password,
+              device_name: 'Momentum PWA'
+            })
+          });
 
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.message || `HTTP Error ${response.status}`);
+          const data = await res.json().catch(() => ({}));
+
+          if (!res.ok || !data.token) {
+            throw new Error(data.message || data.error || 'Authentication failed. Please verify your credentials.');
+          }
+
+          setToken(data.token);
+          modal.classList.add('hidden');
+          if (typeof toast === 'function') toast('Connected to Bulldog Statbook');
+
+          if (typeof onSuccess === 'function') {
+            onSuccess(data.token);
+          }
+        } catch (err) {
+          if (errEl) {
+            errEl.textContent = err.message || 'Login error occurred';
+            errEl.classList.remove('hidden');
+          }
+        } finally {
+          if (btn) btn.textContent = 'Sign In & Connect';
         }
+      };
+    }
+  }
 
-        return await response.json();
+  async function pushSession(session) {
+    if (!session) return;
+
+    if (!isAuthenticated()) {
+      showAuthModal(() => pushSession(session));
+      return;
     }
 
-    /**
-     * Add completed session to the pending sync queue and trigger immediate sync attempt.
-     */
-    async function queueAndSyncSession(localSession) {
-        let queue = getQueue();
+    try {
+      const res = await fetch(`${API_BASE_URL}/sessions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${getToken()}`
+        },
+        body: JSON.stringify({
+          session_id: session.id,
+          workout_name: session.canonicalTitle || session.workoutName || 'Workout',
+          phase: session.phase || '',
+          week: session.week || '',
+          day: session.day || '',
+          completed_at: session.completedAt || session.startedAt || new Date().toISOString(),
+          coach_questions: session.coachQuestions || '',
+          sets: (session.sets || []).map(s => ({
+            exercise_name: s.exerciseName || s.exercise || '',
+            load: s.load || '',
+            reps_or_duration: s.reps || s.result || '',
+            is_timed: !!s.timed,
+            tempo: s.tempo || '',
+            rir: s.rir || '',
+            rest: s.rest || '',
+            section: s.section || 'primary',
+            optional: !!s.optional,
+            notes: s.notes || ''
+          }))
+        })
+      });
 
-        const existingIndex = queue.findIndex(item => item.id === localSession.id);
-        const queueItem = {
-            id: localSession.id || `S-${Date.now()}`,
-            session: localSession,
-            status: 'pending',
-            queuedAt: new Date().toISOString(),
-            attempts: 0,
-            lastError: null
-        };
+      if (res.status === 401) {
+        setToken('');
+        showAuthModal(() => pushSession(session));
+        return;
+      }
 
-        if (existingIndex >= 0) {
-            queue[existingIndex] = queueItem;
-        } else {
-            queue.push(queueItem);
-        }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || `Sync failed with status ${res.status}`);
+      }
 
-        saveQueue(queue);
-        updateSyncUiStatus();
+      if (typeof toast === 'function') toast('Session synced to Bulldog Statbook');
+    } catch (err) {
+      if (typeof toast === 'function') toast(`Sync notice: ${err.message}`);
+    }
+  }
 
-        if (isOnline()) {
-            return await flushQueue();
-        }
-
-        return { synced: false, message: 'Saved locally (offline)' };
+  async function generateCoachCard(promptText) {
+    if (!isAuthenticated()) {
+      showAuthModal(() => generateCoachCard(promptText));
+      return null;
     }
 
-    /**
-     * Flush all pending sessions in queue to the server.
-     */
-    async function flushQueue() {
-        if (!isOnline()) {
-            updateSyncUiStatus();
-            return { synced: false, message: 'Device is offline' };
-        }
+    try {
+      const res = await fetch(`${API_BASE_URL}/coach/generate-card`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${getToken()}`
+        },
+        body: JSON.stringify({ prompt: promptText || '' })
+      });
 
-        const token = getToken();
-        if (!token) {
-            updateSyncUiStatus('Auth required');
-            MomentumAuthModal.open(() => flushQueue());
-            return { synced: false, message: 'Unauthenticated' };
-        }
+      if (res.status === 401) {
+        setToken('');
+        showAuthModal(() => generateCoachCard(promptText));
+        return null;
+      }
 
-        let queue = getQueue();
-        const pendingItems = queue.filter(item => item.status === 'pending' || item.status === 'failed');
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || 'Coach AI generation failed');
 
-        if (pendingItems.length === 0) {
-            updateSyncUiStatus('Synced');
-            return { synced: true, count: 0 };
-        }
-
-        updateSyncUiStatus('Syncing...');
-        let successCount = 0;
-
-        for (let item of queue) {
-            if (item.status === 'synced') continue;
-
-            try {
-                item.attempts += 1;
-                const result = await sendSessionToApi(item.session);
-
-                item.status = 'synced';
-                item.remoteId = result.data ? result.data.id : null;
-                item.syncedAt = new Date().toISOString();
-                item.prsDetected = result.data ? result.data.prs_detected : [];
-
-                successCount++;
-
-                if (item.prsDetected && item.prsDetected.length > 0) {
-                    if (window.MomentumApp && MomentumApp.showPrNotification) {
-                        MomentumApp.showPrNotification(item.prsDetected);
-                    }
-                }
-            } catch (err) {
-                console.warn(`Sync failed for session ${item.id}:`, err);
-                item.status = 'failed';
-                item.lastError = err.message;
-            }
-        }
-
-        saveQueue(queue);
-
-        const remainingPending = queue.filter(item => item.status === 'pending' || item.status === 'failed').length;
-        if (remainingPending === 0) {
-            updateSyncUiStatus('Synced');
-        } else {
-            updateSyncUiStatus(`${remainingPending} pending`);
-        }
-
-        return { synced: remainingPending === 0, count: successCount };
+      if (typeof toast === 'function') toast('Workout card generated by Coach AI');
+      return data.card || data.workout_card || data.text || '';
+    } catch (err) {
+      if (typeof toast === 'function') toast(`Coach AI notice: ${err.message}`);
+      throw err;
     }
+  }
 
-    /**
-     * Update sync badge indicator in PWA header.
-     */
-    function updateSyncUiStatus(customLabel) {
-        const badge = document.getElementById('sync-status-badge');
-        if (!badge) return;
-
-        if (customLabel) {
-            badge.textContent = customLabel;
-            return;
-        }
-
-        if (!isOnline()) {
-            badge.textContent = 'Offline (Saved)';
-            badge.className = 'badge badge-offline';
-            return;
-        }
-
-        const pending = getQueue().filter(i => i.status !== 'synced').length;
-        if (pending > 0) {
-            badge.textContent = `${pending} Pending Sync`;
-            badge.className = 'badge badge-pending';
-        } else {
-            badge.textContent = 'âœ“ Synced';
-            badge.className = 'badge badge-synced';
-        }
-    }
-
-    /**
-     * Initialize event listeners.
-     */
-    function init() {
-        const forceSyncButton = document.getElementById('sync-force-button');
-        if (forceSyncButton) {
-            forceSyncButton.addEventListener('click', () => flushQueue());
-        }
-
-        window.addEventListener('online', () => {
-            console.log('Network online re-established. Flushing sync queue...');
-            flushQueue();
-        });
-
-        window.addEventListener('offline', () => {
-            updateSyncUiStatus();
-        });
-
-        setTimeout(() => {
-            if (isOnline()) {
-                flushQueue();
-            } else {
-                updateSyncUiStatus();
-            }
-        }, 1000);
-    }
-
-    return {
-        init: init,
-        setToken: setToken,
-        getToken: getToken,
-        queueAndSyncSession: queueAndSyncSession,
-        flushQueue: flushQueue,
-        updateSyncUiStatus: updateSyncUiStatus
-    };
+  return {
+    getToken,
+    setToken,
+    isAuthenticated,
+    showAuthModal,
+    pushSession,
+    generateCoachCard
+  };
 })();
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', MomentumSync.init);
-} else {
-    MomentumSync.init();
-}
+window.MomentumSync = MomentumSync;

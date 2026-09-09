@@ -54,30 +54,6 @@ function saveDone(sessions) {
   saveJson(STORAGE_KEYS.done, Array.isArray(sessions) ? sessions : []);
 }
 
-async function finishAndSaveWorkout(sessionData) {
-  const completedSessions = loadJson('momentum_completed_sessions', []);
-  const compatibleSessions = Array.isArray(completedSessions) ? completedSessions : [];
-  const existingIndex = compatibleSessions.findIndex(item => item && item.id === sessionData.id);
-
-  if (existingIndex >= 0) {
-    compatibleSessions[existingIndex] = sessionData;
-  } else {
-    compatibleSessions.push(sessionData);
-  }
-  saveJson('momentum_completed_sessions', compatibleSessions);
-  localStorage.removeItem('momentum_active_session');
-  localStorage.removeItem(STORAGE_KEYS.active);
-
-  const syncResult = typeof MomentumSync !== 'undefined'
-    ? await MomentumSync.queueAndSyncSession(sessionData)
-    : { synced: false };
-
-  alert(syncResult.synced
-    ? 'Workout complete! Synced to Bulldog Statbook.'
-    : 'Workout complete! Saved locally to your phone. Will auto-sync when network connects.');
-  show('history');
-}
-
 /* ---------- session fallback ---------- */
 function fallbackSession() {
   const now = new Date().toISOString();
@@ -479,94 +455,31 @@ function discardActiveWorkout() {
   if (typeof toast === 'function') toast('Draft discarded');
 }
 
-function logMarkup() {  
-  const session = ensureActiveSession();  
-  const current = activeBlock();  
-  const currentName = current?.exerciseName || session.activeExercise || '';  
-  const sets = Array.isArray(session.sets) ? session.sets : [];  
-  const matchingSets = currentName  
-    ? sets.filter(x => x && (x.exerciseName === currentName || x.exercise === currentName))  
+function logMarkup() {
+  const session = ensureActiveSession();
+  const current = activeBlock();
+  const currentName = current?.exerciseName || session.activeExercise || '';
+  const sets = Array.isArray(session.sets) ? session.sets : [];
+  const matchingSets = currentName
+    ? sets.filter(x => x && (x.exerciseName === currentName || x.exercise === currentName))
     : sets;
 
-  if (!matchingSets.length) {  
-    return '<div class="empty">No sets logged yet for this exercise.</div>';  
-  }
-
-  return matchingSets.map((set, index) => {  
-    // Find the actual index in session.sets for edit/delete operations  
-    const globalIndex = sets.indexOf(set);  
-    const repsDisplay = set.reps ?? set.result ?? '—';  
-    const isTimed = set.timed || /\b(sec|min|s|m)\b/i.test(repsDisplay);
-
-    return `  
-      <div class="logged-set-row">  
-        <div style="flex:1;min-width:0">  
-          <b>Set ${index + 1}</b>  
-          <span class="quiet" style="margin-left:6px">  
-            ${esc(set.load ? set.load + ' lbs' : '')}  
-            ${esc(set.load && repsDisplay !== '—' ? ' × ' : '')}  
-            ${esc(repsDisplay !== '—' ? (isTimed ? repsDisplay : repsDisplay + ' reps') : '—')}  
-            ${set.rir ? ' · RIR ' + esc(set.rir) : ''}  
-            ${set.tempo ? ' · Tempo ' + esc(set.tempo) : ''}  
-          </span>  
-          ${set.notes ? `<div class="quiet" style="font-size:11px;margin-top:2px">${esc(set.notes)}</div>` : ''}  
-        </div>  
-        <div class="logged-set-actions">  
-          <button class="chip" data-edit-set="${globalIndex}" title="Edit set">✎</button>  
-          <button class="chip" data-remove-set="${globalIndex}" title="Remove set">✕</button>  
-        </div>  
-      </div>  
-    `;  
-  }).join('');  
-}  
-
-// === ADD: after logMarkup function ===  
-function bindSetActions() {  
-  $$('[data-edit-set]').forEach(btn => {  
-    btn.onclick = () => {  
-      const idx = parseInt(btn.dataset.editSet, 10);  
-      const session = ensureActiveSession();  
-      if (!Array.isArray(session.sets) || idx < 0 || idx >= session.sets.length) return;  
-      const set = session.sets[idx];
-
-      const loadEl = $('#load');  
-      const resultEl = $('#result');  
-      const teEl = $('#tempoE'), tpEl = $('#tempoP'), tcEl = $('#tempoC');  
-      const noteEl = $('#note');
-
-      if (loadEl) loadEl.value = set.load || '';  
-      if (resultEl) resultEl.value = set.reps || set.result || '';  
-      const tempoParts = String(set.tempo || '').split('-');  
-      if (teEl) teEl.value = tempoParts[0] || '';  
-      if (tpEl) tpEl.value = tempoParts[1] || '';  
-      if (tcEl) tcEl.value = tempoParts[2] || '';  
-      if (noteEl) noteEl.value = set.notes || '';
-
-      $$('[data-rir]').forEach(chip => {  
-        chip.classList.toggle('active', chip.dataset.rir === (set.rir || ''));  
-      });
-
-      session.sets.splice(idx, 1);  
-      if (typeof persist === 'function') persist();  
-      if (typeof renderLog === 'function') renderLog();  
-      toast('Set loaded for editing — modify and tap Add Set');  
-    };  
-  });
-
-  $$('[data-remove-set]').forEach(btn => {  
-    btn.onclick = () => {  
-      const idx = parseInt(btn.dataset.removeSet, 10);  
-      const session = ensureActiveSession();  
-      if (!Array.isArray(session.sets) || idx < 0 || idx >= session.sets.length) return;  
-      if (!confirm('Remove this set?')) return;  
-      session.sets.splice(idx, 1);  
-      if (typeof persist === 'function') persist();  
-      if (typeof renderLog === 'function') renderLog();  
-      toast('Set removed');  
-    };  
-  });  
-}  
-// === END ADD ===  
+  return matchingSets.length
+    ? matchingSets.map((set, index) => `
+        <div class="exercise-card">
+          <div class="exercise-title">
+            <b>Set ${index + 1}</b>
+            <span class="quiet">
+              ${esc(set.reps ?? set.result ?? '—')} reps ·
+              ${esc(set.weight ?? set.load ?? '—')} load ·
+              ${esc(set.rir ?? '—')} RIR
+            </span>
+          </div>
+          ${set.notes ? `<div class="quiet">${esc(set.notes)}</div>` : ''}
+        </div>
+      `).join('')
+    : '<div class="empty">No sets logged yet for this exercise.</div>';
+}
 
 function renderPicker(query = '') {
   const root = $('#exercisePicker');
@@ -647,14 +560,13 @@ function renderHome() {
       }
     : null;
 
-  const hasActiveSession = !!(  
-    typeof active !== 'undefined' &&  
-    active &&  
-    active.status === 'active' &&  
-    (  
-      (Array.isArray(active.sets) && active.sets.length) ||  
-      (state.cockpit && Array.isArray(state.cockpit.exercises) && state.cockpit.exercises.length)  
-    )  
+  const hasActiveSession = !!(
+    typeof active !== 'undefined' &&
+    active &&
+    (
+      (Array.isArray(active.sets) && active.sets.length) ||
+      (state.cockpit && Array.isArray(state.cockpit.exercises) && state.cockpit.exercises.length)
+    )
   );
 
   const activeSetCount = (typeof active !== 'undefined' && active && Array.isArray(active.sets))
@@ -898,57 +810,33 @@ function renderToday() {
       <h1>Build and queue the workout.</h1>
       <p class="quiet">Paste the card from Coach, make practical edits, then launch the planned structure directly into Log.</p>
 
-      <div class="coach-ai-card-container">
-        <div class="coach-ai-header">
-          <div class="coach-ai-badge">
-            <span class="badge-icon">✨</span>
-            <span class="badge-text">Clinical AI Engine</span>
-          </div>
-          <h3>Generate Today's Workout</h3>
-          <p class="coach-ai-description">
-            Inconvenience-free prescription powered by your active joint profile, PR milestones, and recent session bio-feedback.
-          </p>
-        </div>
-
-        <button id="btn-generate-coach-card" class="btn-coach-ai" type="button" onclick="MomentumPlanner.generateCoachCard()">
-          <span class="btn-text">Generate Card with Coach AI</span>
-          <span class="btn-spinner hidden" id="coach-ai-spinner"></span>
-        </button>
-
-        <div id="coach-ai-status" class="coach-ai-status-message hidden"></div>
-      </div>
-
       <article class="card">
-        ${  
-          next ? `  
-            <div class="card-head">  
-              <div>  
-                <div class="eyebrow">Next workout</div>  
-                <h2 style="margin-top:6px">${esc(next.title)}</h2>  
-                ${esc(planSummary(next))} · ${next.exerciseBlocks.length} exercises  
-              </div>  
-              ${esc(next.status)}  
-            </div>  
-            <div class="actions">  
-              <button class="primary" data-start="${next.id}">Start workout</button>  
-              <button class="secondary" data-edit="${next.id}">Edit</button>  
-              <button class="danger" data-delete="${next.id}">Delete</button>  
-            </div>  
-            <div class="actions" style="margin-top:8px">  
-              <button class="secondary" id="pasteCard">+ Paste another card</button>  
-              <button class="secondary" id="blankCard">+ Create custom workout</button>  
-            </div>  
-          ` : `  
-            <div class="empty">  
-              <b style="color:var(--ink)">No workout planned yet.</b>  
-              Choose a starter card, paste a Coach card, or create a custom workout below.  
-            </div>  
-            <div class="actions">  
-              <button class="primary" id="pasteCard">Paste workout card</button>  
-              <button class="secondary" id="blankCard">Create custom workout</button>  
-            </div>  
-          `  
-        } 
+        ${
+          next ? `
+            <div class="card-head">
+              <div>
+                <div class="eyebrow">Next workout</div>
+                <h2 style="margin-top:6px">${esc(next.title)}</h2>
+                ${esc(planSummary(next))} · ${next.exerciseBlocks.length} exercises
+              </div>
+              ${esc(next.status)}
+            </div>
+            <div class="actions">
+              <button class="primary" data-start="${next.id}">Start workout</button>
+              <button class="secondary" data-edit="${next.id}">Edit</button>
+              <button class="danger" data-delete="${next.id}">Delete</button>
+            </div>
+          ` : `
+            <div class="empty">
+              <b style="color:var(--ink)">No workout planned yet.</b>
+              Choose a starter card, paste a Coach card, or create a custom workout below.
+            </div>
+            <div class="actions">
+              <button class="primary" id="pasteCard">Paste workout card</button>
+              <button class="secondary" id="blankCard">Create custom workout</button>
+            </div>
+          `
+        }
       </article>
 
       <article class="card section" id="trainingFocus">
@@ -1009,10 +897,10 @@ function renderToday() {
                     <div class="target">${esc(planSummary(plan))}</div>
                     <div class="quiet">${plan.exerciseBlocks.length} exercises · ${esc(plan.sourceType)}</div>
                   </div>
-                  <div class="row-actions">  
-                    <button class="icon-btn" title="Move up" data-move="${plan.id}" data-direction="-1">↑</button>  
-                    <button class="icon-btn" title="Move down" data-move="${plan.id}" data-direction="1">↓</button>  
-                  </div>  
+                  <div class="row-actions">
+                    <button class="icon-btn" title="Move up" data-move="${plan.id}" data-direction="-1">↑</button>
+                    <button class="icon-btn" title="Move down" data-move="${plan.id}" data-direction="1">↓</button>
+                  </div>
                 </div>
                 <div class="actions">
                   <button class="secondary" data-edit="${plan.id}">Open / edit</button>
@@ -1025,125 +913,67 @@ function renderToday() {
         }
       </article>
 
-<details class="card section glossary-card">  
-        <summary><b>Glossary + training guide</b> — Tap to expand</summary>  
+      <details class="card section glossary-card">
+        <summary><b>Glossary + training guide</b>Tap to expand</summary>
         <div class="glossary-body">
-
-          <div class="insight">  
-            <i class="dot"></i>  
-            <div>  
-              <b>Compound vs. Isolation</b>  
-              Compound exercises work multiple joints and muscle groups (squat, row, press). Isolation exercises target one muscle group (curl, lateral raise). Most programs use compounds for the main work and isolation for targeted development.  
-            </div>  
+          <div class="insight">
+            <i class="dot"></i>
+            <div>
+              <b>Tempo</b>
+              Tempo tells you how fast to perform each part of a repetition.
+              Starter cards use: lower - pause - lift
+              Coach / pasted cards use: eccentric - pause - concentric
+              Example: 3-1-2 = lower for 3 sec, pause for 1 sec, lift for 2 sec.
+            </div>
           </div>
 
-          <div class="insight">  
-            <i class="dot"></i>  
-            <div>  
-              <b>Consolidation</b>  
-              A training phase where load stays the same while you focus on improving movement quality, consistency, and ownership of the weight. Progress is measured by how clean and repeatable the reps become — not by adding load.  
-            </div>  
+          <div class="insight">
+            <i class="dot"></i>
+            <div>
+              <b>RIR</b>
+              RIR = Reps in Reserve.
+              RIR 3 — finish knowing you had about 3 good reps left.
+              Why it matters: autoregulation methods like RIR are widely used in evidence-based coaching and supported in the training literature for helping lifters select appropriate loads and manage effort as fatigue changes.
+            </div>
           </div>
 
-          <div class="insight">  
-            <i class="dot amber"></i>  
-            <div>  
-              <b>Deload</b>  
-              A planned reduction in training stress — usually lighter loads, fewer sets, or both. Deloads let your body recover and adapt so you can train harder in the next block. They are not a sign of weakness; they are a tool for long-term progress.  
-            </div>  
+          <div class="insight">
+            <i class="dot amber"></i>
+            <div>
+              <b>How Momentum teaches training</b>
+              Movement → Control → Effort → Load → Progression
+              A novice should first learn the movement, then control it, then judge effort honestly, then add load, and only then chase progression.
+            </div>
           </div>
 
-          <div class="insight">  
-            <i class="dot amber"></i>  
-            <div>  
-              <b>How Momentum teaches training</b>  
-              Movement → Control → Effort → Load → Progression.  
-              A novice should first learn the movement, then control it, then judge effort honestly, then add load, and only then chase progression.  
-            </div>  
+          <div class="insight">
+            <i class="dot"></i>
+            <div>
+              <b>Why tempo and RIR matter</b>
+              Tempo teaches control. RIR teaches autoregulation. Together they teach stimulus awareness so load progression becomes more meaningful.
+            </div>
           </div>
 
-          <div class="insight">  
-            <i class="dot"></i>  
-            <div>  
-              <b>Load (working load)</b>  
-              The weight you use for your working sets. It should allow you to complete the prescribed reps with good technique while respecting the RIR target. "Load" in Momentum always means the total external resistance — dumbbells, barbell, cable stack, etc.  
-            </div>  
+          <div class="insight">
+            <i class="dot"></i>
+            <div>
+              <b>Rest</b>
+              Rest is recovery between sets. More demanding sets usually need longer rest to keep movement quality and effort honest.
+            </div>
           </div>
 
-          <div class="insight">  
-            <i class="dot"></i>  
-            <div>  
-              <b>Load selection</b>  
-              Choose a weight that lets you complete the prescribed reps with clean technique while still having about 2–4 good reps left unless the card says otherwise.  
-            </div>  
+          <div class="insight">
+            <i class="dot"></i>
+            <div>
+              <b>Load selection</b>
+              Choose a weight that lets you complete the prescribed reps with clean technique while still having about 2-4 good reps left unless the card says otherwise.
+            </div>
           </div>
-
-          <div class="insight">  
-            <i class="dot"></i>  
-            <div>  
-              <b>Progressive overload</b>  
-              Gradually increasing the demands on your muscles over time — through more weight, more reps, better tempo control, or less rest. This is the fundamental driver of strength and muscle adaptation.  
-            </div>  
-          </div>
-
-          <div class="insight">  
-            <i class="dot"></i>  
-            <div>  
-              <b>Rest</b>  
-              Recovery between sets. More demanding sets usually need longer rest to keep movement quality and effort honest.  
-            </div>  
-          </div>
-
-          <div class="insight">  
-            <i class="dot"></i>  
-            <div>  
-              <b>RIR (Reps in Reserve)</b>  
-              RIR = Reps in Reserve.  
-              RIR 3 — finish knowing you had about 3 good reps left.  
-              Why it matters: autoregulation methods like RIR are widely used in evidence-based coaching and supported in the training literature for helping lifters select appropriate loads and manage effort as fatigue changes.  
-            </div>  
-          </div>
-
-          <div class="insight">  
-            <i class="dot"></i>  
-            <div>  
-              <b>Superset</b>  
-              Two exercises performed back-to-back with minimal rest between them. Rest is taken after both exercises are complete. Supersets save time and can increase training density.  
-            </div>  
-          </div>
-
-          <div class="insight">  
-            <i class="dot"></i>  
-            <div>  
-              <b>Tempo</b>  
-              Tempo tells you how fast to perform each part of a repetition.  
-              Starter cards use: lower – pause – lift.  
-              Coach / pasted cards use: eccentric – pause – concentric.  
-              Example: 3-1-2 = lower for 3 sec, pause for 1 sec, lift for 2 sec.  
-            </div>  
-          </div>
-
-          <div class="insight">  
-            <i class="dot"></i>  
-            <div>  
-              <b>Unilateral</b>  
-              Training one side at a time (e.g., single-arm curl, split squat). Unilateral work helps identify and correct strength imbalances between your left and right sides.  
-            </div>  
-          </div>
-
-          <div class="insight">  
-            <i class="dot"></i>  
-            <div>  
-              <b>Why tempo and RIR matter</b>  
-              Tempo teaches control. RIR teaches autoregulation. Together they teach stimulus awareness so load progression becomes more meaningful.  
-            </div>  
-          </div>
-
-        </div>  
+        </div>
       </details>
 
-      <section id="plannerEditor" class="section"></section>  
-    </div>  
+      <section id="plannerEditor" class="section"></section>
+    </div>
   `;
 
   bindToday();
@@ -1290,6 +1120,7 @@ function renderEditor(mode) {
         <textarea id="rawCard" placeholder="Paste the complete Coach workout card here…">${esc(editor.sourceRawText || '')}</textarea>
         <div class="actions">
           <button class="primary" id="parseCard">Parse into editable workout</button>
+          <button class="secondary" id="generateCoachAiCard">Generate with Coach AI</button>
           <button class="secondary" id="cancelEditor">Cancel</button>
         </div>
       </article>
@@ -1313,14 +1144,38 @@ function renderEditor(mode) {
           toast('Could not parse that workout card');
           return;
         }
-        editor = parsed;  
-        editor.exerciseBlocks = safeBlocks(editor.exerciseBlocks);  
-        renderEditor('builder');  
-        setTimeout(() => {  
-          const editorEl = $('#plannerEditor');  
-          if (editorEl) editorEl.scrollIntoView({ behavior: 'smooth', block: 'start' });  
-        }, 50);  
-      };  
+        editor = parsed;
+        editor.exerciseBlocks = safeBlocks(editor.exerciseBlocks);
+        renderEditor('builder');
+      };
+    }
+
+    const generateCoachBtn = $('#generateCoachAiCard');
+    if (generateCoachBtn) {
+      generateCoachBtn.onclick = async () => {
+        if (!window.MomentumSync) return;
+        const rawEl = $('#rawCard');
+        const promptText = rawEl ? rawEl.value.trim() : '';
+        generateCoachBtn.textContent = 'Generating with AI…';
+        try {
+          const cardText = await MomentumSync.generateCoachCard(promptText || 'Generate training card based on active cycle, orthopedic guardrails, and PR history.');
+          if (cardText) {
+            if (rawEl) rawEl.value = cardText;
+            if (typeof MomentumPlanner !== 'undefined' && typeof MomentumPlanner.parse === 'function') {
+              const parsed = MomentumPlanner.parse(cardText);
+              if (parsed) {
+                editor = parsed;
+                editor.exerciseBlocks = safeBlocks(editor.exerciseBlocks);
+                renderEditor('builder');
+              }
+            }
+          }
+        } catch (_) {
+          /* error notified by MomentumSync */
+        } finally {
+          generateCoachBtn.textContent = 'Generate with Coach AI';
+        }
+      };
     }
 
     const cancelEditor = $('#cancelEditor');
@@ -1401,137 +1256,62 @@ function renderEditor(mode) {
     editor[input.dataset.plan] = input.value;
   });
 
-// Generic field sync for all block inputs  
-  $$('[data-block]').forEach(input => {  
-    if (input.dataset.field === 'exerciseName') return; // handled separately below  
-    input.oninput = () => {  
-      const block = editor.exerciseBlocks.find(x => x.id === input.dataset.block);  
+  $$('[data-block]').forEach(input => input.oninput = () => {
+    const block = editor.exerciseBlocks.find(x => x.id === input.dataset.block);
+    if (!block) return;
+
+    const field = input.dataset.field;
+    let value = input.value;
+
+    if (field === 'exerciseName') {
+      block[field] = value;
+      return;
+    }
+
+    if (field === 'targetSets') {
+      value = (typeof normalizeNumericEntry === 'function') ? normalizeNumericEntry(value, false) : value;
+      input.value = value;
+    }
+
+    if (field === 'targetWeightOrLoad') {
+      value = (typeof normalizeNumericEntry === 'function') ? normalizeNumericEntry(value, true) : value;
+      input.value = value;
+    }
+
+    if (field === 'rir') {
+      value = String(value || '').replace(/[^0-9+\-]/g, '');
+      input.value = value;
+    }
+
+    block[field] = value;
+  });
+
+  $$('[data-block][data-field="exerciseName"]').forEach(input => {
+    input.oninput = () => {
+      const block = editor.exerciseBlocks.find(x => x.id === input.dataset.block);
+      if (block) block.exerciseName = input.value;
+      const card = input.closest('[data-block-card]');
+      const h2 = card && card.querySelector('h2');
+      if (h2) h2.textContent = input.value || 'Untitled exercise';
+    };
+    input.onchange = () => {
+      const block = editor.exerciseBlocks.find(x => x.id === input.dataset.block);
       if (!block) return;
 
-      const field = input.dataset.field;  
-      let value = input.value;
-
-      if (field === 'targetSets') {  
-        value = (typeof normalizeNumericEntry === 'function') ? normalizeNumericEntry(value, false) : value;  
-        input.value = value;  
+      const canon = (typeof canonicalExerciseName === 'function') ? canonicalExerciseName(input.value) : null;
+      if (canon) {
+        input.value = canon;
+        block.exerciseName = canon;
       }
-
-      if (field === 'targetWeightOrLoad') {  
-        value = (typeof normalizeNumericEntry === 'function') ? normalizeNumericEntry(value, true) : value;  
-        input.value = value;  
-      }
-
-      if (field === 'rir') {  
-        value = String(value || '').replace(/[^0-9+\-]/g, '');  
-        input.value = value;  
-      }
-
-      block[field] = value;  
-    };  
-  });
-
-  // Exercise name fields: search + canonicalize  
-  $$('[data-block][data-field="exerciseName"]').forEach(input => {  
-    const bid = input.dataset.block;  
-    const resultsEl = $(`[data-results-for="${bid}"]`);
-
-    input.oninput = () => {  
-      const block = editor.exerciseBlocks.find(x => x.id === bid);  
-      if (block) block.exerciseName = input.value;  
-      const card = input.closest('[data-block-card]');  
-      const h2 = card && card.querySelector('h2');  
-      if (h2) h2.textContent = input.value || 'Untitled exercise';
-
-      if (resultsEl) {  
-        const query = input.value.trim().toLowerCase();  
-        if (query.length < 2) {  
-          resultsEl.hidden = true;  
-          return;  
-        }  
-        const library = (typeof allExercises === 'function') ? allExercises() : [];  
-        const matches = library.filter(name =>  
-          name.toLowerCase().includes(query)  
-        ).slice(0, 12);
-
-        if (matches.length) {  
-          resultsEl.innerHTML = matches.map(name =>  
-            `<button type="button" class="exercise-pick-option" data-pick-name="${esc(name)}" data-pick-block="${esc(bid)}">${esc(name)}</button>`  
-          ).join('');  
-          resultsEl.hidden = false;
-
-          // Bind pick buttons immediately  
-          $$('.exercise-pick-option', resultsEl).forEach(btn => {  
-            btn.onclick = (e) => {  
-              e.preventDefault();  
-              const pickedName = btn.dataset.pickName;  
-              const pickedBid = btn.dataset.pickBlock;  
-              const pickedBlock = editor.exerciseBlocks.find(x => x.id === pickedBid);  
-              if (pickedBlock) pickedBlock.exerciseName = pickedName;  
-              input.value = pickedName;  
-              const pickedCard = input.closest('[data-block-card]');  
-              const pickedH2 = pickedCard && pickedCard.querySelector('h2');  
-              if (pickedH2) pickedH2.textContent = pickedName;  
-              resultsEl.hidden = true;  
-            };  
-          });  
-        } else {  
-          resultsEl.hidden = true;  
-        }  
-      }  
     };
-
-    input.onchange = () => {  
-      const block = editor.exerciseBlocks.find(x => x.id === bid);  
-      if (!block) return;  
-      const canon = (typeof canonicalExerciseName === 'function') ? canonicalExerciseName(input.value) : null;  
-      if (canon) {  
-        input.value = canon;  
-        block.exerciseName = canon;  
-      }  
-      if (resultsEl) resultsEl.hidden = true;  
-    };
-
-    input.onfocus = () => {  
-      if (input.value.trim().length >= 2) input.oninput();  
-    };  
   });
 
-  $$('[data-remove-block]').forEach(button => button.onclick = () => {  
-    editor.exerciseBlocks = editor.exerciseBlocks.filter(x => x.id !== button.dataset.removeBlock);  
-    if (!editor.exerciseBlocks.length && plannerMethodAvailable('blankBlock')) {  
-      editor.exerciseBlocks = [MomentumPlanner.blankBlock()];  
-    }  
-    renderEditor('builder');  
-  });
-
-  $$('[data-move-block]').forEach(button => {  
-    button.onclick = () => {  
-      const bid = button.dataset.moveBlock;  
-      const dir = parseInt(button.dataset.dir, 10);  
-      const idx = editor.exerciseBlocks.findIndex(x => x.id === bid);  
-      const target = idx + dir;  
-      if (idx < 0 || target < 0 || target >= editor.exerciseBlocks.length) return;  
-      [editor.exerciseBlocks[idx], editor.exerciseBlocks[target]] = [editor.exerciseBlocks[target], editor.exerciseBlocks[idx]];  
-      renderEditor('builder');  
-    };  
-  });
-
-  $$('[data-position-block]').forEach(input => {  
-    input.onchange = () => {  
-      const bid = input.dataset.positionBlock;  
-      const currentIdx = editor.exerciseBlocks.findIndex(x => x.id === bid);  
-      if (currentIdx < 0) return;  
-      const targetPos = parseInt(input.value, 10) - 1;  
-      if (isNaN(targetPos) || targetPos < 0 || targetPos >= editor.exerciseBlocks.length) {  
-        input.value = currentIdx + 1;  
-        return;  
-      }  
-      if (targetPos === currentIdx) return;  
-      const [block] = editor.exerciseBlocks.splice(currentIdx, 1);  
-      editor.exerciseBlocks.splice(targetPos, 0, block);  
-      renderEditor('builder');  
-      toast(`Moved to position ${targetPos + 1}`);  
-    };  
+  $$('[data-remove-block]').forEach(button => button.onclick = () => {
+    editor.exerciseBlocks = editor.exerciseBlocks.filter(x => x.id !== button.dataset.removeBlock);
+    if (!editor.exerciseBlocks.length && plannerMethodAvailable('blankBlock')) {
+      editor.exerciseBlocks = [MomentumPlanner.blankBlock()];
+    }
+    renderEditor('builder');
   });
 
   const addBlock = $('#addBlock');
@@ -1546,50 +1326,40 @@ function renderEditor(mode) {
     };
   }
 
-const saveQueue = $('#saveQueue');  
-  if (saveQueue) {  
-    saveQueue.onclick = () => {  
-      editor.exerciseBlocks.forEach((x, i) => {  
-        x.order = i + 1;  
-        x.exerciseName = (typeof canonicalExerciseName === 'function')  
-          ? canonicalExerciseName(String(x.exerciseName || '').trim())  
-          : String(x.exerciseName || '').trim();  
-        x.targetSets = (typeof normalizeNumericEntry === 'function') ? normalizeNumericEntry(x.targetSets, false) : x.targetSets;  
-        x.targetWeightOrLoad = (typeof normalizeNumericEntry === 'function') ? normalizeNumericEntry(x.targetWeightOrLoad, true) : x.targetWeightOrLoad;  
-        x.rir = String(x.rir || '').replace(/[^0-9+\-]/g, '');  
+  const saveQueue = $('#saveQueue');
+  if (saveQueue) {
+    saveQueue.onclick = () => {
+      editor.exerciseBlocks.forEach((x, i) => {
+        x.order = i + 1;
+        x.exerciseName = (typeof canonicalExerciseName === 'function')
+          ? canonicalExerciseName(String(x.exerciseName || '').trim())
+          : String(x.exerciseName || '').trim();
+        x.targetSets = (typeof normalizeNumericEntry === 'function') ? normalizeNumericEntry(x.targetSets, false) : x.targetSets;
+        x.targetWeightOrLoad = (typeof normalizeNumericEntry === 'function') ? normalizeNumericEntry(x.targetWeightOrLoad, true) : x.targetWeightOrLoad;
+        x.rir = String(x.rir || '').replace(/[^0-9+\-]/g, '');
       });
 
       const invalidBlock = editor.exerciseBlocks.find(block => !String(block.exerciseName || '').trim());
 
-      if (invalidBlock) {  
-        toast('Each exercise needs a name');  
-        return;  
+      if (invalidBlock) {
+        toast('Each exercise needs a name');
+        return;
       }
 
-      if (!plannerMethodAvailable('upsert')) {  
-        toast('Saving is unavailable right now');  
-        return;  
+      if (!plannerMethodAvailable('upsert')) {
+        toast('Saving is unavailable right now');
+        return;
       }
 
-      editor.status = 'queued';  
-      MomentumPlanner.upsert(editor);  
-      editor = null;  
+      editor.status = 'queued';
+      MomentumPlanner.upsert(editor);
+      editor = null;
       starterPreviewKey = null;
-
-      // Clear the editor DOM before re-rendering  
-      const editorRoot = $('#plannerEditor');  
-      if (editorRoot) editorRoot.innerHTML = '';
-
-      renderToday();  
-      if (typeof renderHome === 'function') renderHome();  
+      renderToday();
+      if (typeof renderHome === 'function') renderHome();
       toast('Workout saved to queue');
-
-      // Scroll after a short delay so the DOM has time to update  
-      setTimeout(() => {  
-        window.scrollTo({ top: 0, behavior: 'smooth' });  
-      }, 100);  
-    };  
-  } 
+    };
+  }
 
   const cancelEditor = $('#cancelEditor');
   if (cancelEditor) {
@@ -1767,12 +1537,9 @@ function renderLog() {
     ? (active.sets || []).filter(s => (s.exerciseName || s.exercise) === rx.exerciseName).length
     : 0;
   const setsTarget = prescribedSetsCount(block);
-  const isWarmupBlock = (block.section === 'warmup') || /warm-?up|preparation/i.test(rx.exerciseName);  
-  const setsComplete = setsTarget > 0  
-    ? completedForCurrent >= setsTarget  
-    : (isWarmupBlock && completedForCurrent > 0);  
-  const nextName = nextExerciseNameFor(rx.exerciseName);  
-  const showNext = (setsComplete || (isWarmupBlock && completedForCurrent > 0)) && !!nextName;
+  const setsComplete = setsTarget > 0 && completedForCurrent >= setsTarget;
+  const nextName = nextExerciseNameFor(rx.exerciseName);
+  const showNext = setsComplete && !!nextName;
 
   const repsText = rx.reps
     ? (/\b(sec|min|s|m)\b/i.test(rx.reps) || rx.timed ? rx.reps : `${rx.reps} reps`)
@@ -1792,15 +1559,12 @@ function renderLog() {
   const rirOptions = ['0', '0-1', '1', '1-2', '2', '2+', '3+', '4+'];
 
   const setNum = setsTarget > 0 ? Math.min(completedForCurrent + 1, setsTarget) : (completedForCurrent + 1);
-  const isWarmup = (block.section === 'warmup') || /warm-?up|preparation/i.test(rx.exerciseName);  
-  const effectiveSetsTarget = setsTarget > 0 ? setsTarget : (isWarmup ? completedForCurrent || 1 : 0);
-
-  const setLabel = setsTarget > 0  
-    ? 'Set ' + setNum + ' of ' + setsTarget + (setsComplete ? ' ✓' : '')  
-    : 'Set ' + (completedForCurrent + 1);  
-  const setBadge = setsTarget > 0  
-    ? (setsComplete ? setsTarget + '/' + setsTarget + ' ✓' : setNum + '/' + setsTarget)  
-    : String(completedForCurrent + 1);
+  const setLabel = setsTarget > 0
+    ? 'Set ' + setNum + ' of ' + setsTarget + (setsComplete ? ' ✓' : '')
+    : 'Set ' + setNum;
+  const setBadge = setsTarget > 0
+    ? (setsComplete ? setsTarget + '/' + setsTarget + ' ✓' : setNum + '/' + setsTarget)
+    : String(setNum);
 
   root.innerHTML = `
     <div class="log-shell">
@@ -1818,10 +1582,9 @@ function renderLog() {
       ${restBannerMarkup()}
 
       <article class="card set-entry-card">
-        <div class="rx-head">  
-          <span class="rx-badge">${esc(block.sectionLabel || (isWarmupBlock ? 'Warm-Up' : (rx.optional ? 'Optional' : 'Working')))}</span>  
-          <span class="rx-badge">${esc(setLabel)}</span>  
-          <span class="rx-line">${esc(summary)}</span>  
+        <div class="rx-head">
+          <span class="rx-badge">${esc(setLabel)}</span>
+          <span class="rx-line">${esc(summary)}</span>
         </div>
         <div class="set-form">
           <label class="field">Load<input id="load" class="input" inputmode="decimal" value="${esc(loadVal)}" placeholder="0"></label>
@@ -1837,7 +1600,7 @@ function renderLog() {
       </article>
 
       <article class="card session-log">
-        <div class="card-head"><div><h2>Sets</h2>${completedForCurrent} of ${setsTarget > 0 ? setsTarget : (isWarmupBlock ? 'open' : '—')} completed</div></div>
+        <div class="card-head"><div><h2>Sets</h2>${completedForCurrent} of ${setsTarget || '&mdash;'} completed</div></div>
         ${typeof logMarkup === 'function' ? logMarkup() : ''}
       </article>
 
@@ -1900,11 +1663,7 @@ function bindReview(session) {
       if (item) {
         item.coachQuestions = questions;
         if (item.status === 'staged') item.status = 'shared';
-        // Also mark the plan as complete in the queue  
-        if (item.planId && typeof MomentumPlanner !== 'undefined' && typeof MomentumPlanner.mark === 'function') {  
-          MomentumPlanner.mark(item.planId, 'complete');  
-        } 
-		saveDone(all);
+        saveDone(all);
       }
 
       renderReview();
@@ -1929,18 +1688,35 @@ function bindReview(session) {
       );
     };
   }
+
+  const syncSessionBtn = $('#syncSessionCloud');
+  if (syncSessionBtn) {
+    syncSessionBtn.onclick = () => {
+      if (window.MomentumSync && typeof MomentumSync.pushSession === 'function') {
+        const reviewQuestionsEl = $('#reviewQuestions');
+        const questions = reviewQuestionsEl && typeof reviewQuestionsEl.value === 'string'
+          ? reviewQuestionsEl.value
+          : (session.coachQuestions || '');
+        MomentumSync.pushSession({
+          ...session,
+          coachQuestions: questions
+        });
+      }
+    };
+  }
+
   const markCompleteBtn = $('#markComplete');
   if (markCompleteBtn) {
-    markCompleteBtn.onclick = async () => {
+    markCompleteBtn.onclick = () => {
       const all = getDone();
       const item = all.find(x => x.id === session.id);
       if (!item) return;
       item.status = 'complete';
-      if (item.planId && typeof MomentumPlanner !== 'undefined' && typeof MomentumPlanner.mark === 'function') {  
-          MomentumPlanner.mark(item.planId, 'complete');  
-        }
-	  saveDone(all);
-      await finishAndSaveWorkout(item);
+      saveDone(all);
+      toast('Review marked complete');
+      renderReview();
+      renderHistory();
+      renderHome();
     };
   }
 
@@ -2127,12 +1903,12 @@ document.addEventListener('visibilitychange', () => {
       const el = document.getElementById('toast');
       if (!el) return;
       el.textContent = msg == null ? '' : String(msg);
-      el.style.opacity = '1';  
-      el.style.transform = 'translateX(-50%) translateY(0)';
+      el.style.opacity = '1';
+      el.style.transform = 'translateY(0)';
       clearTimeout(toast._t);
       toast._t = setTimeout(() => {
-        el.style.opacity = '0';  
-        el.style.transform = 'translateX(-50%) translateY(10px)';
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(10px)';
       }, 2200);
     };
   }
@@ -2260,59 +2036,31 @@ document.addEventListener('visibilitychange', () => {
 
   // Editable exercise block for the Workout Builder. Inputs carry data-block +
   // data-field so renderEditor's existing handlers keep them in sync.
-  if (!has('builderBlock')) {  
-    window.builderBlock = function builderBlock(block, index) {  
-      block = block || { id: uid('block'), exerciseName: '' };  
-      if (!block.id) block.id = uid('block');  
-      const bid = esc(block.id);  
-      const sectionOptions = [  
-        ['warmup', 'Warm-Up'],  
-        ['primary', 'Working'],  
-        ['optional', 'Optional'],  
-        ['finisher', 'Finisher'],  
-        ['cooldown', 'Cool-Down']  
-      ];  
-      const currentSection = block.section || 'primary';  
-      const sectionSelect = `<label class="field">Section<select class="input" data-block="${bid}" data-field="section">${sectionOptions.map(([val, label]) => `<option value="${val}" ${currentSection === val ? 'selected' : ''}>${label}</option>`).join('')}</select></label>`;
-
-      const input = (field, label, attrs = '') => {  
-        if (field === 'exerciseName') {  
-          return `<label class="field">${esc(label)}  
-            <div class="exercise-search-wrap">  
-              <input class="input exercise-search-input" data-block="${bid}" data-field="exerciseName" value="${esc(block.exerciseName ?? '')}" autocomplete="off" placeholder="Search or type exercise name…" ${attrs}>  
-              <div class="exercise-search-results" data-results-for="${bid}" hidden></div>  
-            </div>  
-          </label>`;  
-        }  
-        return `<label class="field">${esc(label)}<input class="input" data-block="${bid}" data-field="${esc(field)}" value="${esc(block[field] ?? '')}" ${attrs}></label>`;  
-      };  
-      const area = (field, label) =>  
+  if (!has('builderBlock')) {
+    window.builderBlock = function builderBlock(block, index) {
+      block = block || { id: uid('block'), exerciseName: '' };
+      if (!block.id) block.id = uid('block');
+      const bid = esc(block.id);
+      const input = (field, label, attrs = '') =>
+        `<label class="field">${esc(label)}<input class="input" data-block="${bid}" data-field="${esc(field)}" value="${esc(block[field] ?? '')}" ${attrs}></label>`;
+      const area = (field, label) =>
         `<label class="field full">${esc(label)}<textarea data-block="${bid}" data-field="${esc(field)}">${esc(block[field] ?? '')}</textarea></label>`;
-
-      const sectionLabel = (sectionOptions.find(s => s[0] === currentSection) || ['', 'Working'])[1];
-
-      return `<div class="exercise-card" data-block-card="${bid}">  
-        <div class="card-head"><div><div class="eyebrow">${esc(sectionLabel)} · Exercise ${index + 1}</div><h2 style="margin-top:4px">${esc(block.exerciseName || 'Untitled exercise')}</h2></div>  
-        <div class="row-actions">  
-          <input class="position-input" data-position-block="${bid}" type="number" min="1" max="99" value="${index + 1}" title="Type position number to reorder" inputmode="numeric">  
-          <button class="icon-btn" title="Move up" data-move-block="${bid}" data-dir="-1">↑</button>  
-          <button class="icon-btn" title="Move down" data-move-block="${bid}" data-dir="1">↓</button>  
-        </div></div>  
-        <div class="set-form" style="margin-top:10px">  
-          ${input('exerciseName', 'Exercise name')}  
-          ${sectionSelect}  
-          ${input('targetSets', 'Target sets', 'inputmode="numeric"')}  
-          ${input('targetRepsOrDuration', 'Reps / duration')}  
-          ${input('targetWeightOrLoad', 'Load (lbs)', 'inputmode="decimal"')}  
-          ${input('tempo', 'Tempo')}  
-          ${input('rir', 'RIR')}  
-          ${input('rest', 'Rest')}  
-          ${area('notes', 'Notes')}  
-          ${area('checkpoints', 'Technical checkpoint')}  
-        </div>  
-        <div class="actions"><button class="danger" data-remove-block="${bid}">Remove exercise</button></div>  
-      </div>`;  
-    };  
+      return `<div class="exercise-card" data-block-card="${bid}">
+        <div class="card-head"><div><div class="eyebrow">Exercise ${index + 1}</div><h2 style="margin-top:4px">${esc(block.exerciseName || 'Untitled exercise')}</h2></div></div>
+        <div class="set-form" style="margin-top:10px">
+          ${input('exerciseName', 'Exercise name')}
+          ${input('targetSets', 'Target sets', 'inputmode="numeric"')}
+          ${input('targetRepsOrDuration', 'Reps / duration')}
+          ${input('targetWeightOrLoad', 'Load (lbs)', 'inputmode="decimal"')}
+          ${input('tempo', 'Tempo')}
+          ${input('rir', 'RIR')}
+          ${input('rest', 'Rest')}
+          ${area('notes', 'Notes')}
+          ${area('checkpoints', 'Technical checkpoint')}
+        </div>
+        <div class="actions"><button class="danger" data-remove-block="${bid}">Remove exercise</button></div>
+      </div>`;
+    };
   }
 
   // Preview a starter card in the planner editor with a "Use this card" action.
@@ -2385,15 +2133,16 @@ document.addEventListener('visibilitychange', () => {
       lines.push('');
       sets.forEach((s, i) => {
         const exName = s.exerciseName || s.exercise || '—';
-        const loadStr = (s.load && s.load !== '0') ? `${s.load} lbs` : '';
-        const repsStr = s.reps || s.result || '';
-        const isTimed = s.timed || /\b(sec|min|s|m)\b/i.test(repsStr) || (typeof isTimedExercise === 'function' && isTimedExercise(exName, repsStr));
+        const loadStr = (s.load && s.load !== '0' && s.load !== 0) ? `${s.load} lbs` : '';
+        const rawReps = String(s.reps || s.result || '').trim();
+        const repsClean = rawReps.replace(/\s*reps?$/i, '').trim();
+        const isTimed = s.timed || /\b(sec|min|s|m)\b/i.test(rawReps) || (typeof isTimedExercise === 'function' && isTimedExercise(exName, rawReps));
 
         let perf = '';
-        if (loadStr && repsStr) {
-          perf = isTimed ? `${loadStr} | ${repsStr}` : `${loadStr} × ${repsStr} reps`;
-        } else if (repsStr) {
-          perf = isTimed ? repsStr : `${repsStr} reps`;
+        if (loadStr && repsClean) {
+          perf = isTimed ? `${loadStr} | ${repsClean}` : `${loadStr} × ${repsClean} reps`;
+        } else if (repsClean) {
+          perf = isTimed ? repsClean : `${repsClean} reps`;
         } else if (loadStr) {
           perf = loadStr;
         }
@@ -2410,183 +2159,31 @@ document.addEventListener('visibilitychange', () => {
     };
   }
 
-  if (!has('csv')) {  
-    window.csv = function csv(session) {  
-      const sets = Array.isArray(session.sets) ? session.sets : [];  
-      const now = new Date().toISOString();  
-      const sessionDate = dateIso(session.completedAt || session.startedAt);  
-      const sessionId = session.id || ('S-' + sessionDate.replace(/-/g, '') + '-01');  
-      const workoutName = session.canonicalTitle || session.workoutName || '';  
-      const startTime = session.startedAt || '';  
-      const endTime = session.completedAt || '';  
-      const durationMins = (startTime && endTime)  
-        ? Math.round((new Date(endTime) - new Date(startTime)) / 60000)  
-        : '';  
-      const coachQ = session.coachQuestions || '';  
-      const plan = session.plannedWorkout || null;  
-      const prescribedId = (plan && plan.id) ? plan.id : '';  
-      const phaseId = session.phase || (plan && plan.phaseId) || '';  
-      const week = session.week || (plan && plan.week) || '';  
-      const day = session.day || (plan && plan.day) || '';  
-      const focus = (plan && plan.subtitle) || '';
-
-      const header = [  
-        'SessionID','SessionDate','PhaseID','PhaseWeek','ProgramDay',  
-        'WorkoutName','WorkoutFocus','PrescribedWorkoutID','GymLocation',  
-        'SessionStartTime','SessionEndTime','DurationMinutes','BodyweightLbs',  
-        'PreSessionEnergy','PreSessionShoulderStatus','PreSessionGripStatus',  
-        'SessionGeneralNotes','CoachQuestions',  
-        'ExerciseLogID','ExerciseOrder','ExerciseName','PrescribedExerciseName',  
-        'ExerciseAliasUsed','Category','Equipment',  
-        'SetNumber','IsWarmup','IsWorkingSet','IsBackoffSet','IsAMRAP',  
-        'IsRestPause','IsTimed',  
-        'WeightLbs','WeightPerHandLbs','Reps','DurationSeconds',  
-        'DistanceValue','DistanceUnit',  
-        'TempoEccentric','TempoPause','TempoConcentric','TempoRaw',  
-        'RIR','TechnicalCheckpoint','JointPerformanceNote',  
-        'ExerciseDateTime','SupersetGroupID','RestSecondsAfter',  
-        'CompletedAsPlanned','IsSubstitution','SubstitutionReason',  
-        'PerceivedDifficulty','ShoulderStatusTag','GripStatusTag',  
-        'SetTags','SetGeneralNotes',  
-        'ExportCreatedAt','ExportSource','ExportVersion'  
-      ];
-
-      // Track set numbers per exercise  
-      const setCounters = {};
-
-      const rows = sets.map((s, i) => {  
-        const exName = s.exerciseName || s.exercise || '';  
-        const reps = s.reps || s.result || '';  
-        const isTimed = s.timed || /\b(sec|min|s|m)\b/i.test(reps) ||  
-          (typeof isTimedExercise === 'function' && isTimedExercise(exName, reps));
-
-        // Per-exercise set number  
-        if (!setCounters[exName]) setCounters[exName] = 0;  
-        setCounters[exName]++;  
-        const setNum = setCounters[exName];
-
-        // Section flags  
-        const section = s.section || '';  
-        const isWarmup = section === 'warmup' || /warm-?up|preparation/i.test(exName);  
-        const isWorking = !isWarmup && section !== 'optional';
-
-        // Load parsing  
-        const rawLoad = String(s.load || '').trim();  
-        const loadNum = rawLoad.replace(/[^0-9.]/g, '') || '';
-
-        // Reps vs duration  
-        let repsVal = '';  
-        let durationSecs = '';  
-        if (isTimed) {  
-          // Try to extract seconds  
-          const minMatch = reps.match(/(\d+(?:\.\d+)?)\s*min/i);  
-          const secMatch = reps.match(/(\d+(?:\.\d+)?)\s*(?:sec|s)\b/i);  
-          const mmss = reps.match(/^(\d+):(\d{2})$/);  
-          if (minMatch) {  
-            durationSecs = String(Math.round(parseFloat(minMatch[1]) * 60));  
-          } else if (secMatch) {  
-            durationSecs = String(Math.round(parseFloat(secMatch[1])));  
-          } else if (mmss) {  
-            durationSecs = String(parseInt(mmss[1]) * 60 + parseInt(mmss[2]));  
-          } else {  
-            durationSecs = reps.replace(/[^0-9]/g, '') || reps;  
-          }  
-        } else {  
-          repsVal = reps.replace(/[^0-9]/g, '') || reps;  
-        }
-
-        // Tempo split  
-        const tempoParts = String(s.tempo || '').split('-');  
-        const tempoE = tempoParts[0] || '';  
-        const tempoP = tempoParts[1] || '';  
-        const tempoC = tempoParts[2] || '';  
-        const tempoRaw = s.tempo || '';
-
-        // Rest seconds  
-        const restSecs = (typeof restSecondsFromPrescription === 'function')  
-          ? restSecondsFromPrescription(s.rest || '')  
-          : '';
-
-        // Prescribed exercise name (from plan if available)  
-        const plannedBlock = plan && Array.isArray(plan.exerciseBlocks)  
-          ? plan.exerciseBlocks.find(b => b && b.exerciseName === exName)  
-          : null;  
-        const prescribedName = (plannedBlock && plannedBlock.exerciseName) || exName;  
-        const checkpoint = (plannedBlock && plannedBlock.checkpoints) || '';
-
-        // Exercise log ID  
-        const dateStamp = sessionDate.replace(/-/g, '');  
-        const exLogId = 'E-' + dateStamp + '-' + String(i + 1).padStart(4, '0');
-
-        // Set tags from section  
-        const setTags = s.section || (isWarmup ? 'warmup' : 'primary');
-
-        return [  
-          sessionId,                           // SessionID  
-          sessionDate,                         // SessionDate  
-          phaseId,                             // PhaseID  
-          week,                                // PhaseWeek  
-          day,                                 // ProgramDay  
-          workoutName,                         // WorkoutName  
-          focus,                               // WorkoutFocus  
-          prescribedId,                        // PrescribedWorkoutID  
-          '',                                  // GymLocation  
-          startTime,                           // SessionStartTime  
-          endTime,                             // SessionEndTime  
-          durationMins,                        // DurationMinutes  
-          '',                                  // BodyweightLbs  
-          '',                                  // PreSessionEnergy  
-          '',                                  // PreSessionShoulderStatus  
-          '',                                  // PreSessionGripStatus  
-          '',                                  // SessionGeneralNotes  
-          coachQ,                              // CoachQuestions  
-          exLogId,                             // ExerciseLogID  
-          i + 1,                               // ExerciseOrder  
-          exName,                              // ExerciseName  
-          prescribedName,                      // PrescribedExerciseName  
-          exName,                              // ExerciseAliasUsed  
-          '',                                  // Category  
-          '',                                  // Equipment  
-          setNum,                              // SetNumber  
-          isWarmup ? 'TRUE' : 'FALSE',         // IsWarmup  
-          isWorking ? 'TRUE' : 'FALSE',        // IsWorkingSet  
-          'FALSE',                             // IsBackoffSet  
-          'FALSE',                             // IsAMRAP  
-          'FALSE',                             // IsRestPause  
-          isTimed ? 'TRUE' : 'FALSE',          // IsTimed  
-          loadNum,                             // WeightLbs  
-          '',                                  // WeightPerHandLbs  
-          repsVal,                             // Reps  
-          durationSecs,                        // DurationSeconds  
-          '',                                  // DistanceValue  
-          '',                                  // DistanceUnit  
-          tempoE,                              // TempoEccentric  
-          tempoP,                              // TempoPause  
-          tempoC,                              // TempoConcentric  
-          tempoRaw,                            // TempoRaw  
-          s.rir || '',                         // RIR  
-          checkpoint,                          // TechnicalCheckpoint  
-          '',                                  // JointPerformanceNote  
-          s.loggedAt || now,                   // ExerciseDateTime  
-          '',                                  // SupersetGroupID  
-          restSecs || '',                      // RestSecondsAfter  
-          'TRUE',                              // CompletedAsPlanned  
-          'FALSE',                             // IsSubstitution  
-          '',                                  // SubstitutionReason  
-          '',                                  // PerceivedDifficulty  
-          '',                                  // ShoulderStatusTag  
-          '',                                  // GripStatusTag  
-          setTags,                             // SetTags  
-          s.notes || '',                       // SetGeneralNotes  
-          now,                                 // ExportCreatedAt  
-          'Momentum',                          // ExportSource  
-          '1.0'                                // ExportVersion  
-        ];  
+  if (!has('csv')) {
+    window.csv = function csv(session) {
+      const sets = Array.isArray(session.sets) ? session.sets : [];
+      const header = ['Set', 'Section', 'Exercise', 'Load', 'Reps_Or_Duration', 'Is_Timed', 'Tempo', 'RIR', 'Rest', 'Notes'];
+      const rows = sets.map((s, i) => {
+        const exName = s.exerciseName || s.exercise || '';
+        const reps = s.reps || s.result || '';
+        const isTimed = s.timed || /\b(sec|min|s|m)\b/i.test(reps) || (typeof isTimedExercise === 'function' && isTimedExercise(exName, reps));
+        const section = s.section || (s.optional ? 'Optional' : (/warm-?up|preparation/i.test(exName) ? 'Warm-Up' : 'Primary'));
+        return [
+          i + 1,
+          section,
+          exName,
+          s.load || '',
+          reps,
+          isTimed ? 'true' : 'false',
+          s.tempo || '',
+          s.rir || '',
+          s.rest || '',
+          s.notes || ''
+        ];
       });
-
-      const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;  
-      return [header, ...rows].map(r => r.map(q).join(',')).join('\n');  
-    };  
+      const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+      return [header, ...rows].map(r => r.map(q).join(',')).join('\n');
+    };
   }
 
   if (!has('copy')) {
@@ -2656,7 +2253,8 @@ document.addEventListener('visibilitychange', () => {
           <label class="field full">Questions for Coach<textarea id="reviewQuestions">${esc(session.coachQuestions || '')}</textarea></label>
         </div>
         <div class="actions" style="margin-top:12px">
-          ${session.status === 'complete' ? '<button class="secondary" id="reopenReview">Reopen review</button>' : '<button class="primary" id="markComplete">Finish Workout</button>'}
+          ${session.status === 'complete' ? '<button class="secondary" id="reopenReview">Reopen review</button>' : '<button class="primary" id="markComplete">Mark complete</button>'}
+          <button class="primary" id="syncSessionCloud">Sync to Statbook</button>
           <button class="secondary" id="copyDebrief">Copy debrief</button>
           <button class="secondary" id="exportCsv">Export CSV</button>
           ${session.status === 'staged' ? '<button class="secondary" id="undoFinish">Undo finish</button>' : ''}
@@ -2738,10 +2336,7 @@ document.addEventListener('visibilitychange', () => {
         state.cockpitEditOpen = false;
         state.restTimer = null;
         if (typeof persist === 'function') persist();
-        if (session.planId && typeof MomentumPlanner !== 'undefined' && typeof MomentumPlanner.mark === 'function') {  
-          MomentumPlanner.mark(session.planId, 'complete');  
-        }
-		if (typeof renderLog === 'function') renderLog();
+        if (typeof renderLog === 'function') renderLog();
         if (typeof renderReview === 'function') renderReview();
         if (typeof renderHome === 'function') renderHome();
         if (typeof toast === 'function') toast('Workout finished — moved to Review');
@@ -2788,45 +2383,40 @@ document.addEventListener('visibilitychange', () => {
 
       const search = $('#searchExercise');
       if (search) search.oninput = () => { if (typeof renderPicker === 'function') renderPicker(search.value); };
-      // Bind edit/remove buttons on logged sets  
-      if (typeof bindSetActions === 'function') bindSetActions();  
-    };  
+    };
   }
 
-  // Live session timer: updates #timer once per second when on the Log view.  
-  if (!has('_momentumTimerStarted')) {  
-    window._momentumTimerStarted = true;  
-    setInterval(() => {  
-      const el = document.getElementById('timer');  
-      if (el && active && active.startedAt && typeof window.clock === 'function') {  
-        const secs = Math.max(0, Math.floor((Date.now() - new Date(active.startedAt).getTime()) / 1000));  
-        el.textContent = window.clock(secs);  
-      }  
-      // rest-timer tick  
-      const rt = state && state.restTimer;  
-      if (rt && rt.startedAt && rt.total) {  
-        const elapsed = Math.floor((Date.now() - rt.startedAt) / 1000);  
-        const remaining = Math.max(0, rt.total - elapsed);  
-        const banner = document.getElementById('restBanner');  
-        const timeEl = document.getElementById('restTime');  
-        if (remaining <= 0) {  
-          state.restTimer = null;  
-          if (banner) banner.remove();  
-        } else if (timeEl) {  
-          timeEl.textContent = remaining + 's';  
-        }  
-      } else {  
-        const staleBanner = document.getElementById('restBanner');  
-        if (staleBanner) staleBanner.remove();  
-      }  
-    }, 1000);  
+  // Live session timer: updates #timer once per second when on the Log view.
+  if (!has('_momentumTimerStarted')) {
+    window._momentumTimerStarted = true;
+    setInterval(() => {
+      const el = document.getElementById('timer');
+      if (el && active && active.startedAt && typeof window.clock === 'function') {
+        const secs = Math.max(0, Math.floor((Date.now() - new Date(active.startedAt).getTime()) / 1000));
+        el.textContent = window.clock(secs);
+      }
+      // rest-timer tick: countdown from the prescribed rest after a set is logged
+      const rt = state && state.restTimer;
+      if (rt && rt.startedAt && rt.total) {
+        const elapsed = Math.floor((Date.now() - rt.startedAt) / 1000);
+        const remaining = Math.max(0, rt.total - elapsed);
+        const banner = document.getElementById('restBanner');
+        const timeEl = document.getElementById('restTime');
+        if (remaining <= 0) {
+          if (banner) banner.hidden = true;
+          state.restTimer = null;
+        } else if (timeEl) {
+          timeEl.textContent = remaining + 's';
+        }
+      }
+    }, 1000);
   }
 
-  // gym-floor log styles (injected so index.html need not change)  
-  if (typeof document !== 'undefined' && !document.getElementById('momentumLogStyles')) {  
-    const _ls = document.createElement('style');  
-    _ls.id = 'momentumLogStyles';  
-    _ls.textContent = `.set-entry-card{padding:16px 17px}.toast{max-width:calc(100vw - 28px);left:50%;transform:translateX(-50%)}.set-entry-card .set-form{gap:10px}.set-entry-card .input{font-size:18px;min-height:52px}.set-entry-card .actions{display:flex;flex-direction:column;gap:10px;margin-top:14px}.set-entry-card .actions button{width:100%;min-height:52px;font-size:16px}.prescription-summary{margin-top:6px;font-size:13px;line-height:1.45}.rest-banner{display:flex;align-items:center;gap:10px;justify-content:center;background:rgba(21,61,77,.9);border:1px solid var(--blue);border-radius:14px;padding:11px 14px;margin-bottom:12px;font-size:15px;position:sticky;top:60px;z-index:2}.rest-banner #restTime{font-size:22px;color:var(--blue);min-width:48px;text-align:center}.rest-banner #skipRest{margin-left:auto}.collapsible{margin-top:12px;padding:13px 16px}.collapsible summary{cursor:pointer;list-style:none;color:var(--muted);font-weight:700;font-size:13px}.collapsible summary::-webkit-details-marker{display:none}.next-exercise{background:var(--blue);color:#dfeaf5}.active-session.compact-bar{padding:7px 10px;margin-bottom:10px;gap:8px;flex-wrap:nowrap}.bar-title-wrap{display:flex;align-items:center;gap:8px;min-width:0;flex:1 1 auto}.bar-title{font-size:16px;font-weight:780;margin:0;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.15}.bar-badge{flex:0 0 auto;font-size:11px;font-weight:700;color:var(--mint);border:1px solid rgba(29,139,93,.52);border-radius:99px;padding:3px 8px;white-space:nowrap}.compact-bar .session-tools{display:flex;gap:6px;flex:0 0 auto}.mini{min-height:30px;padding:5px 9px;font-size:11px}.rx-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:10px}.rx-badge{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mint);border:1px solid rgba(29,139,93,.52);border-radius:99px;padding:3px 9px;white-space:nowrap}.rx-line{color:var(--muted);font-size:12.5px;line-height:1.35;flex:1 1 200px}.logged-set-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--line)}.logged-set-row:first-child{border-top:0}.logged-set-actions{display:flex;gap:4px;margin-left:auto;flex-shrink:0}.logged-set-actions button{min-height:28px;padding:3px 8px;font-size:11px}#plannerEditor{max-width:100%;overflow-x:hidden;box-sizing:border-box}#plannerEditor .card{max-width:100%;overflow-x:hidden;box-sizing:border-box}#plannerEditor .set-form{max-width:100%;box-sizing:border-box}#plannerEditor .workout-card{max-width:100%;overflow-x:hidden;box-sizing:border-box}#plannerEditor textarea{max-width:100%;box-sizing:border-box}.exercise-card{max-width:100%;overflow:hidden;box-sizing:border-box}.exercise-search-wrap{position:relative;width:100%;max-width:100%;box-sizing:border-box}.exercise-search-results{position:absolute;top:100%;left:0;right:0;z-index:10;background:var(--panel2);border:1px solid var(--line);border-radius:10px;max-height:240px;overflow-y:auto;box-shadow:0 8px 24px #0004;margin-top:4px}.exercise-pick-option{display:block;width:100%;text-align:left;padding:10px 14px;border:0;background:none;color:var(--ink);font-size:14px;cursor:pointer;border-bottom:1px solid var(--line)}.exercise-pick-option:last-child{border-bottom:0}.exercise-pick-option:hover,.exercise-pick-option:focus{background:var(--mint);color:#06182e}.row-actions{display:flex;gap:4px;align-items:center;flex-shrink:0}.position-input{width:42px;height:30px;text-align:center;border:1px solid var(--line);border-radius:8px;background:var(--panel2);color:var(--ink);font-size:13px;font-weight:700;padding:0;box-sizing:border-box}.icon-btn{min-height:30px;min-width:30px;padding:4px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);color:var(--ink);font-size:14px;cursor:pointer}@media(max-width:720px){.set-entry-card .input{font-size:20px;min-height:56px}.set-entry-card .actions button{min-height:56px;font-size:17px}.compact-bar{flex-wrap:nowrap}.bar-title{font-size:15px}.rx-line{flex:1 1 100%}.session-tools button{min-height:34px}.set-form{grid-template-columns:1fr !important}#plannerEditor .card{padding:14px}}`;  
-    (document.head || document.documentElement).appendChild(_ls);  
-  }  
-})();  
+  // gym-floor log styles (injected so index.html need not change)
+  if (typeof document !== 'undefined' && !document.getElementById('momentumLogStyles')) {
+    const _ls = document.createElement('style');
+    _ls.id = 'momentumLogStyles';
+    _ls.textContent = `.set-entry-card{padding:16px 17px}.toast{max-width:calc(100vw - 28px)}.set-entry-card .set-form{gap:10px}.set-entry-card .input{font-size:18px;min-height:52px}.set-entry-card .actions{display:flex;flex-direction:column;gap:10px;margin-top:14px}.set-entry-card .actions button{width:100%;min-height:52px;font-size:16px}.prescription-summary{margin-top:6px;font-size:13px;line-height:1.45}.rest-banner{display:flex;align-items:center;gap:10px;justify-content:center;background:#16323a;border:1px solid var(--mint);border-radius:14px;padding:11px 14px;margin-bottom:12px;font-size:15px}.rest-banner #restTime{font-size:22px;color:var(--mint);min-width:48px;text-align:center}.rest-banner #skipRest{margin-left:auto}.collapsible{margin-top:12px;padding:13px 16px}.collapsible summary{cursor:pointer;list-style:none;color:var(--muted);font-weight:700;font-size:13px}.collapsible summary::-webkit-details-marker{display:none}.next-exercise{background:var(--blue);color:#06182e}.active-session.compact-bar{padding:7px 10px;margin-bottom:10px;gap:8px;flex-wrap:nowrap}.bar-title-wrap{display:flex;align-items:center;gap:8px;min-width:0;flex:1 1 auto}.bar-title{font-size:16px;font-weight:780;margin:0;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.15}.bar-badge{flex:0 0 auto;font-size:11px;font-weight:700;color:var(--mint);border:1px solid #2f7664;border-radius:99px;padding:3px 8px;white-space:nowrap}.compact-bar .session-tools{display:flex;gap:6px;flex:0 0 auto}.mini{min-height:30px;padding:5px 9px;font-size:11px}.rx-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:10px}.rx-badge{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mint);border:1px solid #2f7664;border-radius:99px;padding:3px 9px;white-space:nowrap}.rx-line{color:var(--muted);font-size:12.5px;line-height:1.35;flex:1 1 200px}@media(max-width:720px){.set-entry-card .input{font-size:20px;min-height:56px}.set-entry-card .actions button{min-height:56px;font-size:17px}.compact-bar{flex-wrap:nowrap}.bar-title{font-size:15px}.rx-line{flex:1 1 100%}.session-tools button{min-height:34px}}`;
+    (document.head || document.documentElement).appendChild(_ls);
+  }
+})();
