@@ -108,6 +108,71 @@ const MomentumPlanner = (() => {
 
     return workout;
   }
+
+  async function generateCoachCard() {
+    const btn = document.getElementById('btn-generate-coach-card');
+    const spinner = document.getElementById('coach-ai-spinner');
+    const statusDiv = document.getElementById('coach-ai-status');
+    if (!btn || !spinner || !statusDiv) return;
+
+    const showStatus = (message, type) => {
+      statusDiv.className = `coach-ai-status-message ${type}`;
+      statusDiv.textContent = message;
+      statusDiv.classList.remove('hidden');
+    };
+
+    if (!navigator.onLine) {
+      showStatus('Offline Mode: You must be connected to network to generate new AI cards. You can still paste or select starter cards.', 'error');
+      return;
+    }
+
+    btn.disabled = true;
+    spinner.classList.remove('hidden');
+    btn.querySelector('.btn-text').textContent = 'Evaluating Guardrails & Generating...';
+    showStatus('Coach is compiling your active joint profile, PRs, and recent session notes...', 'info');
+
+    try {
+      const token = typeof MomentumSync !== 'undefined' && typeof MomentumSync.getToken === 'function'
+        ? MomentumSync.getToken()
+        : localStorage.getItem('momentum_auth_token');
+
+      if (!token) throw new Error('User not authenticated. Please log in via Statbook setting.');
+
+      const response = await fetch('/api/v1/training/coach/generate-card', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ request_type: 'queue_next' })
+      });
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || 'Failed to generate card from Coach AI.');
+      }
+
+      const generated = parse(result.workout_card || '');
+      if (!generated || !generated.exerciseBlocks.length) {
+        throw new Error('Coach AI returned a card that could not be parsed.');
+      }
+      upsert(generated);
+      if (typeof renderToday === 'function') renderToday();
+
+      const assumptions = result.metadata && result.metadata.active_assumptions_count;
+      const suffix = assumptions == null ? '' : ` (${assumptions} active guardrails enforced)`;
+      showStatus(`Workout Card successfully generated and queued!${suffix}`, 'success');
+      setTimeout(() => statusDiv.classList.add('hidden'), 4000);
+    } catch (error) {
+      console.error('Coach AI Generation Error:', error);
+      showStatus(`Error: ${error.message}`, 'error');
+    } finally {
+      btn.disabled = false;
+      spinner.classList.add('hidden');
+      btn.querySelector('.btn-text').textContent = 'Generate Card with Coach AI';
+    }
+  }
   function parseWorkoutCardText(rawText) {
     const text = normalizeWorkoutText(rawText || '');
 
@@ -615,6 +680,16 @@ function parseNarrativeWorkout(text) {
     if (emojiPattern.test(line)) { i++; continue; }  
     if (coachingNotePattern.test(line)) { i++; continue; }
 
+    // Accept the compact card format: "Exercise - Sets x Reps | Load | ...".
+    const compactCard = parseCompactNarrativeCard(line);
+    if (compactCard) {
+      compactCard.section = currentSection;
+      compactCard.sectionLabel = sectionLabelMap[currentSection] || currentSectionLabel;
+      exercises.push(compactCard);
+      i++;
+      continue;
+    }
+
     // Skip lines that are clearly prescriptions without a preceding exercise  
     if (prescriptionPattern.test(line) && !isLikelyExerciseName(line)) { i++; continue; }  
     if (timedPrescriptionPattern.test(line)) { i++; continue; }
@@ -830,6 +905,20 @@ function isLikelyExerciseName(line) {
 
   return false;  
 }  
+function parseCompactNarrativeCard(line) {
+  const value = String(line || '').trim();
+  const match = value.match(/^(.+?)\s+(?:[-:]+|\|)\s*(\d+\s*[x×]\s*[^|]+\|.+)$/i);
+  if (!match) return null;
+
+  const name = normalizeExerciseName(match[1]);
+  if (!name || !isLikelyExerciseName(name.replace(/\s+/g, ' '))) return null;
+
+  const parsed = parseNarrativePrescriptionLine(name, normalizeWorkoutText(match[2]));
+  if (!hasMeaningfulExercise(parsed)) return null;
+  parsed.optional = parsed.optional || /\boptional\b/i.test(match[1]);
+  parsed.section = parsed.optional ? 'optional' : 'primary';
+  return parsed;
+}
 function isLikelyExerciseHeading(value) {  
   const line = String(value || '').trim();  
   if (!line) return false;
@@ -1375,6 +1464,7 @@ return {
   setCockpitWorkingLoad,
   skipCockpitExercise,
   startOptionalCockpitExercise,
-  defaultActualFromBlock
+  defaultActualFromBlock,
+  generateCoachCard
 };
 })();

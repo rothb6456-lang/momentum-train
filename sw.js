@@ -1,12 +1,14 @@
-const CACHE = 'momentum-v9';  
+const CACHE = 'momentum-v10';
 const ASSETS = [  
   '/',  
   '/index.html',  
   '/manifest.webmanifest',  
+  '/app.css',
   '/icon.svg',  
   '/data.js',  
   '/workout-cards.js',  
   '/planner.js',  
+  '/sync.js',
   '/app.js',  
   '/data/01_Training_Core.md',  
   '/data/02_Training_Reference.md',  

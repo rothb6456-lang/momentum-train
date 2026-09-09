@@ -54,6 +54,30 @@ function saveDone(sessions) {
   saveJson(STORAGE_KEYS.done, Array.isArray(sessions) ? sessions : []);
 }
 
+async function finishAndSaveWorkout(sessionData) {
+  const completedSessions = loadJson('momentum_completed_sessions', []);
+  const compatibleSessions = Array.isArray(completedSessions) ? completedSessions : [];
+  const existingIndex = compatibleSessions.findIndex(item => item && item.id === sessionData.id);
+
+  if (existingIndex >= 0) {
+    compatibleSessions[existingIndex] = sessionData;
+  } else {
+    compatibleSessions.push(sessionData);
+  }
+  saveJson('momentum_completed_sessions', compatibleSessions);
+  localStorage.removeItem('momentum_active_session');
+  localStorage.removeItem(STORAGE_KEYS.active);
+
+  const syncResult = typeof MomentumSync !== 'undefined'
+    ? await MomentumSync.queueAndSyncSession(sessionData)
+    : { synced: false };
+
+  alert(syncResult.synced
+    ? 'Workout complete! Synced to Bulldog Statbook.'
+    : 'Workout complete! Saved locally to your phone. Will auto-sync when network connects.');
+  show('history');
+}
+
 /* ---------- session fallback ---------- */
 function fallbackSession() {
   const now = new Date().toISOString();
@@ -873,6 +897,26 @@ function renderToday() {
       <div class="eyebrow">Plan + prepare</div>
       <h1>Build and queue the workout.</h1>
       <p class="quiet">Paste the card from Coach, make practical edits, then launch the planned structure directly into Log.</p>
+
+      <div class="coach-ai-card-container">
+        <div class="coach-ai-header">
+          <div class="coach-ai-badge">
+            <span class="badge-icon">✨</span>
+            <span class="badge-text">Clinical AI Engine</span>
+          </div>
+          <h3>Generate Today's Workout</h3>
+          <p class="coach-ai-description">
+            Inconvenience-free prescription powered by your active joint profile, PR milestones, and recent session bio-feedback.
+          </p>
+        </div>
+
+        <button id="btn-generate-coach-card" class="btn-coach-ai" type="button" onclick="MomentumPlanner.generateCoachCard()">
+          <span class="btn-text">Generate Card with Coach AI</span>
+          <span class="btn-spinner hidden" id="coach-ai-spinner"></span>
+        </button>
+
+        <div id="coach-ai-status" class="coach-ai-status-message hidden"></div>
+      </div>
 
       <article class="card">
         ${  
@@ -1887,7 +1931,7 @@ function bindReview(session) {
   }
   const markCompleteBtn = $('#markComplete');
   if (markCompleteBtn) {
-    markCompleteBtn.onclick = () => {
+    markCompleteBtn.onclick = async () => {
       const all = getDone();
       const item = all.find(x => x.id === session.id);
       if (!item) return;
@@ -1896,10 +1940,7 @@ function bindReview(session) {
           MomentumPlanner.mark(item.planId, 'complete');  
         }
 	  saveDone(all);
-      toast('Review marked complete');
-      renderReview();
-      renderHistory();
-      renderHome();
+      await finishAndSaveWorkout(item);
     };
   }
 
@@ -2615,7 +2656,7 @@ document.addEventListener('visibilitychange', () => {
           <label class="field full">Questions for Coach<textarea id="reviewQuestions">${esc(session.coachQuestions || '')}</textarea></label>
         </div>
         <div class="actions" style="margin-top:12px">
-          ${session.status === 'complete' ? '<button class="secondary" id="reopenReview">Reopen review</button>' : '<button class="primary" id="markComplete">Mark complete</button>'}
+          ${session.status === 'complete' ? '<button class="secondary" id="reopenReview">Reopen review</button>' : '<button class="primary" id="markComplete">Finish Workout</button>'}
           <button class="secondary" id="copyDebrief">Copy debrief</button>
           <button class="secondary" id="exportCsv">Export CSV</button>
           ${session.status === 'staged' ? '<button class="secondary" id="undoFinish">Undo finish</button>' : ''}
