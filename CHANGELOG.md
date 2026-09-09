@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-09-09 (Patch V1.1.2)
+
+- **Issue 1 (Rest Timer)**: Fixed countdown tick logic to evaluate `remaining <= 0` prior to decrementing, rendering explicit `0s`, triggering haptic vibration & Web Audio chime, and clearing interval cleanly.
+- **Issue 2 (Logo & Theme)**: Consolidated theme variables in `:root` and added `mix-blend-mode: screen` on brand marks to eliminate white backgrounds against dark blue containers.
+- **Issue 3 (Sync & Auth Error Handling)**: Added robust HTTP status and response text catching in `syncSessionToStatbook`, Sanctum Bearer token headers, and authentication modal handling.
+- **Issue 4 (Multi-Card Queue & Calendar Strip)**: Added `momentum_queued_plans` array storage, multi-card queue management, and the 7-day rolling calendar strip component (`renderWeeklyCalendarStrip`).
+- **Issue 5 (Date Field Layout)**: Constrained `input[type="date"]` with flex-safe bounds and padding to eliminate calendar picker clipping across mobile viewports.
+- Updated Service Worker cache version to `momentum-v1.1.2`.
+
 ## 2026-08-19
 
 - Added a static Markdown data layer; the web app does not read or lock the Excel workbook.
