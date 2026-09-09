@@ -6,23 +6,22 @@ const MomentumPlanner = (() => {
   const clone = value => JSON.parse(JSON.stringify(value));
   const load = () => { try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]'); } catch { return []; } };
   const save = workouts => localStorage.setItem(QUEUE_KEY, JSON.stringify(workouts));
-  const blankBlock = (order = 1) => ({  
-    id: id(),  
-    order,  
-    exerciseName: '',  
-    targetSets: '',  
-    targetRepsOrDuration: '',  
-    targetWeightOrLoad: '',  
-    tempo: '',  
-    rir: '',  
-    rest: '',  
-    notes: '',  
-    checkpoints: '',  
-    tags: [],  
-    optional: false,  
-    timed: false,  
-    section: 'primary',  
-    sectionLabel: 'Working'  
+  const blankBlock = (order = 1) => ({
+    id: id(),
+    order,
+    exerciseName: '',
+    targetSets: '',
+    targetRepsOrDuration: '',
+    targetWeightOrLoad: '',
+    tempo: '',
+    rir: '',
+    rest: '',
+    notes: '',
+    checkpoints: '',
+    tags: [],
+    optional: false,
+    timed: false,
+    section: 'primary'
   });
   const blankWorkout = () => ({ id: id(), title: 'Untitled workout', canonicalTitle: '', subtitle: '', scheduledDate: '', phaseId: '', week: '', day: '', sourceType: 'manual', sourceRawText: '', status: 'queued', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), exerciseBlocks: [blankBlock()] });
   function parseLine(line, order) {
@@ -82,96 +81,26 @@ const MomentumPlanner = (() => {
     workout.targetDuration = parsed.targetDuration || '';
     workout.confidence = parsed.confidence || '';
 
-    workout.exerciseBlocks = (parsed.exercises || []).length  
-      ? parsed.exercises.map((ex, index) => {  
-          const section = ex.section || (ex.optional ? 'optional' : 'primary');  
-          const sectionLabelMap = { warmup: 'Warm-Up', primary: 'Working', optional: 'Optional', finisher: 'Finisher', cooldown: 'Cool-Down' };  
-          return {  
-            ...blankBlock(index + 1),  
-            exerciseName: ex.name || '',  
-            targetSets: ex.sets || '',  
-            targetRepsOrDuration: ex.reps || '',  
-            targetWeightOrLoad: ex.load || '',  
-            tempo: ex.tempo || '',  
-            rir: ex.rir || '',  
-            rest: ex.rest || '',  
-            notes: ex.notes || '',  
-            optional: ex.optional || false,  
-            timed: ex.timed || false,  
-            section: section,  
-            sectionLabel: sectionLabelMap[section] || 'Working',  
-            checkpoints: '',  
-            tags: []  
-          };  
-        })  
+    workout.exerciseBlocks = (parsed.exercises || []).length
+      ? parsed.exercises.map((ex, index) => ({
+          ...blankBlock(index + 1),
+          exerciseName: ex.name || '',
+          targetSets: ex.sets || '',
+          targetRepsOrDuration: ex.reps || '',
+          targetWeightOrLoad: ex.load || '',
+          tempo: ex.tempo || '',
+          rir: ex.rir || '',
+          rest: ex.rest || '',
+          notes: ex.notes || '',
+          optional: ex.optional || false,
+          timed: ex.timed || false,
+          section: ex.section || 'primary',
+          checkpoints: '',
+          tags: []
+        }))
       : [blankBlock(1)];
 
     return workout;
-  }
-
-  async function generateCoachCard() {
-    const btn = document.getElementById('btn-generate-coach-card');
-    const spinner = document.getElementById('coach-ai-spinner');
-    const statusDiv = document.getElementById('coach-ai-status');
-    if (!btn || !spinner || !statusDiv) return;
-
-    const showStatus = (message, type) => {
-      statusDiv.className = `coach-ai-status-message ${type}`;
-      statusDiv.textContent = message;
-      statusDiv.classList.remove('hidden');
-    };
-
-    if (!navigator.onLine) {
-      showStatus('Offline Mode: You must be connected to network to generate new AI cards. You can still paste or select starter cards.', 'error');
-      return;
-    }
-
-    btn.disabled = true;
-    spinner.classList.remove('hidden');
-    btn.querySelector('.btn-text').textContent = 'Evaluating Guardrails & Generating...';
-    showStatus('Coach is compiling your active joint profile, PRs, and recent session notes...', 'info');
-
-    try {
-      const token = typeof MomentumSync !== 'undefined' && typeof MomentumSync.getToken === 'function'
-        ? MomentumSync.getToken()
-        : localStorage.getItem('momentum_auth_token');
-
-      if (!token) throw new Error('User not authenticated. Please log in via Statbook setting.');
-
-      const response = await fetch('/api/v1/training/coach/generate-card', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ request_type: 'queue_next' })
-      });
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.message || 'Failed to generate card from Coach AI.');
-      }
-
-      const generated = parse(result.workout_card || '');
-      if (!generated || !generated.exerciseBlocks.length) {
-        throw new Error('Coach AI returned a card that could not be parsed.');
-      }
-      upsert(generated);
-      if (typeof renderToday === 'function') renderToday();
-
-      const assumptions = result.metadata && result.metadata.active_assumptions_count;
-      const suffix = assumptions == null ? '' : ` (${assumptions} active guardrails enforced)`;
-      showStatus(`Workout Card successfully generated and queued!${suffix}`, 'success');
-      setTimeout(() => statusDiv.classList.add('hidden'), 4000);
-    } catch (error) {
-      console.error('Coach AI Generation Error:', error);
-      showStatus(`Error: ${error.message}`, 'error');
-    } finally {
-      btn.disabled = false;
-      spinner.classList.add('hidden');
-      btn.querySelector('.btn-text').textContent = 'Generate Card with Coach AI';
-    }
   }
   function parseWorkoutCardText(rawText) {
     const text = normalizeWorkoutText(rawText || '');
@@ -218,24 +147,23 @@ const MomentumPlanner = (() => {
     };
   }
 
-function normalizeWorkoutText(input) {  
-  return String(input || '')  
-    .replace(/\r/g, '')  
-    .replace(/\u00A0/g, ' ')  
-    .replace(/[""]/g, '"')  
-    .replace(/['']/g, "'")  
-    .replace(/[‐‑–—]/g, '-')  
-    .replace(/[⸻⸺─━]/g, '---')  
-    .replace(/×/g, 'x')  
-    .replace(/\bseconds?\b/gi, 'sec')  
-    .replace(/\bsecs\b/gi, 'sec')  
-    .replace(/\bminutes?\b/gi, 'min')  
-    .replace(/\bmins\b/gi, 'min')  
-    .replace(/\bbodyweight\b/gi, 'BW')  
-    .replace(/[ \t]+\n/g, '\n')  
-    .replace(/\n{3,}/g, '\n\n')  
-    .trim();  
-} 
+function normalizeWorkoutText(input) {
+  return String(input || '')
+    .replace(/\r/g, '')
+    .replace(/\u00A0/g, ' ')
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/[‐‑–—]/g, '-')
+    .replace(/×/g, 'x')
+    .replace(/\bseconds?\b/gi, 'sec')
+    .replace(/\bsecs\b/gi, 'sec')
+    .replace(/\bminutes?\b/gi, 'min')
+    .replace(/\bmins\b/gi, 'min')
+    .replace(/\bbodyweight\b/gi, 'BW')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
 
 function parseWorkoutMeta(text) {
   const lines = text.split('\n').map(s => s.trim()).filter(Boolean);
@@ -582,421 +510,172 @@ function parseExerciseFromTableRow(cells, columnMap) {
   };
 }
 
-function parseNarrativeWorkout(text) {  
-  const lines = text.split('\n');  
+function parseNarrativeWorkout(text) {
+  const lines = text.split('\n');
   const exercises = [];
 
-  // Section headers that provide context but aren't exercises  
-  const sectionHeaderPattern = /^(?:#+\s*)?(warm-?up|primary\s+pull|primary\s+push|primary|secondary\s+pull|secondary\s+push|secondary|grip\s+specialization|shoulder\s+support|arms|legs|capacity|conditioning|cool-?down|finisher|accessory|supplemental|core)\s*$/i;
-
-  // Map section header text to section type  
-  const sectionTypeMap = {  
-    'warm-up': 'warmup', 'warmup': 'warmup',  
-    'primary': 'primary', 'primary pull': 'primary', 'primary push': 'primary',  
-    'secondary': 'primary', 'secondary pull': 'primary', 'secondary push': 'primary',  
-    'grip specialization': 'primary',  
-    'shoulder support': 'primary',  
-    'arms': 'primary', 'legs': 'primary',  
-    'capacity': 'primary', 'conditioning': 'primary',  
-    'cool-down': 'cooldown', 'cooldown': 'cooldown',  
-    'finisher': 'finisher',  
-    'accessory': 'optional', 'supplemental': 'optional',  
-    'core': 'primary'  
-  };
-
-  const sectionLabelMap = {  
-    warmup: 'Warm-Up', primary: 'Working', optional: 'Optional',  
-    finisher: 'Finisher', cooldown: 'Cool-Down'  
-  };
-
-  // Warm-up heading patterns  
-  const warmupHeadingPattern = /^(?:#+\s*)?(warm-?up|shoulder preparation|movement preparation|activation)\s*[:?]?\s*$/i;
-
-  // Divider  
-  const dividerPattern = /^-{3,}$/;
-
-  // Lines that are clearly not exercise names  
-  const nonExercisePattern = /^(intent:|checkpoint:|stoplight:|execution:|progression:|cue:|cues:|note:|load target:|therefore:|stop if:|grip:|today:|session intent:)/i;
-
-  // Emoji/stoplight lines  
-  const emojiPattern = /^[🟢🟡🔴]/;
-
-  // Descriptive lines that look like coaching notes, not exercises  
-  const coachingNotePattern = /^(pull elbows|drive elbows|chest stays|keep shoulder|maintain|initiate|avoid|use the|do not|own the|match the|raise temperature|your historical|this is|hold \d|progress through|first set should)/i;
-
-  // Lines that look like a prescription: "3 x 8-12 | 140 lb | 2-1-2 | RIR 2 | 2-3 min"  
-  const prescriptionPattern = /\b\d+\s*x\s*\d+/i;
-
-  // Lines that look like a timed prescription: "5:00 | 4.7 mph" or "30-45 sec"  
-  const timedPrescriptionPattern = /^\d+:\d+\s*\|/;
-
-  // Detect format: numbered (1. Exercise) vs unnumbered (section headers)  
-  const hasNumberedExercises = lines.some(l => /^\d+\.\s+/.test((l || '').trim()));
-
-  if (hasNumberedExercises) {  
-    // ---- NUMBERED FORMAT (original logic) ----  
-    return parseNumberedNarrativeWorkout(lines, exercises, sectionHeaderPattern, warmupHeadingPattern, dividerPattern);  
+  // Check for an unnumbered Warm-Up block before the first numbered exercise
+  const firstNumberedIndex = lines.findIndex(l => /^\d+\.\s+/.test((l || '').trim()));
+  const preLines = firstNumberedIndex >= 0 ? lines.slice(0, firstNumberedIndex) : [];
+  
+  const warmupIndex = preLines.findIndex(l => /^(?:#+\s*)?warm-?up\s*[:?]?/i.test((l || '').trim()) || /^(?:#+\s*)?shoulder preparation\s*[:?]?/i.test((l || '').trim()));
+  if (warmupIndex >= 0) {
+    const warmupBlock = preLines.slice(warmupIndex + 1);
+    const warmExercises = parseCompoundWarmupBlock('Warm-Up', warmupBlock);
+    warmExercises.forEach(ex => exercises.push(ex));
   }
 
-  // ---- UNNUMBERED / SECTION-HEADER FORMAT ----  
-  let currentSection = 'primary';  
-  let currentSectionLabel = 'Working';  
-  let i = 0;
+  let i = firstNumberedIndex >= 0 ? firstNumberedIndex : 0;
 
-  // Skip past metadata header lines (phase, week, day, title, intent, targets, etc.)  
-  const metaSkipPattern = /^(phase\s+\d|week\s+\d|day\s+\d|primary targets|secondary:|target duration|confidence|session intent)/i;
-
-  while (i < lines.length) {  
+  while (i < lines.length) {
     const line = (lines[i] || '').trim();
 
-    // Skip empty lines  
-    if (!line) { i++; continue; }
-
-    // Skip dividers  
-    if (dividerPattern.test(line)) { i++; continue; }
-
-    // Check for section headers  
-    if (sectionHeaderPattern.test(line)) {  
-      const key = line.replace(/^#+\s*/, '').trim().toLowerCase();  
-      currentSection = sectionTypeMap[key] || 'primary';  
-      currentSectionLabel = sectionLabelMap[currentSection] || line.replace(/^#+\s*/, '').trim();  
-      i++;  
-      continue;  
-    }
-
-    // Skip warm-up headings (handled separately below)  
-    if (warmupHeadingPattern.test(line)) {  
-      currentSection = 'warmup';  
-      currentSectionLabel = 'Warm-Up';  
-      i++;  
-      continue;  
-    }
-
-    // Skip metadata lines  
-    if (metaSkipPattern.test(line)) { i++; continue; }
-
-    // Skip non-exercise lines  
-    if (nonExercisePattern.test(line)) { i++; continue; }  
-    if (emojiPattern.test(line)) { i++; continue; }  
-    if (coachingNotePattern.test(line)) { i++; continue; }
-
-    // Accept the compact card format: "Exercise - Sets x Reps | Load | ...".
-    const compactCard = parseCompactNarrativeCard(line);
-    if (compactCard) {
-      compactCard.section = currentSection;
-      compactCard.sectionLabel = sectionLabelMap[currentSection] || currentSectionLabel;
-      exercises.push(compactCard);
+    const headingMatch = line.match(/^(\d+)\.\s+(.+)$/);
+    if (!headingMatch || !isLikelyExerciseHeading(headingMatch[2])) {
       i++;
       continue;
     }
 
-    // Skip lines that are clearly prescriptions without a preceding exercise  
-    if (prescriptionPattern.test(line) && !isLikelyExerciseName(line)) { i++; continue; }  
-    if (timedPrescriptionPattern.test(line)) { i++; continue; }
-
-    // Check if this line looks like an exercise name  
-    if (isLikelyExerciseName(line)) {  
-      const rawName = line;
-
-      // Collect all subsequent lines until the next exercise name, section header, or divider  
-      const block = [];  
-      i++;  
-      while (i < lines.length) {  
-        const bLine = (lines[i] || '').trim();
-
-        // Stop at dividers  
-        if (dividerPattern.test(bLine)) { i++; break; }
-
-        // Stop at section headers  
-        if (sectionHeaderPattern.test(bLine)) break;  
-        if (warmupHeadingPattern.test(bLine)) break;
-
-        // Stop at next exercise name (but not prescription lines)  
-        if (bLine && isLikelyExerciseName(bLine) && !prescriptionPattern.test(bLine) && !timedPrescriptionPattern.test(bLine)) break;
-
-        block.push(bLine);  
-        i++;  
-      }
-
-      // Parse the exercise and its block  
-      const cleanName = normalizeExerciseName(rawName);  
-      const isWarmupExercise = currentSection === 'warmup' || /warm-?up|preparation/i.test(cleanName);  
-      const effectiveSection = isWarmupExercise ? 'warmup' : currentSection;
-
-      // Find the prescription line in the block  
-      const prescriptionLine = block.find(l =>  
-        l && (l.includes('|') || prescriptionPattern.test(l))  
-      );
-
-      let parsed;  
-      if (prescriptionLine) {  
-        parsed = parseNarrativePrescriptionLine(cleanName, prescriptionLine);  
-      } else {  
-        parsed = {  
-          name: cleanName,  
-          sets: '', reps: '', load: '', tempo: '', rir: '', rest: '',  
-          notes: '', optional: false, timed: isTimedExercise(cleanName, ''),  
-          section: effectiveSection  
-        };  
-      }
-
-      parsed.section = effectiveSection;  
-      parsed.sectionLabel = sectionLabelMap[effectiveSection] || currentSectionLabel;  
-      parsed.optional = parsed.optional || effectiveSection === 'optional';
-
-      // Collect relevant notes from the block (checkpoints, etc.)  
-      const skipNotePattern = /^(intent:|checkpoint:|stoplight:|execution:|progression:|cue:|cues?:|note:|load target:|therefore:|stop if:|grip:|today:|session intent:)/i;  
-      const shortNotes = [];  
-      for (const bLine of block) {  
-        if (!bLine) continue;  
-        if (bLine === prescriptionLine) continue;  
-        if (skipNotePattern.test(bLine)) continue;  
-        if (emojiPattern.test(bLine)) continue;  
-        if (coachingNotePattern.test(bLine)) continue;  
-        if (prescriptionPattern.test(bLine)) continue;  
-        if (timedPrescriptionPattern.test(bLine)) continue;  
-        if (bLine.length <= 100) shortNotes.push(bLine);  
-      }
-
-      if (shortNotes.length) {  
-        parsed.notes = joinNotes([parsed.notes, shortNotes.slice(0, 2).join(' | ')]);  
-      }
-
-      if (hasMeaningfulExercise(parsed)) {  
-        exercises.push(parsed);  
-      }
-
-      continue;  
-    }
-
-    // Skip unrecognized lines  
-    i++;  
-  }
-
-  return exercises;  
-}
-
-// Moved original numbered logic to its own function  
-function parseNumberedNarrativeWorkout(lines, exercises, sectionHeaderPattern, warmupHeadingPattern, dividerPattern) {  
-  const firstNumberedIndex = lines.findIndex(l => /^\d+\.\s+/.test((l || '').trim()));
-
-  const preLines = firstNumberedIndex >= 0 ? lines.slice(0, firstNumberedIndex) : [];
-
-  // Split pre-lines into sections divided by --- dividers  
-  const preSections = [];  
-  let currentSection = [];  
-  for (const line of preLines) {  
-    const trimmed = (line || '').trim();  
-    if (dividerPattern.test(trimmed)) {  
-      if (currentSection.length) preSections.push(currentSection);  
-      currentSection = [];  
-    } else {  
-      currentSection.push(trimmed);  
-    }  
-  }  
-  if (currentSection.length) preSections.push(currentSection);
-
-  // Process each pre-section for warm-up content  
-  for (const section of preSections) {  
-    const hasWarmupHeading = section.some(l => warmupHeadingPattern.test(l));  
-    const hasCardioLine = section.some(l => /\b(treadmill|bike|rower|walking|jogging|elliptical)\b/i.test(l));  
-    if (hasWarmupHeading || hasCardioLine) {  
-      const warmExercises = parseCompoundWarmupBlock('Warm-Up', section);  
-      warmExercises.forEach(ex => exercises.push(ex));  
-    }  
-  }
-
-  let sectionContext = 'primary';  
-  let i = firstNumberedIndex >= 0 ? firstNumberedIndex : 0;
-
-  while (i < lines.length) {  
-    const line = (lines[i] || '').trim();
-
-    if (dividerPattern.test(line)) { i++; continue; }
-
-    if (sectionHeaderPattern.test(line)) {  
-      sectionContext = line.replace(/^#+\s*/, '').trim().toLowerCase();  
-      i++;  
-      continue;  
-    }
-
-    if (warmupHeadingPattern.test(line)) { i++; continue; }
-
-    const headingMatch = line.match(/^(\d+)\.\s+(.+)$/);  
-    if (!headingMatch || !isLikelyExerciseHeading(headingMatch[2])) {  
-      i++;  
-      continue;  
-    }
-
-    const number = headingMatch[1];  
+    const number = headingMatch[1];
     const rawHeadingName = headingMatch[2].trim();
 
-    const block = [];  
-    i++;  
-    while (i < lines.length && !/^\d+\.\s+/.test((lines[i] || '').trim())) {  
-      const bLine = (lines[i] || '').trim();  
-      if (dividerPattern.test(bLine)) { i++; break; }  
-      block.push(bLine);  
-      i++;  
+    const block = [];
+    i++;
+    while (i < lines.length && !/^\d+\.\s+/.test((lines[i] || '').trim())) {
+      block.push((lines[i] || '').trim());
+      i++;
     }
 
-    const isHeaderDebris = block.some(b =>  
-      /^(target duration|overall\s+.*confidence|primary targets|secondary)\s*:/i.test(String(b || '').trim())  
-    );  
+    // Skip numbered header list items
+    const isHeaderDebris = block.some(b =>
+      /^(target duration|overall\s+.*confidence|primary targets|secondary)\s*:/i.test(String(b || '').trim())
+    );
     if (isHeaderDebris) continue;
 
-    if (/^(warm-?up|shoulder preparation|movement preparation)\b/i.test(rawHeadingName)) {  
-      const warmExercises = parseCompoundWarmupBlock(rawHeadingName, block);  
-      if (warmExercises.length) {  
-        warmExercises.forEach(ex => exercises.push(ex));  
-        continue;  
-      }  
+    // Check if this heading is a compound Warm-Up / Preparation block with sub-items
+    if (/^(warm-?up|shoulder preparation|movement preparation)\b/i.test(rawHeadingName)) {
+      const warmExercises = parseCompoundWarmupBlock(rawHeadingName, block);
+      if (warmExercises.length) {
+        warmExercises.forEach(ex => exercises.push(ex));
+        continue;
+      }
     }
 
-    const rawName = normalizeExerciseName(rawHeadingName);  
-    const exercise = parseNarrativeExerciseBlock(number, rawName, block);  
-    if (exercise && hasMeaningfulExercise(exercise)) {  
-      if (exercise.section === 'primary' && sectionContext !== 'primary') {  
-        exercise.sectionLabel = sectionContext;  
-      }  
-      exercises.push(exercise);  
-    }  
+    const rawName = normalizeExerciseName(rawHeadingName);
+    const exercise = parseNarrativeExerciseBlock(number, rawName, block);
+    if (exercise && hasMeaningfulExercise(exercise)) exercises.push(exercise);
   }
 
-  return exercises;  
+  return exercises;
 }
 
-// Helper: determine if a line looks like an exercise name  
-function isLikelyExerciseName(line) {  
-  const trimmed = String(line || '').trim();  
-  if (!trimmed) return false;  
-  if (trimmed.length < 3 || trimmed.length > 80) return false;
-
-  // Must not be metadata  
-  if (/^(phase\s+\d|week\s+\d|day\s+\d|primary targets|secondary:|target duration|confidence|session intent)/i.test(trimmed)) return false;
-
-  // Must not be a prescription line  
-  if (/^\d+\s*x\s*\d+/i.test(trimmed)) return false;  
-  if (/^\d+:\d+\s*\|/.test(trimmed)) return false;
-
-  // Must not be coaching/intent lines  
-  if (/^(intent:|checkpoint:|stoplight:|execution:|progression:|cue:|cues?:|note:|load target:|therefore:|stop if:|grip:|today:)/i.test(trimmed)) return false;
-
-  // Must not be emoji lines  
-  if (/^[🟢🟡🔴]/.test(trimmed)) return false;
-
-  // Must not be descriptive coaching notes  
-  if (/^(pull elbows|drive elbows|chest stays|keep shoulder|maintain|initiate|avoid|use the|do not|own the|match the|raise temperature|your historical|this is|hold \d|progress through|first set should|no unnecessary)/i.test(trimmed)) return false;
-
-  // Must not be purely a number or load  
-  if (/^\d+(\.\d+)?\s*(lb|lbs|kg)?$/i.test(trimmed)) return false;
-
-  // Must not contain pipe (prescription line)  
-  if (trimmed.includes('|') && /\d/.test(trimmed)) return false;
-
-  // Should start with a capital letter or number (exercise names do)  
-  if (!/^[A-Z]/.test(trimmed) && !/^\d+\.\s+/.test(trimmed)) return false;
-
-  // Should look like a name: mostly words, possibly with hyphens/parens  
-  if (/^[A-Z][A-Za-z0-9\s()\-,'/]+$/.test(trimmed)) return true;
-
-  // Allow "Cable Face Pull" style  
-  if (/^[A-Z][a-z]/.test(trimmed) && trimmed.split(/\s+/).length <= 8) return true;
-
-  return false;  
-}  
-function parseCompactNarrativeCard(line) {
-  const value = String(line || '').trim();
-  const match = value.match(/^(.+?)\s+(?:[-:]+|\|)\s*(\d+\s*[x×]\s*[^|]+\|.+)$/i);
-  if (!match) return null;
-
-  const name = normalizeExerciseName(match[1]);
-  if (!name || !isLikelyExerciseName(name.replace(/\s+/g, ' '))) return null;
-
-  const parsed = parseNarrativePrescriptionLine(name, normalizeWorkoutText(match[2]));
-  if (!hasMeaningfulExercise(parsed)) return null;
-  parsed.optional = parsed.optional || /\boptional\b/i.test(match[1]);
-  parsed.section = parsed.optional ? 'optional' : 'primary';
-  return parsed;
-}
-function isLikelyExerciseHeading(value) {  
-  const line = String(value || '').trim();  
-  if (!line) return false;
-
-  // Header metadata - not exercises  
-  if (/^(primary|secondary|target duration|confidence)\b/i.test(line)) return false;
-
-  // Standalone body part labels that are section headers, not exercises  
-  if (/^(rear delts|arms|legs|capacity|conditioning|cool-?down|finisher|accessory|supplemental|core)\s*$/i.test(line)) return false;
-
-  // Program constraint notes  
-  if (/^(scapular\/shoulder capacity|no horizontal pressing\.?)$/i.test(line)) return false;
-
-  // Warm-up / preparation section headers (these get handled by parseCompoundWarmupBlock)  
-  if (/^(warm-?up|shoulder preparation|movement preparation|activation)\s*$/i.test(line)) return false;
-
-  return true;  
-}  
-function parseNarrativeExerciseBlock(number, rawName, blockLines) {  
+function parseCompoundWarmupBlock(heading, blockLines) {
+  const results = [];
   const nonEmpty = blockLines.map(s => s.trim()).filter(Boolean);
 
-  const isOpt = /\boptional\b/i.test(rawName) || nonEmpty.some(l => /\boptional\b/i.test(l));  
+  for (const line of nonEmpty) {
+    if (/^(primary targets|secondary|target duration|overall|confidence)\s*:/i.test(line)) continue;
+    
+    // Check if this line is an exercise item or a metadata field
+    const subMatch = line.match(/^[-•*]?\s*([A-Za-z0-9\s()',/-]+?)\s*[:—|-]\s*(.+)$/);
+    if (subMatch) {
+      const fieldName = subMatch[1].trim();
+      if (/^(intent|cuff|shoulders?|red|green|yellow|checkpoint|stop if|target|confidence|progression|tempo|rir|rest|stoplight|cues?|note)$/i.test(fieldName)) {
+        if (results.length > 0) {
+          const last = results[results.length - 1];
+          if (/^tempo$/i.test(fieldName)) last.tempo = normalizeTempoOrSpecial(subMatch[2]);
+          else if (/^rir$/i.test(fieldName)) last.rir = normalizeRir(subMatch[2]);
+          else if (/^rest$/i.test(fieldName)) last.rest = normalizeRest(subMatch[2]);
+          else last.notes = joinNotes([last.notes, `${fieldName}: ${subMatch[2]}`]);
+        }
+        continue;
+      }
+
+      const subName = normalizeExerciseName(subMatch[1]);
+      const subDetail = subMatch[2].trim();
+      const parsedSub = parseNarrativePrescriptionLine(subName, subDetail);
+      if (hasMeaningfulExercise(parsedSub)) {
+        parsedSub.section = 'warmup';
+        parsedSub.notes = joinNotes([parsedSub.notes, 'Warm-up / prep']);
+        results.push(parsedSub);
+      }
+    }
+  }
+
+  if (results.length) return results;
+
+  const single = parseNarrativeExerciseBlock('1', normalizeExerciseName(heading), blockLines);
+  if (single && hasMeaningfulExercise(single)) {
+    single.section = 'warmup';
+    return [single];
+  }
+  return [];
+}
+
+function isLikelyExerciseHeading(value) {
+  const line = String(value || '').trim();
+  if (!line) return false;
+
+  if (/^(primary|secondary|target duration|confidence)\b/i.test(line)) return false;
+  if (/^rear delts$/i.test(line)) return false;
+  if (/^scapular\/shoulder capacity$/i.test(line)) return false;
+  if (/^no horizontal pressing\.?$/i.test(line)) return false;
+
+  return true;
+}
+
+function parseNarrativeExerciseBlock(number, rawName, blockLines) {
+  const nonEmpty = blockLines.map(s => s.trim()).filter(Boolean);
+
+  const isOpt = /\boptional\b/i.test(rawName) || nonEmpty.some(l => /\boptional\b/i.test(l));
   const cleanName = normalizeExerciseName(rawName);
 
-  const prescriptionLine = nonEmpty.find(line =>  
-    line.includes('|') && /\b\d+\s*x\s*/i.test(line)  
+  const prescriptionLine = nonEmpty.find(line =>
+    line.includes('|') && /\b\d+\s*x\s*/i.test(line)
   );
 
-  let parsed = {  
-    name: cleanName,  
-    sets: '',  
-    reps: '',  
-    load: '',  
-    tempo: '',  
-    rir: '',  
-    rest: '',  
-    notes: '',  
-    optional: isOpt,  
-    timed: isTimedExercise(cleanName, ''),  
-    section: isOpt ? 'optional' : (/warm-?up|preparation/i.test(cleanName) ? 'warmup' : 'primary')  
+  let parsed = {
+    name: cleanName,
+    sets: '',
+    reps: '',
+    load: '',
+    tempo: '',
+    rir: '',
+    rest: '',
+    notes: '',
+    optional: isOpt,
+    timed: isTimedExercise(cleanName, ''),
+    section: isOpt ? 'optional' : (/warm-?up|preparation/i.test(cleanName) ? 'warmup' : 'primary')
   };
 
-  if (prescriptionLine) {  
-    parsed = parseNarrativePrescriptionLine(cleanName, prescriptionLine);  
-    parsed.optional = isOpt;  
-    parsed.section = isOpt ? 'optional' : (/warm-?up|preparation/i.test(cleanName) ? 'warmup' : 'primary');  
-    parsed.timed = isTimedExercise(cleanName, parsed.reps);  
+  if (prescriptionLine) {
+    parsed = parseNarrativePrescriptionLine(cleanName, prescriptionLine);
+    parsed.optional = isOpt;
+    parsed.section = isOpt ? 'optional' : (/warm-?up|preparation/i.test(cleanName) ? 'warmup' : 'primary');
+    parsed.timed = isTimedExercise(cleanName, parsed.reps);
   }
 
-  // Lines to skip when building notes  
-  const skipPattern = /^(confidence|w\d+d\d+|progression|target|technical requirements?|technical cues?|tomorrow|therefore|stop if|only perform|intent:|checkpoint:|stoplight:|grip:|cues?:|note:|this is the same|this is an important|this is explicitly|your\s+\w+\s+result|your\s+recent|today:|do not turn)/i;
-
-  const shortNotes = [];  
-  for (const line of nonEmpty) {  
-    if (line === prescriptionLine) continue;  
-    if (skipPattern.test(line)) continue;  
-    if (/^\d+\s*x\s*/i.test(line)) continue;  
+  const shortNotes = [];
+  for (const line of nonEmpty) {
+    if (line === prescriptionLine) continue;
+    if (/^(confidence|w\d+d\d+|progression|target|technical requirements?|technical cues?|tomorrow|therefore|stop if|only perform)/i.test(line)) continue;
+    if (/^\d+\s*x\s*/i.test(line)) continue;
     if (line.includes('|')) continue;
 
-    // Skip emoji/stoplight lines  
-    if (/^[🟢🟡🔴]/.test(line)) continue;
-
-    // Skip bullet-point technical cues  
-    if (/^(chest stays|drive elbows|do not chase|own the|maintain the|initiate with|avoid|use the|keep upper|no torso|elbows remain|shoulders down|separate the|start with|match the)/i.test(line)) continue;
-
-    if (cleanName.toLowerCase() === 'warm-up' || cleanName.toLowerCase() === 'shoulder preparation') {  
-      if (line.length <= 80) shortNotes.push(line);  
-      continue;  
+    if (cleanName.toLowerCase() === 'warm-up' || cleanName.toLowerCase() === 'shoulder preparation') {
+      if (line.length <= 80) shortNotes.push(line);
+      continue;
     }
 
-    if (line.length <= 120) {  
-      shortNotes.push(line);  
-    }  
+    if (line.length <= 120) {
+      shortNotes.push(line);
+    }
   }
 
-  parsed.notes = joinNotes([parsed.notes, shortNotes.slice(0, 3).join(' | ')]);  
-  return parsed;  
-}  
+  parsed.notes = joinNotes([parsed.notes, shortNotes.slice(0, 3).join(' | ')]);
+  return parsed;
+}
+
 function parseNarrativePrescriptionLine(name, line) {
   const isOpt = /\boptional\b/i.test(name) || /\boptional\b/i.test(line);
   const cleanName = normalizeExerciseName(name);
@@ -1069,29 +748,19 @@ function parseNarrativePrescriptionLine(name, line) {
   };
 }
 
-function parseSetsRepsCell(value) {  
-  const cell = String(value || '').trim();  
+function parseSetsRepsCell(value) {
+  const cell = String(value || '').trim();
   if (!cell) return { sets: '', reps: '' };
 
-  const match = cell.match(/^(\d+(?:\s*-\s*\d+)?)\s*x\s*(.+)$/i);  
-  if (!match) return { sets: '', reps: cleanRepsValue(cell) };
+  const match = cell.match(/^(\d+(?:\s*-\s*\d+)?)\s*x\s*(.+)$/i);
+  if (!match) return { sets: '', reps: cell };
 
-  return {  
-    sets: match[1].replace(/\s/g, ''),  
-    reps: cleanRepsValue(match[2].trim())  
-  };  
+  return {
+    sets: match[1].replace(/\s/g, ''),
+    reps: match[2].trim()
+  };
 }
 
-function cleanRepsValue(value) {  
-  let v = String(value || '').trim();  
-  if (!v) return '';
-
-  // Remove trailing "reps" or "rep" to avoid "8 reps reps" in debrief  
-  // But preserve "reps" if it's the ONLY content (edge case)  
-  v = v.replace(/\s+reps?\s*$/i, '').trim();
-
-  return v;  
-} 
 function looksLikeLoad(value) {
   const v = String(value || '').trim().toLowerCase();
   return /\b(lb|lbs|kg|bw|bodyweight|total|plate|stack)\b/.test(v) || /^\d+(\.\d+)?$/.test(v);
@@ -1102,8 +771,6 @@ function looksLikeTempo(value) {
   return (
     /^\d+-\d+-\d+(-\d+)?$/.test(v) ||
     /\bcontrolled\b/.test(v) ||
-    /\bmph\b/.test(v) ||
-    /\bincline\b/.test(v) ||
     /\btempo\b/.test(v)
   );
 }
@@ -1363,9 +1030,9 @@ function toCockpitExercise(block, index) {
     prescribedRest: normalizeRest(block.rest || ''),
     notes: clean(block.notes || ''),
     optional: isOpt,
-    section: block.section || (isOpt ? 'optional' : (/warm-?up|preparation/i.test(cleanName) ? 'warmup' : 'primary')),  
-    sectionLabel: block.sectionLabel || '',  
+    section: block.section || (isOpt ? 'optional' : (/warm-?up|preparation/i.test(cleanName) ? 'warmup' : 'primary')),
     establishLoad: isEstablishLoad(block),
+    unilateral: isUnilateralPrescription(block),
     timed: timed,
     completedSets: [],
     skipped: false,
@@ -1464,7 +1131,6 @@ return {
   setCockpitWorkingLoad,
   skipCockpitExercise,
   startOptionalCockpitExercise,
-  defaultActualFromBlock,
-  generateCoachCard
+  defaultActualFromBlock
 };
 })();
