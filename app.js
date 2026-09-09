@@ -616,6 +616,7 @@ function renderHome() {
             ${tertiaryActionMarkup}
           </div>
         </article>
+        <div id="weekly-calendar-strip"></div>
       </div>
     `;
   } else {
@@ -661,6 +662,8 @@ function renderHome() {
           }
         </aside>
       </div>
+
+      <div id="weekly-calendar-strip"></div>
 
       <section class="metrics">
         ${metric('Historical sessions', m.sessions, 'Markdown source data')}
@@ -755,6 +758,10 @@ function renderHome() {
   const homePastePlan = $('#homePastePlan');
   if (homePastePlan) {
     homePastePlan.onclick = () => openPlannerPaste();
+  }
+
+  if (typeof MomentumPlanner !== 'undefined' && typeof MomentumPlanner.renderWeeklyCalendarStrip === 'function') {
+    MomentumPlanner.renderWeeklyCalendarStrip('weekly-calendar-strip');
   }
 }
 
@@ -2386,6 +2393,30 @@ document.addEventListener('visibilitychange', () => {
     };
   }
 
+  function triggerTimerAlert() {
+    try {
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        navigator.vibrate([200, 100, 200]);
+      }
+    } catch (e) {}
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) {
+        const ctx = new AudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, ctx.currentTime);
+        gain.gain.setValueAtTime(0.15, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.35);
+      }
+    } catch (e) {}
+  }
+
   // Live session timer: updates #timer once per second when on the Log view.
   if (!has('_momentumTimerStarted')) {
     window._momentumTimerStarted = true;
@@ -2399,11 +2430,13 @@ document.addEventListener('visibilitychange', () => {
       const rt = state && state.restTimer;
       if (rt && rt.startedAt && rt.total) {
         const elapsed = Math.floor((Date.now() - rt.startedAt) / 1000);
-        const remaining = Math.max(0, rt.total - elapsed);
+        const remaining = rt.total - elapsed;
         const banner = document.getElementById('restBanner');
         const timeEl = document.getElementById('restTime');
         if (remaining <= 0) {
-          if (banner) banner.hidden = true;
+          if (timeEl) timeEl.textContent = '0s';
+          triggerTimerAlert();
+          if (banner) banner.remove();
           state.restTimer = null;
         } else if (timeEl) {
           timeEl.textContent = remaining + 's';
