@@ -1,4 +1,5 @@
-const CACHE = 'momentum-v1.1.4';
+const CACHE = 'momentum-v1.1.5';
+const NETWORK_FIRST = new Set(['/', '/index.html', '/planner.js', '/app.js', '/sw.js']);
 const ASSETS = [
   '/',
   '/index.html',
@@ -27,9 +28,16 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
-  event.respondWith(caches.match(event.request).then(cached => cached || fetch(event.request).then(response => {
+  const requestPath = new URL(event.request.url).pathname;
+  const fetchAndCache = () => fetch(event.request).then(response => {
     const copy = response.clone();
     caches.open(CACHE).then(cache => cache.put(event.request, copy));
     return response;
-  }).catch(() => caches.match('/index.html'))));
+  });
+
+  event.respondWith(
+    NETWORK_FIRST.has(requestPath)
+      ? fetchAndCache().catch(() => caches.match(event.request).then(cached => cached || caches.match('/index.html')))
+      : caches.match(event.request).then(cached => cached || fetchAndCache().catch(() => caches.match('/index.html')))
+  );
 });
