@@ -8,9 +8,9 @@
   "theme_color": "#0b1117",
   "icons": [
     {
-      "src": "/icon.svg",
+      "src": "/bulldogstats-logo-dog_head.png",
       "sizes": "any",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "any maskable"
     }
   ]

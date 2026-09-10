@@ -1248,7 +1248,7 @@ function renderWeeklyCalendarStrip() {
 
     const planForDay = queuedPlans.find(p => (p.scheduled_date === dateStr || p.scheduledDate === dateStr));
     const hasPlan = !!planForDay;
-    const planTitle = planForDay ? (planForDay.canonicalTitle || planForDay.title || 'Workout') : 'Rest';
+    const planTitle = planForDay ? calendarPlanTitle(planForDay) : 'Rest';
 
     html += `
       <div class="calendar-day-card ${hasPlan ? 'has-plan' : ''} ${i === 0 ? 'is-today' : ''}" 
@@ -1261,6 +1261,16 @@ function renderWeeklyCalendarStrip() {
   }
   html += '</div>';
   calendarContainer.innerHTML = html;
+}
+
+function calendarPlanTitle(plan) {
+  const title = String(plan?.title || '').trim();
+  if (title && !/[.!?]\s/.test(title) && title.length <= 120) return title;
+
+  const canonical = String(plan?.canonicalTitle || '').trim();
+  if (canonical && !/[.!?]\s/.test(canonical) && canonical.length <= 120) return canonical;
+
+  return title || canonical || 'Workout';
 }
 
 function launchPlannedCard(dateStr) {
