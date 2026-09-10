@@ -520,11 +520,12 @@ function parseExerciseFromTableRow(cells, columnMap) {
 }
 
 function parseNarrativeWorkout(text) {
-  const lines = text.split('\n').map(line => line.replace(/^#{1,6}\s+/, '').trim());
+  const rawLines = text.split('\n');
+  const lines = rawLines.map(line => line.replace(/^#{1,6}\s+/, '').trim());
   const exercises = [];
 
   const hasNumberedExercises = lines.some(line => /^\d+\.\s+/.test(line));
-  const boldExercises = hasNumberedExercises ? [] : parseBoldNarrativeWorkout(lines);
+  const boldExercises = hasNumberedExercises ? [] : parseBoldNarrativeWorkout(rawLines);
   if (boldExercises.length) return boldExercises;
 
   // Check for an unnumbered Warm-Up block before the first numbered exercise

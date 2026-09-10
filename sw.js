@@ -1,10 +1,10 @@
-const CACHE = 'momentum-v1.1.3';
+const CACHE = 'momentum-v1.1.4';
 const ASSETS = [
   '/',
   '/index.html',
   '/manifest.webmanifest',
   '/icon.svg',
-  '/bulldog-head.svg',
+  '/bulldogstats-logo-dog_head.png',
   '/data.js',
   '/workout-cards.js',
   '/planner.js',

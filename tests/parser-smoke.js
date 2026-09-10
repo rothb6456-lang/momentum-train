@@ -59,3 +59,60 @@ if (markdownParsed.phaseId !== '11' || markdownParsed.week !== '1' || markdownPa
 }
 
 console.log('Markdown card parser smoke test passed');
+
+const firstCard = `# Phase 11 · Week 1 · Day 2
+
+## Chest + Shoulder Performance + Triceps
+
+### Warm-up
+
+**Treadmill Walking**
+
+5:00 | 4.8 mph | 5% incline
+
+**Band External Rotation**
+
+1 × 15 | 2-1-2 | RIR 4+
+
+**Serratus Wall Slide**
+
+1 × 8 | 2-1-2 | RIR 3
+
+## Primary Chest
+
+**Single-Arm Cable Press**
+
+**3 × 10–12/side | 25 lb | 2-1-3 | RIR 2 | 90 sec**
+
+**Supine Press Machine, Plate Loaded**
+
+**3 × 8–12 | 70 lb | 3-1-2 | RIR 2 | 2–3 min**
+
+**Cable High-to-Mid Fly**
+
+**2 × 10–15 | 40 lb | 2-1-3 | RIR 2 | 75–90 sec**
+
+# Shoulder Performance
+
+**Seated Neutral-Grip DB Overhead Press**
+
+**2 × 8–12 | 50–60 lb total | 2-1-3 | RIR 3 | 2 min**
+
+# Triceps
+
+**Rope Triceps Pushdown**
+
+**3 × 10–15 | 40–42.5 lb | 2-1-2 | RIR 1–2 | 90 sec**
+
+**Single-Arm Overhead Cable Extension**
+
+**2 × 8–12/side | 20–25 lb | 3-1-2 | RIR 2 | 75–90 sec**`;
+const firstCardParsed = vm.runInContext(`MomentumPlanner.parse(${JSON.stringify(firstCard)})`, context);
+
+if (firstCardParsed.phaseId !== '11' || firstCardParsed.week !== '1' || firstCardParsed.day !== '2' ||
+    firstCardParsed.exerciseBlocks.length !== 9 ||
+    firstCardParsed.exerciseBlocks.some(block => !block.exerciseName || !block.targetRepsOrDuration)) {
+  throw new Error(`Unexpected first-card result: ${JSON.stringify(firstCardParsed)}`);
+}
+
+console.log('First workout card parser smoke test passed');
