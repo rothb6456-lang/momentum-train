@@ -1,4 +1,4 @@
-const CACHE = 'momentum-v1.1.5';
+const CACHE = 'momentum-v1.1.6';
 const NETWORK_FIRST = new Set(['/', '/index.html', '/planner.js', '/app.js', '/sw.js']);
 const ASSETS = [
   '/',

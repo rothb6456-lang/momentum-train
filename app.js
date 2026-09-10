@@ -1151,6 +1151,35 @@ function renderEditor(mode) {
           toast('Could not parse that workout card');
           return;
         }
+
+        const parsedBlocks = Array.isArray(parsed.exerciseBlocks)
+          ? parsed.exerciseBlocks
+          : (Array.isArray(parsed.exercises)
+            ? parsed.exercises.map((exercise, index) => ({
+                id: exercise.id || `planned-${Date.now()}-${index + 1}`,
+                order: index + 1,
+                exerciseName: exercise.name || exercise.exerciseName || '',
+                targetSets: exercise.sets || exercise.targetSets || '',
+                targetRepsOrDuration: exercise.reps || exercise.targetRepsOrDuration || '',
+                targetWeightOrLoad: exercise.load || exercise.targetWeightOrLoad || '',
+                tempo: exercise.tempo || '',
+                rir: exercise.rir || '',
+                rest: exercise.rest || '',
+                notes: exercise.notes || '',
+                checkpoints: exercise.checkpoints || '',
+                tags: Array.isArray(exercise.tags) ? exercise.tags : [],
+                optional: !!exercise.optional,
+                timed: !!exercise.timed,
+                section: exercise.section || 'primary'
+              }))
+            : []);
+        const namedBlocks = parsedBlocks.filter(block => String(block?.exerciseName || '').trim());
+        if (!namedBlocks.length) {
+          toast('No exercises detected. Check that the complete workout card was pasted.');
+          return;
+        }
+
+        parsed.exerciseBlocks = namedBlocks;
         editor = parsed;
         editor.exerciseBlocks = safeBlocks(editor.exerciseBlocks);
         renderEditor('builder');
