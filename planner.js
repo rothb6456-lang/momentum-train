@@ -167,10 +167,12 @@ function normalizeWorkoutText(input) {
 }
 
 function parseWorkoutMeta(text) {
-  const lines = text.split('\n').map(s => s.trim()).filter(Boolean);
+  const lines = text.split('\n')
+    .map(s => s.trim().replace(/^#{1,6}\s*/, '').replace(/^\*\*(.*?)\*\*$/, '$1'))
+    .filter(Boolean);
 
   const phaseMatch = text.match(/\bPHASE\s+(\d+)\b/i);
-  const weekDayMatch = text.match(/\bWEEK\s+(\d+)\s*[•|\/-]?\s*DAY\s+(\d+)\b/i) ||
+  const weekDayMatch = text.match(/\bWEEK\s+(\d+)\s*[·•|\/-]?\s*DAY\s+(\d+)\b/i) ||
                        text.match(/\bDAY\s+(\d+)\b/i);
   const week = weekDayMatch ? (weekDayMatch[2] ? weekDayMatch[1] : '') : '';
   const day = weekDayMatch ? (weekDayMatch[2] ? weekDayMatch[2] : weekDayMatch[1]) : '';
@@ -518,8 +520,12 @@ function parseExerciseFromTableRow(cells, columnMap) {
 }
 
 function parseNarrativeWorkout(text) {
-  const lines = text.split('\n');
+  const lines = text.split('\n').map(line => line.replace(/^#{1,6}\s+/, '').trim());
   const exercises = [];
+
+  const hasNumberedExercises = lines.some(line => /^\d+\.\s+/.test(line));
+  const boldExercises = hasNumberedExercises ? [] : parseBoldNarrativeWorkout(lines);
+  if (boldExercises.length) return boldExercises;
 
   // Check for an unnumbered Warm-Up block before the first numbered exercise
   const firstNumberedIndex = lines.findIndex(l => /^\d+\.\s+/.test((l || '').trim()));
@@ -544,7 +550,7 @@ function parseNarrativeWorkout(text) {
     }
 
     const number = headingMatch[1];
-    const rawHeadingName = headingMatch[2].trim();
+    const rawHeadingName = headingMatch[2].trim().replace(/^\*\*(.*?)\*\*$/, '$1');
 
     const block = [];
     i++;
@@ -571,6 +577,48 @@ function parseNarrativeWorkout(text) {
     const rawName = normalizeExerciseName(rawHeadingName);
     const exercise = parseNarrativeExerciseBlock(number, rawName, block);
     if (exercise && hasMeaningfulExercise(exercise)) exercises.push(exercise);
+  }
+
+  return exercises;
+}
+
+function parseBoldNarrativeWorkout(lines) {
+  const exercises = [];
+  const isExerciseLine = line => {
+    const match = String(line || '').trim().match(/^\*\*([^*]+)\*\*$/);
+    if (!match || /\|/.test(match[1])) return null;
+    if (/^(intent|setup|cue|progression|shoulder|stoplight|important|load target|do not|note)\s*:/i.test(match[1])) return null;
+    return match[1].trim();
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const rawName = isExerciseLine(lines[i]);
+    if (!rawName) continue;
+
+    const block = [];
+    let next = i + 1;
+    for (; next < lines.length; next++) {
+      if (isExerciseLine(lines[next])) break;
+      if (/^#{1,6}\s+/.test(String(lines[next] || '').trim())) break;
+      block.push(String(lines[next] || '').trim());
+    }
+
+    const hasPrescription = block.some(line =>
+      line.includes('|') && (/^\**\d+\s*x\s*/i.test(line) || /^\**\d+:\d+\s*\|/.test(line))
+    );
+    if (!hasPrescription) {
+      i = next - 1;
+      continue;
+    }
+
+    const cleanName = normalizeExerciseName(rawName);
+    const exercise = parseNarrativeExerciseBlock(String(exercises.length + 1), cleanName, block);
+    if (exercise && hasMeaningfulExercise(exercise)) {
+      const previousHeading = lines.slice(0, i).reverse().find(line => /^#{1,6}\s+/.test(String(line || '').trim()));
+      if (/warm-?up|preparation/i.test(previousHeading || '')) exercise.section = 'warmup';
+      exercises.push(exercise);
+    }
+    i = next - 1;
   }
 
   return exercises;
@@ -638,7 +686,7 @@ function parseNarrativeExerciseBlock(number, rawName, blockLines) {
   const cleanName = normalizeExerciseName(rawName);
 
   const prescriptionLine = nonEmpty.find(line =>
-    line.includes('|') && /\b\d+\s*x\s*/i.test(line)
+    line.includes('|') && (/^\**\d+\s*x\s*/i.test(line) || /^\**\d+:\d+\s*\|/.test(line))
   );
 
   let parsed = {
@@ -656,7 +704,7 @@ function parseNarrativeExerciseBlock(number, rawName, blockLines) {
   };
 
   if (prescriptionLine) {
-    parsed = parseNarrativePrescriptionLine(cleanName, prescriptionLine);
+    parsed = parseNarrativePrescriptionLine(cleanName, prescriptionLine.replace(/^\*\*|\*\*$/g, '').trim());
     parsed.optional = isOpt;
     parsed.section = isOpt ? 'optional' : (/warm-?up|preparation/i.test(cleanName) ? 'warmup' : 'primary');
     parsed.timed = isTimedExercise(cleanName, parsed.reps);
