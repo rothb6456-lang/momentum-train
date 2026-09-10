@@ -1,3 +1,5 @@
+window.MOMENTUM_BUILD = '1.1.7';
+
 /* =========================
    MOMENTUM STABILITY + CORE HELPERS
    Place this block before renderHome()
