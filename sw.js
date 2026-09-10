@@ -1,22 +1,23 @@
-const CACHE = 'momentum-v1.1.2';  
-const ASSETS = [  
-  '/',  
-  '/index.html',  
-  '/manifest.webmanifest',  
-  '/icon.svg',  
-  '/data.js',  
-  '/workout-cards.js',  
-  '/planner.js',  
-  '/sync.js',  
-  '/app.js',  
-  '/data/01_Training_Core.md',  
-  '/data/02_Training_Reference.md',  
-  '/data/03_Training_Analysis.md',  
-  '/data/04_Training_Schema.md'  
+const CACHE = 'momentum-v1.1.3';
+const ASSETS = [
+  '/',
+  '/index.html',
+  '/manifest.webmanifest',
+  '/icon.svg',
+  '/bulldog-head.svg',
+  '/data.js',
+  '/workout-cards.js',
+  '/planner.js',
+  '/sync.js',
+  '/app.js',
+  '/data/01_Training_Core.md',
+  '/data/02_Training_Reference.md',
+  '/data/03_Training_Analysis.md',
+  '/data/04_Training_Schema.md'
 ];
 
-self.addEventListener('install', event => {  
-  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)));  
+self.addEventListener('install', event => {
+  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)));
 });
 
 self.addEventListener('activate', event => {

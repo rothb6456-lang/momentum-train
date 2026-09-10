@@ -235,3 +235,45 @@
   cursor: wait;
   opacity: 0.7;
 }
+
+/* Shared Bulldogstats palette for components loaded outside the main shell. */
+:root {
+  --bulldog-green: #159447;
+  --bulldog-navy: #0b2b45;
+  --bulldog-grey: #586773;
+  --bulldog-line: #c6d2cb;
+}
+
+.coach-ai-card-container {
+  background: linear-gradient(135deg, #e4f2e8 0%, #f5f8f6 100%);
+  border-color: var(--bulldog-line);
+  box-shadow: 0 12px 28px rgba(11, 43, 69, 0.12);
+}
+
+.coach-ai-badge,
+.coach-ai-status-message.info,
+.auth-badge {
+  color: var(--bulldog-green);
+  background: rgba(21, 148, 71, 0.1);
+  border-color: rgba(21, 148, 71, 0.3);
+}
+
+.coach-ai-header h3,
+.modal-card {
+  color: var(--bulldog-navy);
+}
+
+.coach-ai-description,
+.modal-description {
+  color: var(--bulldog-grey);
+}
+
+.btn-coach-ai,
+.btn-primary.auth-submit-btn {
+  background: var(--bulldog-green);
+}
+
+.btn-coach-ai:hover,
+.btn-primary.auth-submit-btn:hover {
+  background: #117b3a;
+}
