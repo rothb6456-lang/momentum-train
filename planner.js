@@ -528,6 +528,9 @@ function parseNarrativeWorkout(text) {
   const boldExercises = hasNumberedExercises ? [] : parseBoldNarrativeWorkout(rawLines);
   if (boldExercises.length) return boldExercises;
 
+  const looseExercises = parseLooseNarrativeWorkout(rawLines);
+  if (looseExercises.length) return looseExercises;
+
   // Check for an unnumbered Warm-Up block before the first numbered exercise
   const firstNumberedIndex = lines.findIndex(l => /^\d+\.\s+/.test((l || '').trim()));
   const preLines = firstNumberedIndex >= 0 ? lines.slice(0, firstNumberedIndex) : [];
@@ -579,6 +582,46 @@ function parseNarrativeWorkout(text) {
     const exercise = parseNarrativeExerciseBlock(number, rawName, block);
     if (exercise && hasMeaningfulExercise(exercise)) exercises.push(exercise);
   }
+
+  return exercises;
+}
+
+function parseLooseNarrativeWorkout(lines) {
+  const exercises = [];
+  const seen = new Set();
+  const prescriptionPattern = /^\s*\**\s*(?:\d+\s*[x×]\s*[^|]+|\d+:\d+)\s*\|/i;
+  const cleanCandidate = value => String(value || '')
+    .trim()
+    .replace(/^#{1,6}\s*/, '')
+    .replace(/^\d+\.\s*/, '')
+    .replace(/^\*+|\*+$/g, '')
+    .replace(/^_+|_+$/g, '')
+    .trim();
+
+  lines.forEach((line, index) => {
+    const rawPrescription = String(line || '').trim();
+    if (!prescriptionPattern.test(rawPrescription)) return;
+
+    let candidate = '';
+    for (let previous = index - 1; previous >= 0; previous--) {
+      const value = cleanCandidate(lines[previous]);
+      if (!value) continue;
+      if (/^(intent|setup|cue|progression|shoulder|stoplight|important|load target|do not|note|primary|secondary|warm-?up|phase|week|day)\b/i.test(value)) continue;
+      if (/\|/.test(value) || /^\d+[:.]/.test(value)) continue;
+      candidate = value;
+      break;
+    }
+
+    if (!candidate) return;
+    const name = normalizeExerciseName(candidate);
+    const key = name.toLowerCase();
+    if (seen.has(key)) return;
+    const exercise = parseNarrativePrescriptionLine(name, rawPrescription.replace(/^\*+|\*+$/g, '').trim());
+    if (exercise && hasMeaningfulExercise(exercise)) {
+      exercises.push(exercise);
+      seen.add(key);
+    }
+  });
 
   return exercises;
 }

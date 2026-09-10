@@ -1,4 +1,4 @@
-window.MOMENTUM_BUILD = '1.1.7';
+window.MOMENTUM_BUILD = '1.1.8';
 
 /* =========================
    MOMENTUM STABILITY + CORE HELPERS

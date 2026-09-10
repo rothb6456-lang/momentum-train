@@ -116,3 +116,20 @@ if (firstCardParsed.phaseId !== '11' || firstCardParsed.week !== '1' || firstCar
 }
 
 console.log('First workout card parser smoke test passed');
+
+const clipboardVariant = `# Phase 11 · Week 1 · Day 2
+
+## Chest + Shoulder Performance + Triceps
+
+Single-Arm Cable Press
+
+3 x 10-12/side | 25 lb | 2-1-3 | RIR 2 | 90 sec`;
+const clipboardParsed = vm.runInContext(`MomentumPlanner.parse(${JSON.stringify(clipboardVariant)})`, context);
+
+if (clipboardParsed.exerciseBlocks.length !== 1 ||
+    clipboardParsed.exerciseBlocks[0].exerciseName !== 'Single-arm Cable Press' ||
+    clipboardParsed.exerciseBlocks[0].targetSets !== '3') {
+  throw new Error(`Unexpected clipboard variant result: ${JSON.stringify(clipboardParsed)}`);
+}
+
+console.log('Clipboard variant parser smoke test passed');
