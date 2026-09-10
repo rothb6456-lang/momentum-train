@@ -1,4 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title">
+  <title>Bulldog head</title>
   <path fill="#159447" stroke="#0b2b45" stroke-linejoin="round" stroke-width="8" d="M52 54 28 30l4 58c-8 18-12 40-8 66 6 43 38 73 104 73s98-30 104-73c4-26 0-48-8-66l4-58-24 24-30-15c-14-7-29-10-46-10s-32 3-46 10L52 54Z"/>
   <path fill="#fff" stroke="#0b2b45" stroke-width="7" d="M64 107c0-17 14-31 31-31h66c17 0 31 14 31 31v28c0 14-8 25-19 32l-8 5c-12 8-27 12-42 12s-30-4-42-12l-8-5c-11-7-19-18-19-32v-28Z"/>
   <path fill="#0b2b45" d="M81 112c0-10 8-18 18-18s18 8 18 18-8 18-18 18-18-8-18-18Zm58 0c0-10 8-18 18-18s18 8 18 18-8 18-18 18-18-8-18-18Z"/>

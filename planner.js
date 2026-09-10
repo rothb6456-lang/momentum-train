@@ -464,7 +464,9 @@ function mapWorkoutTableColumns(headers) {
   return {
     index: find([/^#$/, /^no\.?$/]),
     exercise: find([/exercise/, /movement/]),
-    setsReps: find([/sets?.*reps?/, /reps?.*duration/, /sets?.*duration/, /sets x reps/, /sets/]),
+    setsReps: find([/sets?\s*x\s*reps?/, /sets?.*reps?/, /reps?.*duration/, /sets?.*duration/]),
+    sets: find([/^sets?$/]),
+    reps: find([/^reps?$/, /^reps?\s*(?:or|and)\s*duration$/]),
     load: find([/^load$/, /weight/]),
     tempo: find([/^tempo$/, /cadence/, /pace/]),
     rir: find([/^rir$/, /reps? in reserve/]),
@@ -478,6 +480,8 @@ function parseExerciseFromTableRow(cells, columnMap) {
   if (!rawName) return null;
 
   const setsReps = safeCell(cells, columnMap.setsReps);
+  const separateSets = safeCell(cells, columnMap.sets);
+  const separateReps = safeCell(cells, columnMap.reps);
   const load = safeCell(cells, columnMap.load);
   const tempo = safeCell(cells, columnMap.tempo);
   const rir = safeCell(cells, columnMap.rir);
@@ -485,6 +489,8 @@ function parseExerciseFromTableRow(cells, columnMap) {
   const notes = safeCell(cells, columnMap.notes);
 
   const sr = parseSetsRepsCell(setsReps);
+  if (separateSets) sr.sets = separateSets;
+  if (separateReps) sr.reps = separateReps;
 
   const leftovers = [];
   const cleanTempo = normalizeTempoOrSpecial(tempo, leftovers);
