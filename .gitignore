@@ -2,3 +2,5 @@
 *.log
 .env
 .wrangler
+*.secret.ps1
+*.local.ps1
