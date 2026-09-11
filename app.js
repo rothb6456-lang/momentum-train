@@ -468,22 +468,19 @@ function logMarkup() {
     : sets;
 
   return matchingSets.length
-    ? matchingSets.map((set, index) => {
+    ? `<div class="set-history-table-wrap"><table class="set-history-table">
+        <thead><tr><th>Set #</th><th>Load (lbs)</th><th>Reps</th><th>Tempo</th><th>RIR</th><th>Actions</th></tr></thead>
+        <tbody>${matchingSets.map((set, index) => {
         const sessionIndex = sets.indexOf(set);
-        return `
-        <button class="exercise-card logged-set" type="button" data-edit-set="${sessionIndex}">
-          <div class="exercise-title">
-            <b>Set ${index + 1}</b>
-            <span class="quiet">
-              ${esc(set.reps ?? set.result ?? '—')} reps ·
-              ${esc(set.weight ?? set.load ?? '—')} load ·
-              ${esc(set.rir ?? '—')} RIR
-            </span>
-          </div>
-          ${set.notes ? `<div class="quiet">${esc(set.notes)}</div>` : ''}
-        </button>
-      `;
-      }).join('')
+        return `<tr class="logged-set" data-edit-set="${sessionIndex}">
+          <td data-label="Set #">${index + 1}</td>
+          <td data-label="Load (lbs)">${esc(set.load ?? set.weight_lbs ?? set.weight ?? '—')}</td>
+          <td data-label="Reps">${esc(set.reps ?? set.result ?? '—')}</td>
+          <td data-label="Tempo">${esc(set.tempo || '—')}</td>
+          <td data-label="RIR">${esc(set.rir || '—')}</td>
+          <td data-label="Actions"><button class="btn-delete-set" type="button" data-delete-set="${sessionIndex}" aria-label="Delete set ${index + 1}">Delete</button></td>
+        </tr>`;
+      }).join('')}</tbody></table></div>`
     : '<div class="empty">No sets logged yet for this exercise.</div>';
 }
 
@@ -1399,6 +1396,7 @@ function renderEditor(mode) {
       starterPreviewKey = null;
       renderToday();
       if (typeof renderHome === 'function') renderHome();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       toast('Workout saved to queue');
     };
   }
@@ -1641,6 +1639,7 @@ function renderLog() {
         </div>
         <div class="actions">
           <button class="primary" id="addSet">${isEditingSet ? `Update Set #${state.editingSetIndex + 1}` : 'Add set'}</button>
+          ${isEditingSet ? '<button class="secondary btn-delete-set" id="deleteSet" type="button">Delete Set</button>' : ''}
           ${showNext ? `<button class="primary next-exercise" id="nextExercise">Next: ${esc(nextName)} &rarr;</button>` : ''}
           ${!showNext && setsComplete ? '<button class="primary" id="finishDone">Finish workout</button>' : ''}
         </div>
@@ -2335,23 +2334,27 @@ document.addEventListener('visibilitychange', () => {
         const section = block.section || rx.section || (isOpt ? 'optional' : (/warm-?up|preparation/i.test(exerciseName) ? 'warmup' : 'primary'));
 
         session.sets = Array.isArray(session.sets) ? session.sets : [];
+        const editingIndex = Number.isInteger(state.editingSetIndex) ? state.editingSetIndex : null;
         const setRecord = {
           exerciseName, exercise: exerciseName,
-          load, result: reps, reps,
+          load, weight_lbs: load, result: reps, reps,
           tempo, rir, rest,
+          set_number: (editingIndex !== null ? (session.sets[editingIndex]?.set_number || editingIndex + 1) : session.sets.filter(set => (set.exerciseName || set.exercise) === exerciseName).length + 1),
           optional: isOpt,
           timed: isTimed,
           section,
           notes: noteEl ? noteEl.value.trim() : '',
           loggedAt: new Date().toISOString()
         };
-        const editingIndex = Number.isInteger(state.editingSetIndex) ? state.editingSetIndex : null;
         if (editingIndex !== null && session.sets[editingIndex]) {
           session.sets[editingIndex] = { ...session.sets[editingIndex], ...setRecord };
           state.editingSetIndex = null;
         } else {
           session.sets.push(setRecord);
         }
+        session.sets
+          .filter(set => (set.exerciseName || set.exercise) === exerciseName)
+          .forEach((set, index) => { set.set_number = index + 1; });
         // persist the chosen load as the working load so the next set pre-fills with it
         if (window.MomentumPlanner && typeof MomentumPlanner.setCockpitWorkingLoad === 'function' && state.cockpit) {
           const ex = Array.isArray(state.cockpit.exercises) ? state.cockpit.exercises : [];
@@ -2374,6 +2377,36 @@ document.addEventListener('visibilitychange', () => {
         state.restTimer = null;
         if (typeof renderLog === 'function') renderLog();
       });
+
+      $$('[data-delete-set]').forEach(button => button.onclick = event => {
+        event.stopPropagation();
+        const session = ensureActiveSession();
+        const index = Number(button.dataset.deleteSet);
+        if (!Number.isInteger(index) || !session.sets[index]) return;
+        const exerciseName = session.sets[index].exerciseName || session.sets[index].exercise;
+        session.sets.splice(index, 1);
+        session.sets
+          .filter(set => (set.exerciseName || set.exercise) === exerciseName)
+          .forEach((set, setIndex) => { set.set_number = setIndex + 1; });
+        state.editingSetIndex = null;
+        if (typeof persist === 'function') persist();
+        if (typeof renderLog === 'function') renderLog();
+      });
+
+      const deleteSet = $('#deleteSet');
+      if (deleteSet) deleteSet.onclick = () => {
+        const session = ensureActiveSession();
+        const index = Number.isInteger(state.editingSetIndex) ? state.editingSetIndex : -1;
+        if (index < 0 || !session.sets[index]) return;
+        const exerciseName = session.sets[index].exerciseName || session.sets[index].exercise;
+        session.sets.splice(index, 1);
+        session.sets
+          .filter(set => (set.exerciseName || set.exercise) === exerciseName)
+          .forEach((set, setIndex) => { set.set_number = setIndex + 1; });
+        state.editingSetIndex = null;
+        if (typeof persist === 'function') persist();
+        if (typeof renderLog === 'function') renderLog();
+      };
 
       const loadInput = $('#load');
       if (loadInput) loadInput.oninput = () => {

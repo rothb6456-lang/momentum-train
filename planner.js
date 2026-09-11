@@ -876,7 +876,7 @@ function looksLikeTempo(value) {
     /^\d+-\d+-\d+(-\d+)?$/.test(v) ||
     /\bcontrolled\b/.test(v) ||
     /\btempo\b/.test(v) ||
-    /\b(?:lower|eccentric|down|pause|hold|stand|press|concentric|up)\s+\d+/i.test(v)
+    /\b(?:lower|eccentric|down|pause|hold|isometric|extend|extension|stand|press|concentric|up)\s+\d+/i.test(v)
   );
 }
 
@@ -887,7 +887,7 @@ function looksLikeRir(value) {
 
 function looksLikeRest(value) {
   const v = String(value || '').trim().toLowerCase();
-  return /\d+(?:\.\d+)?\s*(?:sec|min|m|s)\b/.test(v);
+  return /^(?:rest[:\s]*)?\d+(?:\.\d+)?\s*(?:sec|min|m|s)\b/.test(v);
 }
 
 function normalizeLoad(value) {
@@ -908,7 +908,7 @@ function normalizeTempoOrSpecial(value, leftovers) {
   }
   if (/^controlled$/i.test(v)) return 'Controlled';
 
-  const verbal = v.match(/(?:lower|eccentric|down)\s+(\d+(?:\.\d+)?)\D+(?:pause|hold)\s+(\d+(?:\.\d+)?)\D+(?:(?:stand|press|concentric|up)\s+(\d+(?:\.\d+)?|x))/i);
+  const verbal = v.match(/(?:lower|eccentric|down)\s+(\d+(?:\.\d+)?)\D+(?:pause|hold|isometric)\s+(\d+(?:\.\d+)?)\D+(?:(?:extend|extension|stand|press|concentric|up)\s+(\d+(?:\.\d+)?|x))/i);
   if (verbal) return `${verbal[1]}-${verbal[2]}-${verbal[3].toLowerCase() === 'x' ? 'x' : verbal[3]}`;
 
   if (/\bmph\b/i.test(v) || /\bincline\b/i.test(v)) {
@@ -957,7 +957,7 @@ function extractTempo(value) {
   const v = String(value || '').trim();
   const numeric = v.match(/(?:tempo[:\s]*)?(\d+\s*-\s*\d+\s*-\s*(?:\d+|x))/i);
   if (numeric) return numeric[1];
-  const verbal = v.match(/(?:lower|eccentric|down)\s+\d+(?:\.\d+)?\D+(?:pause|hold)\s+\d+(?:\.\d+)?\D+(?:(?:stand|press|concentric|up)\s+(?:\d+(?:\.\d+)?|x))/i);
+  const verbal = v.match(/(?:lower|eccentric|down)\s+\d+(?:\.\d+)?\D+(?:pause|hold|isometric)\s+\d+(?:\.\d+)?\D+(?:(?:extend|extension|stand|press|concentric|up)\s+(?:\d+(?:\.\d+)?|x))/i);
   return verbal ? verbal[0] : '';
 }
 

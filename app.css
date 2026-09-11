@@ -249,6 +249,105 @@ button.primary:hover,
   color: #ffffff;
 }
 
+.btn-next-exercise,
+.next-exercise {
+  min-height: 48px;
+  background: #2563eb !important;
+  color: #ffffff !important;
+  font-weight: 700;
+}
+
+.btn-delete-set {
+  min-height: 40px;
+  border: 1px solid #ef4444;
+  background: transparent;
+  color: #ef4444;
+  font-weight: 700;
+}
+
+.btn-delete-set:hover {
+  background: #ef4444;
+  color: #ffffff;
+}
+
+.set-history-table-wrap {
+  overflow-x: auto;
+  background: #1e293b;
+  border-radius: 8px;
+}
+
+.set-history-table {
+  width: 100%;
+  min-width: 620px;
+  border-collapse: collapse;
+  color: #f8fafc;
+  font-size: 0.9rem;
+}
+
+.set-history-table th,
+.set-history-table td {
+  padding: 12px 10px;
+  border-bottom: 1px solid #334155;
+  text-align: left;
+}
+
+.set-history-table th {
+  color: #cbd5e1;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.set-history-table tbody tr {
+  cursor: pointer;
+}
+
+.set-history-table tbody tr:nth-child(even) {
+  background: rgba(51, 65, 85, 0.35);
+}
+
+.set-history-table tbody tr:hover {
+  background: rgba(37, 99, 235, 0.2);
+}
+
+@media (max-width: 680px) {
+  .set-history-table {
+    min-width: 0;
+  }
+
+  .set-history-table thead {
+    display: none;
+  }
+
+  .set-history-table,
+  .set-history-table tbody,
+  .set-history-table tr,
+  .set-history-table td {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .set-history-table tr {
+    padding: 10px;
+    border-bottom: 1px solid #334155;
+  }
+
+  .set-history-table td {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 0;
+    border: 0;
+  }
+
+  .set-history-table td::before {
+    content: attr(data-label);
+    color: #94a3b8;
+    font-weight: 700;
+  }
+}
+
 .btn-primary.auth-submit-btn:disabled {
   cursor: wait;
   opacity: 0.7;
