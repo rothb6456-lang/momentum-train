@@ -241,15 +241,16 @@ window.MomentumAuthModal = {
 window.syncSessionToStatbook = MomentumSync.syncSessionToStatbook;
 
 
+
 function mapSessionToApiPayload(localSession) {
-    const sessionDate = localSession.session_date || localSession.sessionDate || localSession.date || new Date().toISOString().split('T');
+    const rawDate = localSession.session_date || localSession.sessionDate || localSession.date || new Date().toISOString().split('T');
+    const cleanDate = String(rawDate).substring(0, 10);
 
     return {
         workout_name: localSession.workoutName || localSession.workout_name || localSession.title || 'Training Session',
-        session_date: String(sessionDate).substring(0, 10),
-        phase_number: localSession.phaseNumber || localSession.phase_number ? parseInt(localSession.phaseNumber || localSession.phase_number, 10) : null,
-        program_day: localSession.programDay || localSession.program_day ? parseFloat(localSession.programDay || localSession.program_day) : null,
-        gym_location: localSession.gymLocation || localSession.gym_location || localSession.location || null,
+        session_date: cleanDate,
+        program_day: localSession.programDay || localSession.program_day ? parseInt(localSession.programDay || localSession.program_day, 10) : 1,
+        gym_location: localSession.gymLocation || localSession.gym_location || localSession.location || 'Planet Fitness',
         general_notes: localSession.generalNotes || localSession.general_notes || localSession.notes || null,
         sets: (localSession.sets || []).map((s, index) => {
             let tempoStr = s.tempo ? String(s.tempo).trim() : null;
@@ -257,19 +258,26 @@ function mapSessionToApiPayload(localSession) {
                 tempoStr = tempoStr.slice(0, 20);
             }
 
+            let rirStr = s.rir ? String(s.rir).trim() : null;
+            if (rirStr && rirStr.length > 20) {
+                rirStr = rirStr.slice(0, 20);
+            }
+
             return {
                 set_number: parseInt(s.set_number || s.setNumber || (index + 1), 10),
-                exercise_name: s.exercise_name || s.exerciseName || s.name || 'Exercise',
+                exercise_name: String(s.exercise_name || s.exerciseName || s.name || 'Exercise').trim(),
+                section: 'primary',
                 weight_lbs: s.weight_lbs !== undefined ? parseFloat(s.weight_lbs) : (s.weightLbs !== undefined ? parseFloat(s.weightLbs) : 0),
-                reps: s.reps !== undefined && s.reps !== null && s.reps !== '' ? parseFloat(s.reps) : null,
-                duration_seconds: s.duration_seconds !== undefined && s.duration_seconds !== null
-                    ? parseFloat(s.duration_seconds)
-                    : (s.durationSeconds ? parseFloat(s.durationSeconds) : null),
+                reps: s.reps !== undefined && s.reps !== null && s.reps !== '' ? parseInt(s.reps, 10) : null,
+                duration_seconds: s.duration_seconds !== undefined && s.duration_seconds !== null 
+                    ? parseInt(s.duration_seconds, 10) 
+                    : (s.durationSeconds ? parseInt(s.durationSeconds, 10) : null),
                 tempo: tempoStr,
-                rir: s.rir ? String(s.rir).slice(0, 20) : null,
+                rir: rirStr,
                 set_notes: s.set_notes || s.notes || s.setNotes || null
             };
         })
     };
 }
+
 

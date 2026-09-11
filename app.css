@@ -741,3 +741,140 @@ button.btn-next-exercise {
   text-transform: uppercase;
   margin-top: 2px;
 }
+
+
+/* ==========================================================================
+   MOMENTUM PWA FULL REPAIR OVERRIDES
+   ========================================================================== */
+
+/* 1. RESTORE ALL TAB NAVIGATION CLICKABILITY */
+.nav-tabs, .tab-bar, nav {
+  display: flex !important;
+  visibility: visible !important;
+}
+
+.nav-tab, .tab-item, .nav-link, button.tab-btn {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+  opacity: 1 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.nav-tab.disabled, .tab-item.disabled {
+  pointer-events: auto !important; /* Re-enable unselectable tabs */
+  opacity: 0.8 !important;
+}
+
+/* 2. UNIFIED BULLDOG COLOR PALETTE & TYPOGRAPHY */
+:root {
+  --brand-navy: #0F172A;          /* Deep Midnight Navy */
+  --brand-navy-card: #1E293B;     /* Dark Navy Container */
+  --brand-green: #16A34A;         /* Kelly Green Accent */
+  --brand-green-dark: #15803D;    /* Dark Kelly Green */
+  --brand-green-subtle: #F0FDF4; /* Soft Mint Background */
+  --brand-green-border: #BBF7D0; /* Mint Border */
+  --surface-base: #F8FAFC;        /* Light Gray Base */
+  --surface-card: #FFFFFF;        /* White Card */
+  --border-muted: #E2E8F0;        /* Muted Border */
+  --text-main: #0F172A;           /* Dark Slate Text */
+  --text-muted: #64748B;          /* Muted Secondary Text */
+  --text-on-dark: #FFFFFF;        /* Crisp White Text on Navy */
+}
+
+body, button, input, select, textarea, table {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+}
+
+/* 3. LOG TAB BUTTONS (UNIFIED DEEP NAVY + WHITE TEXT) */
+.btn-primary,
+.btn-add-set,
+.btn-next-exercise,
+.btn-log-set,
+button.btn-next-exercise,
+button.btn-add-set {
+  background-color: var(--brand-navy) !important;
+  color: var(--text-on-dark) !important;
+  font-weight: 700 !important;
+  border: none !important;
+  border-radius: 8px !important;
+  min-height: 48px !important;
+  text-shadow: none !important;
+}
+
+/* 4. RIR BUTTONS (SOLID KELLY GREEN WHEN SELECTED) */
+.rir-chip, .btn-rir {
+  background: #1E293B !important;
+  color: #94A3B8 !important;
+  border: 1px solid #334155 !important;
+  font-weight: 600 !important;
+}
+
+.rir-chip.active, .rir-chip.selected, .btn-rir.active, .btn-rir.selected {
+  background-color: var(--brand-green) !important;
+  color: var(--text-on-dark) !important;
+  border-color: var(--brand-green-dark) !important;
+  font-weight: 700 !important;
+}
+
+/* 5. SETS TABLE STYLING */
+.set-history-table, table.sets-table {
+  width: 100% !important;
+  background-color: #1E293B !important;
+  color: #F8FAFC !important;
+  border-radius: 8px !important;
+  border-collapse: collapse !important;
+  overflow: hidden !important;
+}
+
+.set-history-table th, table.sets-table th {
+  background-color: #0F172A !important;
+  color: #94A3B8 !important;
+  font-size: 0.8rem !important;
+  text-transform: uppercase !important;
+  padding: 10px !important;
+}
+
+.set-history-table td, table.sets-table td {
+  border-top: 1px solid #334155 !important;
+  padding: 10px !important;
+  color: #F8FAFC !important;
+}
+
+/* 6. REST TIMER HUD & SKIP BUTTON FIX */
+.rest-timer-bar, .rest-timer-hud, .rest-timer-box {
+  background-color: #0F172A !important;
+  border: 1px solid #334155 !important;
+  color: #F8FAFC !important;
+  padding: 12px 16px !important;
+  border-radius: 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+}
+
+.btn-skip-rest, #btn-skip-rest {
+  background-color: #334155 !important;
+  color: #FFFFFF !important;
+  border: 1px solid #475569 !important;
+  font-weight: 700 !important;
+  padding: 6px 16px !important;
+  border-radius: 6px !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* 7. ATHLETE PROFILE & GUARDRAILS MODAL STYLING */
+.guardrails-modal-header h3 {
+  color: var(--brand-navy) !important;
+  font-size: 1.2rem !important;
+  font-weight: 800 !important;
+}
+
+.guardrails-help-text {
+  color: var(--text-muted) !important;
+  font-size: 0.85rem !important;
+  margin-bottom: 12px !important;
+  line-height: 1.4 !important;
+}
