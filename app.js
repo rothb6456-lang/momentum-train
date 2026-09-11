@@ -83,6 +83,7 @@ const state = {
   cockpit: null,
   cockpitEditOpen: false,
   cockpitEditingLastSet: null,
+  editingSetIndex: null,
   restTimer: null
 };
 
@@ -467,8 +468,10 @@ function logMarkup() {
     : sets;
 
   return matchingSets.length
-    ? matchingSets.map((set, index) => `
-        <div class="exercise-card">
+    ? matchingSets.map((set, index) => {
+        const sessionIndex = sets.indexOf(set);
+        return `
+        <button class="exercise-card logged-set" type="button" data-edit-set="${sessionIndex}">
           <div class="exercise-title">
             <b>Set ${index + 1}</b>
             <span class="quiet">
@@ -478,8 +481,9 @@ function logMarkup() {
             </span>
           </div>
           ${set.notes ? `<div class="quiet">${esc(set.notes)}</div>` : ''}
-        </div>
-      `).join('')
+        </button>
+      `;
+      }).join('')
     : '<div class="empty">No sets logged yet for this exercise.</div>';
 }
 
@@ -1450,13 +1454,13 @@ function prescriptionOf(block) {
 function prescribedSetsCount(block) {
   const rx = prescriptionOf(block);
   const raw = String(rx.sets == null ? '' : rx.sets).trim();
-  if (!raw) return 0;
+  if (!raw) return 1;
   const n = Number(raw);
   if (!isNaN(n) && n > 0) return n;
   const range = raw.match(/(\d+)\s*[-\u2013]\s*(\d+)/);
   if (range) return Number(range[2]);
   const any = raw.match(/(\d+)/);
-  return any ? Number(any[1]) : 0;
+  return any ? Number(any[1]) : 1;
 }
 
 function topEndReps(reps) {
@@ -1575,7 +1579,7 @@ function renderLog() {
     ? (active.sets || []).filter(s => (s.exerciseName || s.exercise) === rx.exerciseName).length
     : 0;
   const setsTarget = prescribedSetsCount(block);
-  const setsComplete = setsTarget > 0 && completedForCurrent >= setsTarget;
+  const setsComplete = completedForCurrent >= setsTarget;
   const nextName = nextExerciseNameFor(rx.exerciseName);
   const showNext = setsComplete && !!nextName;
 
@@ -1595,8 +1599,13 @@ function renderLog() {
   const repsVal = topEndReps(rx.reps);
   const tempoParts = String(rx.tempo || '').split('-');
   const rirOptions = ['0', '0-1', '1', '1-2', '2', '2+', '3+', '4+'];
+  const activeRir = isEditingSet ? (editingSet.rir || '') : (rx.rir || '');
+  const activeTempo = isEditingSet ? String(editingSet.tempo || '') : String(rx.tempo || '');
+  const activeTempoParts = activeTempo.split('-');
 
   const setNum = setsTarget > 0 ? Math.min(completedForCurrent + 1, setsTarget) : (completedForCurrent + 1);
+  const editingSet = Number.isInteger(state.editingSetIndex) ? active.sets[state.editingSetIndex] : null;
+  const isEditingSet = !!(editingSet && (editingSet.exerciseName || editingSet.exercise) === rx.exerciseName);
   const setLabel = setsTarget > 0
     ? 'Set ' + setNum + ' of ' + setsTarget + (setsComplete ? ' ✓' : '')
     : 'Set ' + setNum;
@@ -1625,13 +1634,13 @@ function renderLog() {
           <span class="rx-line">${esc(summary)}</span>
         </div>
         <div class="set-form">
-          <label class="field">Load<input id="load" class="input" inputmode="decimal" value="${esc(loadVal)}" placeholder="0"></label>
-          <label class="field">${rx.timed ? 'Duration' : 'Reps'}<input id="result" class="input" inputmode="text" value="${esc(repsVal)}" placeholder="${rx.timed ? '60 sec' : '0'}"></label>
-          <div class="field full">RIR<div class="rir-chips">${rirOptions.map(x => `<button class="chip ${rx.rir === x ? 'active' : ''}" data-rir="${x}">${x}</button>`).join('')}</div></div>
-          <div class="field full">Tempo<div class="tempo"><input id="tempoE" class="input" value="${esc(tempoParts[0] || '')}" placeholder="E"><input id="tempoP" class="input" value="${esc(tempoParts[1] || '')}" placeholder="P"><input id="tempoC" class="input" value="${esc(tempoParts[2] || '')}" placeholder="C"></div></div>
+          <label class="field">Load<input id="load" class="input" inputmode="decimal" value="${esc(isEditingSet ? (editingSet.load || '') : loadVal)}" placeholder="0"></label>
+          <label class="field">${rx.timed ? 'Duration' : 'Reps'}<input id="result" class="input" inputmode="text" value="${esc(isEditingSet ? (editingSet.reps || editingSet.result || '') : repsVal)}" placeholder="${rx.timed ? '60 sec' : '0'}"></label>
+          <div class="field full">RIR<div class="rir-chips">${rirOptions.map(x => `<button class="chip ${activeRir === x ? 'active' : ''}" data-rir="${x}">${x}</button>`).join('')}</div></div>
+          <div class="field full">Tempo<div class="tempo"><input id="tempoE" class="input" value="${esc((isEditingSet ? activeTempoParts[0] : tempoParts[0]) || '')}" placeholder="E"><input id="tempoP" class="input" value="${esc((isEditingSet ? activeTempoParts[1] : tempoParts[1]) || '')}" placeholder="P"><input id="tempoC" class="input" value="${esc((isEditingSet ? activeTempoParts[2] : tempoParts[2]) || '')}" placeholder="C"></div></div>
         </div>
         <div class="actions">
-          <button class="primary" id="addSet">Add set</button>
+          <button class="primary" id="addSet">${isEditingSet ? `Update Set #${state.editingSetIndex + 1}` : 'Add set'}</button>
           ${showNext ? `<button class="primary next-exercise" id="nextExercise">Next: ${esc(nextName)} &rarr;</button>` : ''}
           ${!showNext && setsComplete ? '<button class="primary" id="finishDone">Finish workout</button>' : ''}
         </div>
@@ -2326,7 +2335,7 @@ document.addEventListener('visibilitychange', () => {
         const section = block.section || rx.section || (isOpt ? 'optional' : (/warm-?up|preparation/i.test(exerciseName) ? 'warmup' : 'primary'));
 
         session.sets = Array.isArray(session.sets) ? session.sets : [];
-        session.sets.push({
+        const setRecord = {
           exerciseName, exercise: exerciseName,
           load, result: reps, reps,
           tempo, rir, rest,
@@ -2335,7 +2344,14 @@ document.addEventListener('visibilitychange', () => {
           section,
           notes: noteEl ? noteEl.value.trim() : '',
           loggedAt: new Date().toISOString()
-        });
+        };
+        const editingIndex = Number.isInteger(state.editingSetIndex) ? state.editingSetIndex : null;
+        if (editingIndex !== null && session.sets[editingIndex]) {
+          session.sets[editingIndex] = { ...session.sets[editingIndex], ...setRecord };
+          state.editingSetIndex = null;
+        } else {
+          session.sets.push(setRecord);
+        }
         // persist the chosen load as the working load so the next set pre-fills with it
         if (window.MomentumPlanner && typeof MomentumPlanner.setCockpitWorkingLoad === 'function' && state.cockpit) {
           const ex = Array.isArray(state.cockpit.exercises) ? state.cockpit.exercises : [];
@@ -2348,6 +2364,28 @@ document.addEventListener('visibilitychange', () => {
         state.restTimer = restSecs > 0 ? { total: restSecs, startedAt: Date.now() } : null;
         if (typeof persist === 'function') persist();
         if (typeof renderLog === 'function') renderLog();
+      };
+
+      $$('[data-edit-set]').forEach(row => row.onclick = () => {
+        const index = Number(row.dataset.editSet);
+        const set = active.sets[index];
+        if (!set) return;
+        state.editingSetIndex = index;
+        state.restTimer = null;
+        if (typeof renderLog === 'function') renderLog();
+      });
+
+      const loadInput = $('#load');
+      if (loadInput) loadInput.oninput = () => {
+        const session = ensureActiveSession();
+        const block = (typeof activeBlock === 'function' ? activeBlock() : null) || {};
+        const exerciseName = block.exerciseName || session.activeExercise || '';
+        if (window.MomentumPlanner && typeof MomentumPlanner.setCockpitWorkingLoad === 'function' && state.cockpit) {
+          const exercises = Array.isArray(state.cockpit.exercises) ? state.cockpit.exercises : [];
+          let index = exercises.findIndex(exercise => exercise && exercise.exerciseName === exerciseName);
+          if (index < 0 && typeof state.cockpit.exerciseIndex === 'number') index = state.cockpit.exerciseIndex;
+          if (index >= 0) state.cockpit = MomentumPlanner.setCockpitWorkingLoad(state.cockpit, index, loadInput.value.trim());
+        }
       };
 
       const dup = $('#duplicateLast');
@@ -2396,6 +2434,7 @@ document.addEventListener('visibilitychange', () => {
           if (idx >= 0) state.cockpit.exerciseIndex = idx;
         }
         state.restTimer = null;
+        state.editingSetIndex = null;
         if (typeof persist === 'function') persist();
         if (typeof renderLog === 'function') renderLog();
         window.scrollTo({ top: 0, behavior: 'smooth' });

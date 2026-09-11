@@ -231,6 +231,24 @@
   background: #0369a1;
 }
 
+/* Gym-floor navigation needs a bright label against the primary action. */
+.btn-next-exercise,
+.next-exercise,
+button.primary,
+.btn-primary {
+  background: #0b2b45;
+  color: #f8fafc;
+  font-weight: 700;
+}
+
+.btn-next-exercise:hover,
+.next-exercise:hover,
+button.primary:hover,
+.btn-primary:hover {
+  background: #123f5f;
+  color: #ffffff;
+}
+
 .btn-primary.auth-submit-btn:disabled {
   cursor: wait;
   opacity: 0.7;

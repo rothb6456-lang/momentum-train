@@ -27,11 +27,13 @@ const MomentumPlanner = (() => {
   const blankWorkout = () => ({ id: id(), title: 'Untitled workout', canonicalTitle: '', subtitle: '', scheduledDate: '', phaseId: '', week: '', day: '', sourceType: 'manual', sourceRawText: '', status: 'queued', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), exerciseBlocks: [blankBlock()] });
   function parseLine(line, order) {
     const text = clean(line).replace(/^\s*(?:\d+[.)]|[-•])\s*/, '');
-    const tempoMatch = text.match(/(?:tempo[:\s]*)?(\d+\s*-\s*\d+\s*-\s*(?:\d+|x))/i)?.[1] || '';
+    const tempoMatch = extractTempo(text);
     const tempo = normalizeTempoOrSpecial(tempoMatch);
     const rir = normalizeRir(text.match(/RIR[:\s]*([\d+\-– ]+)/i)?.[1] || '');
     const load = text.match(/(\d+(?:\.\d+)?)\s*(?:lb|lbs|pounds?)/i)?.[1] || '';
-    const rest = normalizeRest(text.match(/rest[:\s]+(\d+(?:\s*-\s*\d+)?\s*(?:sec|min|s|m))/i)?.[1] || '');
+    const tokens = text.split('|').map(token => token.trim()).filter(Boolean);
+    const lastToken = tokens[tokens.length - 1] || '';
+    const rest = looksLikeRest(lastToken) ? normalizeRest(lastToken) : '';
     const target = text.match(/(?:\b(\d+)\s*[x×]\s*)?(\d+(?:\s*[-–]\s*\d+)?\s*(?:reps?|sec(?:onds?)?|min(?:utes?)?)?)/i);
     const split = text.split(/\s+(?:[-—]|\||: )\s*/);
     const rawExerciseName = clean(split[0].replace(/\b\d+\s*[x×].*$/i, '')) || text;
@@ -50,12 +52,14 @@ const MomentumPlanner = (() => {
     return {
       ...blankBlock(order),
       exerciseName,
-      targetSets: target?.[1] || '',
+      targetSets: target?.[1] || '1',
       targetRepsOrDuration: targetRepsOrDur,
+      prescribedDuration: durationSeconds(targetRepsOrDur),
       targetWeightOrLoad: load,
       tempo,
       rir,
       rest,
+      prescribedRestSeconds: restSeconds(rest),
       notes,
       optional: isOpt,
       timed,
@@ -86,12 +90,14 @@ const MomentumPlanner = (() => {
       ? parsed.exercises.map((ex, index) => ({
           ...blankBlock(index + 1),
           exerciseName: ex.name || '',
-          targetSets: ex.sets || '',
+          targetSets: ex.sets || '1',
           targetRepsOrDuration: ex.reps || '',
+          prescribedDuration: durationSeconds(ex.reps || ''),
           targetWeightOrLoad: ex.load || '',
           tempo: ex.tempo || '',
           rir: ex.rir || '',
           rest: ex.rest || '',
+          prescribedRestSeconds: restSeconds(ex.rest || ''),
           notes: ex.notes || '',
           optional: ex.optional || false,
           timed: ex.timed || false,
@@ -132,12 +138,14 @@ const MomentumPlanner = (() => {
         return {
           id: ex.id || `planned-${Date.now()}-${i + 1}`,
           name: cleanName,
-          sets: ex.sets || '',
+          sets: ex.sets || '1',
           reps: ex.reps || '',
+          prescribedDuration: durationSeconds(ex.reps || ''),
           load: normalizeLoad(ex.load || ''),
           tempo: normalizeTempoOrSpecial(ex.tempo || ''),
           rir: normalizeRir(ex.rir || ''),
           rest: normalizeRest(ex.rest || ''),
+          prescribedRestSeconds: restSeconds(ex.rest || ''),
           notes: ex.notes || '',
           optional: isOpt,
           timed: timed,
@@ -786,28 +794,30 @@ function parseNarrativePrescriptionLine(name, line) {
 
   const sr = parseSetsRepsCell(parts[0]);
   const tail = parts.slice(1);
+  const finalToken = tail[tail.length - 1] || '';
+  const restToken = looksLikeRest(finalToken) ? finalToken : '';
+  const fieldTail = restToken ? tail.slice(0, -1) : tail;
   let load = '';
   let tempo = '';
   let rir = '';
-  let restVal = '';
+  let restVal = restToken ? normalizeRest(restToken) : '';
   const notes = [];
 
   let positional = false;
-  if (tail.length >= 3) {
-    const loadTok = tail[0], tempoTok = tail[1], rirTok = tail[2], restTok = tail[3] ?? '';
-    if (looksLikeTempo(tempoTok) && looksLikeRir(rirTok) && (restTok === '' || looksLikeRest(restTok))) {
+  if (fieldTail.length >= 3) {
+    const loadTok = fieldTail[0], tempoTok = fieldTail[1], rirTok = fieldTail[2];
+    if (looksLikeTempo(tempoTok) && looksLikeRir(rirTok)) {
       load = normalizeLoad(loadTok);
       tempo = normalizeTempoOrSpecial(tempoTok, notes);
       rir = normalizeRir(rirTok);
-      restVal = normalizeRest(restTok);
       positional = true;
-      for (let i = 4; i < tail.length; i++) notes.push(tail[i]);
+      for (let i = 3; i < fieldTail.length; i++) notes.push(fieldTail[i]);
     }
   }
 
   if (!positional) {
-    for (let i = 0; i < tail.length; i++) {
-      const token = tail[i];
+    for (let i = 0; i < fieldTail.length; i++) {
+      const token = fieldTail[i];
 
       if (!load && looksLikeLoad(token)) {
         load = normalizeLoad(token);
@@ -821,11 +831,6 @@ function parseNarrativePrescriptionLine(name, line) {
         rir = normalizeRir(token);
         continue;
       }
-      if (!restVal && looksLikeRest(token)) {
-        restVal = normalizeRest(token);
-        continue;
-      }
-
       notes.push(token);
     }
   }
@@ -849,10 +854,10 @@ function parseNarrativePrescriptionLine(name, line) {
 
 function parseSetsRepsCell(value) {
   const cell = String(value || '').trim();
-  if (!cell) return { sets: '', reps: '' };
+  if (!cell) return { sets: '1', reps: '' };
 
   const match = cell.match(/^(\d+(?:\s*-\s*\d+)?)\s*x\s*(.+)$/i);
-  if (!match) return { sets: '', reps: cell };
+  if (!match) return { sets: '1', reps: cell };
 
   return {
     sets: match[1].replace(/\s/g, ''),
@@ -870,7 +875,8 @@ function looksLikeTempo(value) {
   return (
     /^\d+-\d+-\d+(-\d+)?$/.test(v) ||
     /\bcontrolled\b/.test(v) ||
-    /\btempo\b/.test(v)
+    /\btempo\b/.test(v) ||
+    /\b(?:lower|eccentric|down|pause|hold|stand|press|concentric|up)\s+\d+/i.test(v)
   );
 }
 
@@ -881,7 +887,7 @@ function looksLikeRir(value) {
 
 function looksLikeRest(value) {
   const v = String(value || '').trim().toLowerCase();
-  return /\bsec\b|\bmin\b|\bm\b|\bs\b/.test(v);
+  return /\d+(?:\.\d+)?\s*(?:sec|min|m|s)\b/.test(v);
 }
 
 function normalizeLoad(value) {
@@ -901,6 +907,9 @@ function normalizeTempoOrSpecial(value, leftovers) {
     return v.replace(/\s/g, '');
   }
   if (/^controlled$/i.test(v)) return 'Controlled';
+
+  const verbal = v.match(/(?:lower|eccentric|down)\s+(\d+(?:\.\d+)?)\D+(?:pause|hold)\s+(\d+(?:\.\d+)?)\D+(?:(?:stand|press|concentric|up)\s+(\d+(?:\.\d+)?|x))/i);
+  if (verbal) return `${verbal[1]}-${verbal[2]}-${verbal[3].toLowerCase() === 'x' ? 'x' : verbal[3]}`;
 
   if (/\bmph\b/i.test(v) || /\bincline\b/i.test(v)) {
     if (leftovers) leftovers.push(v);
@@ -935,6 +944,32 @@ function normalizeRest(value) {
     .replace(/\bminutes?\b/gi, 'min')
     .replace(/\bmins\b/gi, 'min')
     .trim();
+}
+
+function restSeconds(value) {
+  const match = String(value || '').trim().match(/^(\d+(?:\.\d+)?)\s*(sec|min|s|m)\b/i);
+  if (!match) return null;
+  const amount = Number(match[1]);
+  return /min|m/i.test(match[2]) ? Math.round(amount * 60) : Math.round(amount);
+}
+
+function extractTempo(value) {
+  const v = String(value || '').trim();
+  const numeric = v.match(/(?:tempo[:\s]*)?(\d+\s*-\s*\d+\s*-\s*(?:\d+|x))/i);
+  if (numeric) return numeric[1];
+  const verbal = v.match(/(?:lower|eccentric|down)\s+\d+(?:\.\d+)?\D+(?:pause|hold)\s+\d+(?:\.\d+)?\D+(?:(?:stand|press|concentric|up)\s+(?:\d+(?:\.\d+)?|x))/i);
+  return verbal ? verbal[0] : '';
+}
+
+function durationSeconds(value) {
+  const v = String(value || '').trim().toLowerCase();
+  if (!v) return null;
+  const clock = v.match(/^(\d+):(\d{2})$/);
+  if (clock) return Number(clock[1]) * 60 + Number(clock[2]);
+  const seconds = v.match(/^(\d+(?:\.\d+)?)\s*(?:sec|s)\b/);
+  if (seconds) return Number(seconds[1]);
+  const minutes = v.match(/^(\d+(?:\.\d+)?)\s*(?:min|m)\b/);
+  return minutes ? Number(minutes[1]) * 60 : null;
 }
 
 function normalizeExerciseName(name) {
@@ -1121,12 +1156,14 @@ function toCockpitExercise(block, index) {
     order: index + 1,
     exerciseName: cleanName,
     rawExerciseName: clean(block.exerciseName || ''),
-    prescribedSets: Number(block.targetSets || 0) || 0,
+    prescribedSets: Number(block.targetSets || 1) || 1,
     prescribedRepsOrDuration: clean(block.targetRepsOrDuration || ''),
+    prescribedDuration: block.prescribedDuration ?? durationSeconds(block.targetRepsOrDuration || ''),
     prescribedLoad: clean(block.targetWeightOrLoad || ''),
     prescribedTempo: normalizeTempoOrSpecial(block.tempo || ''),
     prescribedRir: normalizeRir(block.rir || ''),
     prescribedRest: normalizeRest(block.rest || ''),
+    prescribedRestSeconds: block.prescribedRestSeconds ?? restSeconds(block.rest || ''),
     notes: clean(block.notes || ''),
     optional: isOpt,
     section: block.section || (isOpt ? 'optional' : (/warm-?up|preparation/i.test(cleanName) ? 'warmup' : 'primary')),
