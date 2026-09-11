@@ -31,6 +31,7 @@ const STORAGE_KEYS = {
   done: 'momentum.sessions.v3',
   cockpit: 'momentum.cockpit.v1',
   editor: 'momentum.editor.v1',
+  profile: 'momentum.player-training-assumption.v1',
   lastView: 'momentum:lastView'
 };
 
@@ -46,6 +47,33 @@ function loadJson(key, fallback = null) {
 
 function saveJson(key, value) {
   localStorage.setItem(key, JSON.stringify(value));
+}
+
+function playerTrainingAssumption() {
+  return loadJson(STORAGE_KEYS.profile, { goals: '', facility: '', guardrails: '' }) || { goals: '', facility: '', guardrails: '' };
+}
+
+function openProfileSettings() {
+  const profile = playerTrainingAssumption();
+  $('#profileGoals').value = profile.goals || '';
+  $('#profileFacility').value = profile.facility || '';
+  $('#profileGuardrails').value = profile.guardrails || '';
+  $('#profileModal')?.classList.remove('hidden');
+}
+
+function closeProfileSettings() { $('#profileModal')?.classList.add('hidden'); }
+
+function bindProfileSettings() {
+  $('#openProfileSettings')?.addEventListener('click', openProfileSettings);
+  $('#closeProfileSettings')?.addEventListener('click', closeProfileSettings);
+  $('#cancelProfileSettings')?.addEventListener('click', closeProfileSettings);
+  $('#profileModal')?.addEventListener('click', event => { if (event.target.id === 'profileModal') closeProfileSettings(); });
+  $('#profileForm')?.addEventListener('submit', event => {
+    event.preventDefault();
+    saveJson(STORAGE_KEYS.profile, { goals: $('#profileGoals')?.value.trim() || '', facility: $('#profileFacility')?.value.trim() || '', guardrails: $('#profileGuardrails')?.value.trim() || '' });
+    closeProfileSettings();
+    toast('Profile and guardrails saved');
+  });
 }
 
 function getDone() {
@@ -528,7 +556,7 @@ function bindSessionContext() {
   });
 }
 /* ---------- renderHome ---------- */
-function renderHome() {
+function renderHomeLegacy() {
   // --- Safe data access: MomentumData may not exist or may be partially loaded ---
   const rawMetrics = (typeof MomentumData !== 'undefined' && MomentumData && typeof MomentumData.metrics === 'function')
     ? (MomentumData.metrics() || {})
@@ -644,7 +672,7 @@ function renderHome() {
         </article>
 
         <aside class="card">
-          <div class="eyebrow">Next planned workout</div>
+          <div class="eyebrow">Queued workout</div>
           ${
             safeNext
               ? `
@@ -678,7 +706,7 @@ function renderHome() {
       <section class="grid">
         <article class="card">
           <div class="card-head">
-            <div><h2>Current cycle</h2>What is queued and what it asks of you next.</div>
+            <div><h2>Plan context</h2>What is queued and what it asks of you next.</div>
             ${safeNext ? esc(safeNext.sourceType || 'queued') : '—'}
           </div>
           <div class="stack">
@@ -708,7 +736,7 @@ function renderHome() {
         </article>
 
         <article class="card">
-          <h2>Phase workload</h2>
+          <h2>Workload history</h2>
           <div class="stack">
             ${
               phases.length
@@ -725,7 +753,7 @@ function renderHome() {
         </article>
 
         <article class="card">
-          <h2>What matters now</h2>
+          <h2>Training notes</h2>
           <div class="insight"><i class="dot"></i><div><b>Plan → execute → review</b> Every queued workout keeps its raw Coach card and structured exercise blocks alongside actual sets.</div></div>
           <div class="insight"><i class="dot amber"></i><div><b>Questions stay lightweight</b> Session-level notes stay in Questions for Coach, while set-level notes capture specific gym-floor observations.</div></div>
           <div class="insight"><i class="dot"></i><div><b>${esc(m.primary[0])} is the largest loaded category</b> ${Number(m.primary[1]).toLocaleString()} historical training sets are in the current snapshot.</div></div>
@@ -763,6 +791,46 @@ function renderHome() {
     homePastePlan.onclick = () => openPlannerPaste();
   }
 
+  if (typeof MomentumPlanner !== 'undefined' && typeof MomentumPlanner.renderWeeklyCalendarStrip === 'function') {
+    MomentumPlanner.renderWeeklyCalendarStrip('weekly-calendar-strip');
+  }
+}
+
+function renderHome() {
+  const rawMetrics = (typeof MomentumData !== 'undefined' && typeof MomentumData.metrics === 'function') ? (MomentumData.metrics() || {}) : {};
+  const sessions = Number.isFinite(rawMetrics.sessions) ? rawMetrics.sessions : 0;
+  const records = Number.isFinite(rawMetrics.sets) ? rawMetrics.sets : 0;
+  const next = nextPlan();
+  const safeNext = next ? { ...next, exerciseBlocks: Array.isArray(next.exerciseBlocks) ? next.exerciseBlocks : [] } : null;
+  const hasActiveSession = !!(active && ((Array.isArray(active.sets) && active.sets.length) || (state.cockpit?.exercises?.length)));
+  const activeSetCount = Array.isArray(active?.sets) ? active.sets.length : 0;
+  const phase = safeNext?.phaseId || '—';
+  const day = safeNext?.day || '—';
+  const root = $('#home');
+  if (!root) return;
+
+  root.innerHTML = `
+    <div class="today-layout today-home-layout">
+      <section class="today-calendar-section" aria-label="Seven day training calendar"><div id="weekly-calendar-strip"></div></section>
+      <article class="hero-card-container">
+        <div class="eyebrow">${hasActiveSession ? 'Session in progress' : 'Next up'}</div>
+        <h1>${hasActiveSession ? `Phase ${esc(active.phase || phase)} &bull; Day ${esc(active.day || day)}: ${esc(active.workoutName || 'Training session')}` : `Phase ${esc(phase)} &bull; Day ${esc(day)}: ${esc(safeNext?.title || 'Plan your next workout')}`}</h1>
+        <p class="quiet">${hasActiveSession ? `Session in progress (${activeSetCount} set${activeSetCount === 1 ? '' : 's'} logged locally)` : (safeNext ? esc(planSummary(safeNext)) : 'No workout is queued yet.')}</p>
+        <div class="actions">${hasActiveSession ? '<button class="btn-primary btn-resume-workout" id="homeResumeWorkout">Resume workout</button><button class="secondary" id="homeOpenPlan">View full plan</button>' : safeNext ? `<button class="btn-primary btn-start-workout" id="homeStartQueuedWorkout">Start workout</button><button class="secondary" id="homeOpenPlan">View full plan</button>` : '<button class="btn-primary btn-start-workout" id="homeCreatePlan">Create plan</button>'}</div>
+      </article>
+      <section class="metrics quick-metrics" aria-label="Quick metrics">
+        ${metric('Sessions', sessions, 'Historical')}
+        ${metric('Phase', phase, 'Current plan')}
+        ${metric('Records', records.toLocaleString(), 'Training rows')}
+        ${metric('Pending', queued().length, 'Planned workouts')}
+      </section>
+    </div>
+  `;
+
+  $('#homeResumeWorkout')?.addEventListener('click', () => show('log'));
+  $('#homeOpenPlan')?.addEventListener('click', () => show('today'));
+  $('#homeStartQueuedWorkout')?.addEventListener('click', () => startPlan(safeNext.id));
+  $('#homeCreatePlan')?.addEventListener('click', () => openPlannerBuilder());
   if (typeof MomentumPlanner !== 'undefined' && typeof MomentumPlanner.renderWeeklyCalendarStrip === 'function') {
     MomentumPlanner.renderWeeklyCalendarStrip('weekly-calendar-strip');
   }
@@ -1903,6 +1971,8 @@ function startBootstrap() {
   bootstrapStarted = true;
   bootstrap();
 }
+
+bindProfileSettings();
 
 if (document.readyState === 'complete') {
   startBootstrap();

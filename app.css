@@ -16,9 +16,9 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: rgba(56, 189, 248, 0.1);
-  border: 1px solid rgba(56, 189, 248, 0.3);
-  color: #38bdf8;
+  background: rgba(22, 163, 74, 0.1);
+  border: 1px solid rgba(22, 163, 74, 0.3);
+  color: #16a34a;
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -44,7 +44,7 @@
 
 .btn-coach-ai {
   width: 100%;
-  background: #2563eb;
+  background: #0f172a;
   color: #ffffff;
   font-size: 1rem;
   font-weight: 700;
@@ -61,7 +61,7 @@
 }
 
 .btn-coach-ai:hover {
-  background: #1d4ed8;
+  background: #15803d;
 }
 
 .btn-coach-ai:disabled {
@@ -93,7 +93,7 @@
 
 .coach-ai-status-message.info {
   background: rgba(56, 189, 248, 0.15);
-  color: #38bdf8;
+  color: #16a34a;
   border: 1px solid rgba(56, 189, 248, 0.3);
 }
 
@@ -144,7 +144,7 @@
   font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
-  color: #38bdf8;
+  color: #16a34a;
   background: rgba(56, 189, 248, 0.1);
   padding: 4px 8px;
   border-radius: 4px;
@@ -209,14 +209,14 @@
 }
 
 .modal-card .form-group input:focus {
-  border-color: #38bdf8;
+  border-color: #16a34a;
   outline: none;
 }
 
 .btn-primary.auth-submit-btn {
   width: 100%;
   padding: 14px;
-  background: #0284c7;
+  background: #0f172a;
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -228,7 +228,7 @@
 }
 
 .btn-primary.auth-submit-btn:hover {
-  background: #0369a1;
+  background: #15803d;
 }
 
 /* Gym-floor navigation needs a bright label against the primary action. */
@@ -252,7 +252,7 @@ button.primary:hover,
 .btn-next-exercise,
 .next-exercise {
   min-height: 48px;
-  background: #2563eb !important;
+  background: #0f172a !important;
   color: #ffffff !important;
   font-weight: 700;
 }
@@ -320,8 +320,8 @@ button.btn-add-set,
 .calendar-day.today,
 .calendar-day-card.active,
 .calendar-day-card.is-today {
-  background: #2563eb !important;
-  border-color: #38bdf8 !important;
+  background: #0f172a !important;
+  border-color: #16a34a !important;
 }
 
 .calendar-day.active .day-name,
