@@ -1138,3 +1138,142 @@ header img {
   transform: scale(1.10) !important;
   transform-origin: left center !important;
 }
+
+
+/* ==========================================================================
+   BULLDOG STATBOOK BRAND THEME & NAVIGATION REPAIR
+   ========================================================================== */
+
+header, .app-header, .nav-tabs, .tab-bar, header nav {
+  position: relative !important;
+  z-index: 99999 !important;
+  pointer-events: auto !important;
+  display: flex !important;
+  visibility: visible !important;
+  background-color: #FFFFFF !important;
+  border-bottom: 1px solid #E2E8F0 !important;
+}
+
+.nav-tab, .tab-item, .nav-link, button.tab-btn, [data-screen] {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+  opacity: 1 !important;
+  color: #64748B !important;
+  font-weight: 600 !important;
+  font-size: 0.95rem !important;
+  padding: 8px 16px !important;
+  border-radius: 6px !important;
+  border: none !important;
+  background: transparent !important;
+  text-decoration: none !important;
+  transition: all 0.15s ease !important;
+}
+
+.nav-tab:hover, .tab-item:hover, button.tab-btn:hover {
+  color: #0F172A !important;
+  background-color: #F1F5F9 !important;
+}
+
+.nav-tab.active, .tab-item.active, button.tab-btn.active {
+  color: #FFFFFF !important;
+  background-color: #0F172A !important;
+  font-weight: 700 !important;
+}
+
+/* Hide un-styled secondary / lower-left workbook tabs */
+.workbook-tabs,
+.sheet-tabs,
+.bottom-nav-floating,
+.pwa-bottom-bar,
+.excel-tabs,
+footer.nav-tabs,
+.tab-bar-floating,
+#bottom-tab-bar {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  overflow: hidden !important;
+}
+
+.screen, [id$="-screen"] {
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+/* UNIFIED ACTION BUTTONS (DEEP NAVY #0F172A) */
+.btn-primary,
+.btn-add-set,
+.btn-next-exercise,
+.btn-log-set,
+.btn-start-workout,
+.btn-resume-workout,
+.btn-coach-ai,
+.btn-submit,
+.btn-finish,
+button.btn-next-exercise,
+button.btn-add-set,
+button.btn-primary {
+  background-color: #0F172A !important;
+  color: #FFFFFF !important;
+  font-weight: 700 !important;
+  border: none !important;
+  border-radius: 8px !important;
+  min-height: 48px !important;
+  text-shadow: none !important;
+  cursor: pointer !important;
+}
+
+.btn-primary:hover, .btn-next-exercise:hover, .btn-add-set:hover {
+  background-color: #1E293B !important;
+}
+
+/* RIR BUTTONS (SOLID KELLY GREEN WHEN SELECTED) */
+.rir-chip, .btn-rir {
+  background: #1E293B !important;
+  color: #94A3B8 !important;
+  border: 1px solid #334155 !important;
+  font-weight: 600 !important;
+  border-radius: 6px !important;
+  padding: 8px 14px !important;
+}
+
+.rir-chip.active, .rir-chip.selected, .btn-rir.active, .btn-rir.selected {
+  background-color: #16A34A !important;
+  color: #FFFFFF !important;
+  border-color: #15803D !important;
+  font-weight: 700 !important;
+}
+
+/* REST TIMER HUD & SKIP BUTTON FIX */
+.rest-timer-bar, .rest-timer-hud, .rest-timer-box, #rest-timer-container {
+  background-color: #0F172A !important;
+  border: 1px solid #334155 !important;
+  color: #F8FAFC !important;
+  padding: 12px 16px !important;
+  border-radius: 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+}
+
+.btn-skip-rest, #btn-skip-rest, button.btn-skip {
+  background-color: #334155 !important;
+  color: #FFFFFF !important;
+  border: 1px solid #475569 !important;
+  font-weight: 700 !important;
+  padding: 8px 16px !important;
+  border-radius: 6px !important;
+  visibility: visible !important;
+  display: inline-block !important;
+  opacity: 1 !important;
+  cursor: pointer !important;
+}
+
+/* BRAND LOGO SCALING */
+.logo-bulldog-head,
+.brand-logo-head,
+header .logo-img,
+header img {
+  transform: scale(1.10) !important;
+  transform-origin: left center !important;
+}

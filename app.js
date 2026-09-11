@@ -2676,27 +2676,56 @@ function renderTodayHeroCard() {
 
 
 
+// GLOBAL NAVIGATION CONTROLLER
 window.navigateToScreen = function(screenId) {
+  if (!screenId) return;
+  screenId = String(screenId).toLowerCase().replace('-screen', '').replace('screen-', '');
   console.log("Navigating to screen:", screenId);
-  var screens = document.querySelectorAll('.screen, [id$="-screen"]');
+
+  var screens = document.querySelectorAll('.screen, [id$="-screen"], #today-screen, #plan-screen, #log-screen, #review-screen, #history-screen');
   screens.forEach(function(s) {
-    if (s.id === screenId + '-screen' || s.id === screenId) {
+    var sId = (s.id || '').toLowerCase().replace('-screen', '');
+    if (sId === screenId) {
       s.style.display = 'block';
+      s.style.visibility = 'visible';
+      s.style.opacity = '1';
       s.classList.add('active');
-      s.classList.remove('hidden');
+      s.classList.remove('hidden', 'd-none');
     } else {
       s.style.display = 'none';
       s.classList.remove('active');
+      s.classList.add('hidden');
     }
   });
 
-  var tabs = document.querySelectorAll('.nav-tab, .tab-item, [data-screen], .tab-btn');
+  var tabs = document.querySelectorAll('.nav-tab, .tab-item, [data-screen], .tab-btn, header nav a, header nav button');
   tabs.forEach(function(t) {
-    var target = t.getAttribute('data-screen') || t.getAttribute('onclick') || '';
-    if (target && target.indexOf(screenId) !== -1) {
+    var target = t.getAttribute('data-screen') || t.getAttribute('onclick') || t.getAttribute('href') || '';
+    if (target && target.toLowerCase().indexOf(screenId) !== -1) {
       t.classList.add('active');
     } else {
       t.classList.remove('active');
+    }
+  });
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+
+if (!window.__navDelegationBound) {
+  window.__navDelegationBound = true;
+  document.addEventListener('click', function(e) {
+    var target = e.target.closest('.nav-tab, .tab-item, [data-screen], .tab-btn');
+    if (target) {
+      var screenName = target.getAttribute('data-screen');
+      if (!screenName) {
+        var onclickVal = target.getAttribute('onclick') || '';
+        var match = onclickVal.match(/navigateToScreen\\(['"]([^'"]+)['"]\\)/);
+        if (match) screenName = match[1];
+      }
+      if (screenName) {
+        e.preventDefault();
+        window.navigateToScreen(screenName);
+      }
     }
   });
 };
