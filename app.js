@@ -2626,3 +2626,51 @@ document.addEventListener('visibilitychange', () => {
     (document.head || document.documentElement).appendChild(_ls);
   }
 })();
+
+
+function renderTodayHeroCard() {
+    const heroContainer = document.getElementById('today-hero-container') || document.querySelector('.hero-card-container');
+    if (!heroContainer) return;
+
+    const activeSession = JSON.parse(localStorage.getItem('momentum_active_session') || 'null');
+    const queuedPlans = JSON.parse(localStorage.getItem('momentum_queued_plans') || '[]');
+    const nextPlan = queuedPlans.length > 0 ? queuedPlans : null;
+
+    if (activeSession) {
+        const loggedSetsCount = (activeSession.sets || []).length;
+        heroContainer.innerHTML = `
+            <div class="single-hero-card">
+                <span class="hero-status-badge">⚡ Session In Progress</span>
+                <h2>${activeSession.workoutName || activeSession.title || 'Active Workout'}</h2>
+                <p>${loggedSetsCount} sets logged locally on this device. Ready to finish?</p>
+                <div class="hero-cta-group">
+                    <button class="btn-primary btn-resume-workout" onclick="navigateToScreen('log')">Resume Workout</button>
+                    <button class="btn-secondary-outline" onclick="navigateToScreen('plan')">View Full Plan</button>
+                </div>
+            </div>
+        `;
+    } else if (nextPlan) {
+        heroContainer.innerHTML = `
+            <div class="single-hero-card">
+                <span class="hero-status-badge">📅 Next Up</span>
+                <h2>${nextPlan.workoutName || nextPlan.title || 'Next Planned Workout'}</h2>
+                <p>${(nextPlan.exercises || []).length} exercises prescribed for this session.</p>
+                <div class="hero-cta-group">
+                    <button class="btn-primary btn-start-workout" onclick="MomentumApp.startWorkoutFromPlan()">Start Workout</button>
+                </div>
+            </div>
+        `;
+    } else {
+        heroContainer.innerHTML = `
+            <div class="single-hero-card">
+                <span class="hero-status-badge">💪 Ready To Train</span>
+                <h2>No Workout Queued</h2>
+                <p>Select a starter card or generate today's session with Coach AI.</p>
+                <div class="hero-cta-group">
+                    <button class="btn-primary" onclick="navigateToScreen('plan')">Go To Planner</button>
+                </div>
+            </div>
+        `;
+    }
+}
+
