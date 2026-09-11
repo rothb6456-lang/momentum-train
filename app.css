@@ -257,6 +257,89 @@ button.primary:hover,
   font-weight: 700;
 }
 
+/* Force explicit white text on all Log tab action buttons. */
+.log-tab .btn-primary,
+.log-tab .btn-add-set,
+.log-tab .btn-next-exercise,
+.log-tab .btn-log-set,
+button.btn-next-exercise,
+button.btn-add-set,
+.set-entry-card #addSet,
+.set-entry-card #nextExercise {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+/* Standard and selected RIR chip states. */
+.rir-chip,
+.btn-rir,
+.rir-chips .chip {
+  background: #1e293b !important;
+  color: #94a3b8 !important;
+  border: 1px solid #334155 !important;
+  font-weight: 600;
+}
+
+.rir-chip.active,
+.rir-chip.selected,
+.btn-rir.active,
+.btn-rir.selected,
+.rir-chips .chip.active {
+  background: #16a34a !important;
+  color: #ffffff !important;
+  border-color: #22c55e !important;
+  font-weight: 700 !important;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.3);
+}
+
+/* Calendar strip text remains readable on dark surfaces. */
+.calendar-strip .calendar-day,
+.calendar-day-card,
+.calendar-day-card .day-name,
+.calendar-day-card .day-num {
+  color: #f8fafc !important;
+}
+
+.calendar-strip .day-name,
+.calendar-day-name,
+.calendar-strip .day-number,
+.calendar-day-number,
+.calendar-day-card .day-name {
+  color: #cbd5e1 !important;
+}
+
+.calendar-strip .day-number,
+.calendar-day-number,
+.calendar-day-card .day-num {
+  color: #f8fafc !important;
+  font-weight: 700 !important;
+}
+
+.calendar-day.active,
+.calendar-day.today,
+.calendar-day-card.active,
+.calendar-day-card.is-today {
+  background: #2563eb !important;
+  border-color: #38bdf8 !important;
+}
+
+.calendar-day.active .day-name,
+.calendar-day.active .day-number,
+.calendar-day-card.active *,
+.calendar-day-card.is-today * {
+  color: #ffffff !important;
+}
+
+/* Scale bulldog head logo by 10%. */
+.logo-bulldog-head,
+.brand-logo-head,
+.brand-logo,
+header .logo-img {
+  transform: scale(1.1);
+  transform-origin: left center;
+}
+
 .btn-delete-set {
   min-height: 40px;
   border: 1px solid #ef4444;
