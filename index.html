@@ -1,6 +1,21 @@
 <!doctype html>
 <html lang="en">
 <head>
+
+<script>
+  // Force unregister stale service workers and clear cache storage
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(function(registrations) {
+      for (var reg of registrations) { registration.unregister(); }
+    });
+  }
+  if ('caches' in window) {
+    caches.keys().then(function(names) {
+      for (var name of names) caches.delete(name);
+    });
+  }
+</script>
+
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0b1117">
