@@ -1599,13 +1599,13 @@ function renderLog() {
   const repsVal = topEndReps(rx.reps);
   const tempoParts = String(rx.tempo || '').split('-');
   const rirOptions = ['0', '0-1', '1', '1-2', '2', '2+', '3+', '4+'];
+  const editingSet = Number.isInteger(state.editingSetIndex) ? active.sets[state.editingSetIndex] : null;
+  const isEditingSet = !!(editingSet && (editingSet.exerciseName || editingSet.exercise) === rx.exerciseName);
   const activeRir = isEditingSet ? (editingSet.rir || '') : (rx.rir || '');
   const activeTempo = isEditingSet ? String(editingSet.tempo || '') : String(rx.tempo || '');
   const activeTempoParts = activeTempo.split('-');
 
   const setNum = setsTarget > 0 ? Math.min(completedForCurrent + 1, setsTarget) : (completedForCurrent + 1);
-  const editingSet = Number.isInteger(state.editingSetIndex) ? active.sets[state.editingSetIndex] : null;
-  const isEditingSet = !!(editingSet && (editingSet.exerciseName || editingSet.exercise) === rx.exerciseName);
   const setLabel = setsTarget > 0
     ? 'Set ' + setNum + ' of ' + setsTarget + (setsComplete ? ' ✓' : '')
     : 'Set ' + setNum;
