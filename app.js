@@ -2674,3 +2674,29 @@ function renderTodayHeroCard() {
     }
 }
 
+
+
+window.navigateToScreen = function(screenId) {
+  console.log("Navigating to screen:", screenId);
+  var screens = document.querySelectorAll('.screen, [id$="-screen"]');
+  screens.forEach(function(s) {
+    if (s.id === screenId + '-screen' || s.id === screenId) {
+      s.style.display = 'block';
+      s.classList.add('active');
+      s.classList.remove('hidden');
+    } else {
+      s.style.display = 'none';
+      s.classList.remove('active');
+    }
+  });
+
+  var tabs = document.querySelectorAll('.nav-tab, .tab-item, [data-screen], .tab-btn');
+  tabs.forEach(function(t) {
+    var target = t.getAttribute('data-screen') || t.getAttribute('onclick') || '';
+    if (target && target.indexOf(screenId) !== -1) {
+      t.classList.add('active');
+    } else {
+      t.classList.remove('active');
+    }
+  });
+};

@@ -247,10 +247,11 @@ function mapSessionToApiPayload(localSession) {
     var cleanDate = String(rawDate).substring(0, 10);
 
     return {
-        workout_name: localSession.workoutName || localSession.workout_name || localSession.title || 'Training Session',
+        workout_name: String(localSession.workoutName || localSession.workout_name || localSession.title || 'Training Session').trim(),
         session_date: cleanDate,
-        program_day: localSession.programDay || localSession.program_day ? parseInt(localSession.programDay || localSession.program_day, 10) : 1,
-        gym_location: localSession.gymLocation || localSession.gym_location || localSession.location || 'Planet Fitness',
+        phase_number: localSession.phaseNumber || localSession.phase_number ? parseInt(localSession.phaseNumber || localSession.phase_number, 10) : 10,
+        program_day: localSession.programDay || localSession.program_day ? parseFloat(localSession.programDay || localSession.program_day) : 1,
+        gym_location: String(localSession.gymLocation || localSession.gym_location || localSession.location || 'Planet Fitness').trim(),
         general_notes: localSession.generalNotes || localSession.general_notes || localSession.notes || null,
         sets: (localSession.sets || []).map(function(s, index) {
             var tempoStr = s.tempo ? String(s.tempo).trim() : null;
@@ -266,10 +267,10 @@ function mapSessionToApiPayload(localSession) {
             return {
                 set_number: parseInt(s.set_number || s.setNumber || (index + 1), 10),
                 exercise_name: String(s.exercise_name || s.exerciseName || s.name || 'Exercise').trim(),
-                section: 'primary',
-                weight_lbs: s.weight_lbs !== undefined ? parseFloat(s.weight_lbs) : (s.weightLbs !== undefined ? parseFloat(s.weightLbs) : 0),
+                section: String(s.section || 'primary').trim(),
+                weight_lbs: s.weight_lbs !== undefined && s.weight_lbs !== null ? parseFloat(s.weight_lbs) : (s.weightLbs !== undefined && s.weightLbs !== null ? parseFloat(s.weightLbs) : 0),
                 reps: s.reps !== undefined && s.reps !== null && s.reps !== '' ? parseInt(s.reps, 10) : null,
-                duration_seconds: s.duration_seconds !== undefined && s.duration_seconds !== null 
+                duration_seconds: s.duration_seconds !== undefined && s.duration_seconds !== null && s.duration_seconds !== '' 
                     ? parseInt(s.duration_seconds, 10) 
                     : (s.durationSeconds ? parseInt(s.durationSeconds, 10) : null),
                 tempo: tempoStr,
