@@ -243,8 +243,8 @@ window.syncSessionToStatbook = MomentumSync.syncSessionToStatbook;
 
 
 function mapSessionToApiPayload(localSession) {
-    const rawDate = localSession.session_date || localSession.sessionDate || localSession.date || new Date().toISOString().split('T');
-    const cleanDate = String(rawDate).substring(0, 10);
+    var rawDate = localSession.session_date || localSession.sessionDate || localSession.date || new Date().toISOString().split('T');
+    var cleanDate = String(rawDate).substring(0, 10);
 
     return {
         workout_name: localSession.workoutName || localSession.workout_name || localSession.title || 'Training Session',
@@ -252,13 +252,13 @@ function mapSessionToApiPayload(localSession) {
         program_day: localSession.programDay || localSession.program_day ? parseInt(localSession.programDay || localSession.program_day, 10) : 1,
         gym_location: localSession.gymLocation || localSession.gym_location || localSession.location || 'Planet Fitness',
         general_notes: localSession.generalNotes || localSession.general_notes || localSession.notes || null,
-        sets: (localSession.sets || []).map((s, index) => {
-            let tempoStr = s.tempo ? String(s.tempo).trim() : null;
+        sets: (localSession.sets || []).map(function(s, index) {
+            var tempoStr = s.tempo ? String(s.tempo).trim() : null;
             if (tempoStr && tempoStr.length > 20) {
                 tempoStr = tempoStr.slice(0, 20);
             }
 
-            let rirStr = s.rir ? String(s.rir).trim() : null;
+            var rirStr = s.rir ? String(s.rir).trim() : null;
             if (rirStr && rirStr.length > 20) {
                 rirStr = rirStr.slice(0, 20);
             }
