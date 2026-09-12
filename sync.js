@@ -135,15 +135,20 @@ const MomentumSync = (() => {
     }
 
     try {
+      const rawSessionDate = sessionData.session_date || sessionData.sessionDate || sessionData.date
+        || sessionData.completedAt || sessionData.completed_at || sessionData.startedAt || new Date().toISOString();
+
       const payload = {
         session_id: sessionData.id || sessionData.session_id,
         workout_name: sessionData.canonicalTitle || sessionData.workoutName || sessionData.workout_name || 'Workout',
+        session_date: String(rawSessionDate).slice(0, 10),
         phase: sessionData.phase || '',
         week: sessionData.week || '',
         day: sessionData.day || '',
         completed_at: sessionData.completedAt || sessionData.completed_at || sessionData.startedAt || new Date().toISOString(),
         coach_questions: sessionData.coachQuestions || sessionData.coach_questions || '',
-        sets: (sessionData.sets || []).map(s => ({
+        sets: (sessionData.sets || []).map((s, index) => ({
+          set_number: parseInt(s.set_number || s.setNumber || (index + 1), 10),
           exercise_name: s.exerciseName || s.exercise || s.exercise_name || '',
           load: s.load || '',
           reps_or_duration: s.reps || s.result || s.reps_or_duration || '',
@@ -279,5 +284,3 @@ function mapSessionToApiPayload(localSession) {
         })
     };
 }
-
-

@@ -479,7 +479,7 @@ header .logo-img {
 }
 
 /* Today tab — single-hero Statbook card (replaces the old hero+metrics+grid stack) */
-.today-hero-statbook {
+.card.today-hero-statbook {
   background: var(--bulldog-navy);
   color: #ffffff;
   border: none;
@@ -552,7 +552,7 @@ header .logo-img {
 }
 
 @media (max-width: 560px) {
-  .today-hero-statbook {
+  .card.today-hero-statbook {
     padding: 20px;
   }
   .today-hero-statbook .hero-stat-row {
