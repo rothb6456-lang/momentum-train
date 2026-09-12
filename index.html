@@ -1,21 +1,6 @@
 <!doctype html>
 <html lang="en">
 <head>
-
-<script>
-  // Force unregister stale service workers and clear cache storage
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations().then(function(registrations) {
-      for (var reg of registrations) { registration.unregister(); }
-    });
-  }
-  if ('caches' in window) {
-    caches.keys().then(function(names) {
-      for (var name of names) caches.delete(name);
-    });
-  }
-</script>
-
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0b1117">
@@ -122,7 +107,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 </head>
 <body>  
   <main class="app">  
-    <header class="top"><div class="brand"><img class="brand-logo" src="/bulldogstats-logo-dog_head.png" alt="Bulldog Stats">Momentum</div><div class="subtitle">Plan, Perform, Review</div><button class="btn-profile-settings" id="openProfileSettings" type="button" aria-label="Profile and guardrails" title="Profile and guardrails">⚙️</button></header>  
+    <header class="top"><div class="brand"><img class="brand-logo" src="/bulldogstats-logo-dog_head.png" alt="Bulldog Stats">Momentum</div><div class="subtitle">Plan, Perform, Review</div><span class="status" id="dataStatus">Loading training data…</span></header>  
     <nav class="tabs" aria-label="Momentum navigation"><button class="tab active" data-view="home">Today</button><button class="tab" data-view="today">Plan</button><button class="tab" data-view="log">Log</button><button class="tab" data-view="review">Review</button><button class="tab" data-view="history">History</button></nav>  
     <div class="mobile-title" id="mobileTitle">Today</div>  
     <section class="view active" id="home"></section>  
@@ -141,21 +126,6 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   </nav>
 
   <div class="toast" id="toast"></div>
-
-  <div id="profileModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="profileModalTitle">
-    <div class="modal-card profile-modal-card">
-      <div class="modal-header">
-        <div><div class="eyebrow">Athlete profile</div><h2 id="profileModalTitle" style="margin-top:6px">Profile &amp; Guardrails</h2></div>
-        <button class="modal-close-btn" id="closeProfileSettings" type="button" aria-label="Close profile settings">×</button>
-      </div>
-      <form id="profileForm" class="set-form">
-        <label class="field full">Active goals<input id="profileGoals" class="input" type="text" placeholder="Strength, conditioning, consistency"></label>
-        <label class="field full">Gym facility location<input id="profileFacility" class="input" type="text" placeholder="Main gym or home setup"></label>
-        <label class="field full">Movement & Physical Guardrails<textarea id="profileGuardrails" class="input" placeholder="Joint guardrails, limitations, and movement preferences"></textarea></label>
-        <div class="actions profile-actions full"><button class="btn-primary primary" type="submit">Save profile</button><button class="secondary" id="cancelProfileSettings" type="button">Cancel</button></div>
-      </form>
-    </div>
-  </div>
 
   <!-- Sanctum Cloud Auth Modal -->
   <div id="sanctumModal" class="modal-overlay hidden">
