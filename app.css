@@ -659,3 +659,87 @@ header img {
   transform: scale(1.10) !important;
   transform-origin: left center !important;
 }
+/* ==========================================================================
+   BULLDOG STATBOOK UNIFIED THEME OVERRIDES
+   ========================================================================== */
+
+/* 1. Action Buttons (Deep Navy) */
+.btn-primary,
+.btn-add-set,
+.btn-next-exercise,
+.btn-log-set,
+.btn-coach-ai,
+button.btn-next-exercise,
+button.btn-add-set,
+.set-entry-card #addSet,
+.set-entry-card #nextExercise,
+#addSet,
+#nextExercise {
+  background: #0F172A !important;
+  background-color: #0F172A !important;
+  color: #FFFFFF !important;
+  font-weight: 700 !important;
+  border: none !important;
+  border-radius: 8px !important;
+  min-height: 48px !important;
+}
+
+.btn-primary:hover,
+.btn-add-set:hover,
+.btn-coach-ai:hover,
+#addSet:hover,
+#nextExercise:hover {
+  background: #1E293B !important;
+  background-color: #1E293B !important;
+}
+
+/* 2. Calendar Strip Active / Today Card */
+.calendar-strip .calendar-day.active,
+.calendar-strip .calendar-day.today,
+.calendar-day.active,
+.calendar-day.today,
+.calendar-day-card.active,
+.calendar-day-card.is-today {
+  background: #0F172A !important;
+  background-color: #0F172A !important;
+  border: 2px solid #16A34A !important;
+  color: #FFFFFF !important;
+}
+
+.calendar-strip .calendar-day.active *,
+.calendar-strip .calendar-day.today *,
+.calendar-day-card.active *,
+.calendar-day-card.is-today * {
+  color: #FFFFFF !important;
+}
+
+/* 3. Active RIR Chip (Kelly Green Highlight) */
+.rir-chip.active,
+.rir-chip.selected,
+.btn-rir.active,
+.btn-rir.selected,
+.rir-chips .chip.active {
+  background: #16A34A !important;
+  background-color: #16A34A !important;
+  color: #FFFFFF !important;
+  border-color: #15803D !important;
+  font-weight: 700 !important;
+}
+
+/* 4. Rest Timer HUD Skip Button */
+.rest-timer-hud button,
+.rest-timer-bar button,
+.btn-skip-rest,
+#btn-skip-rest,
+button.btn-skip,
+.rest-banner #skipRest {
+  background: #334155 !important;
+  background-color: #334155 !important;
+  color: #FFFFFF !important;
+  font-weight: 700 !important;
+  padding: 8px 16px !important;
+  border-radius: 6px !important;
+  border: 1px solid #475569 !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
