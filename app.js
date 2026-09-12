@@ -2677,6 +2677,7 @@ function renderTodayHeroCard() {
 
 
 // GLOBAL NAVIGATION CONTROLLER
+// GLOBAL NAVIGATION CONTROLLER
 window.navigateToScreen = function(screenId) {
   if (!screenId) return;
   screenId = String(screenId).toLowerCase().replace('-screen', '').replace('screen-', '');
@@ -2709,6 +2710,25 @@ window.navigateToScreen = function(screenId) {
   });
 
   window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+
+if (!window.__navDelegationBound) {
+  window.__navDelegationBound = true;
+  document.addEventListener('click', function(e) {
+    var target = e.target.closest('.nav-tab, .tab-item, [data-screen], .tab-btn');
+    if (target) {
+      var screenName = target.getAttribute('data-screen');
+      if (!screenName) {
+        var onclickVal = target.getAttribute('onclick') || '';
+        var match = onclickVal.match(/navigateToScreen\(['"]([^'"]+)['"]\)/);
+        if (match) screenName = match[1];
+      }
+      if (screenName) {
+        e.preventDefault();
+        window.navigateToScreen(screenName);
+      }
+    }
+  });
 };
 
 if (!window.__navDelegationBound) {
