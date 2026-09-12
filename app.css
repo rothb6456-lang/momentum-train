@@ -477,3 +477,86 @@ header .logo-img {
 .btn-primary.auth-submit-btn:hover {
   background: #117b3a;
 }
+
+/* Today tab — single-hero Statbook card (replaces the old hero+metrics+grid stack) */
+.today-hero-statbook {
+  background: var(--bulldog-navy);
+  color: #ffffff;
+  border: none;
+  border-radius: 18px;
+  padding: 28px;
+}
+
+.today-hero-statbook .eyebrow {
+  color: var(--bulldog-green);
+}
+
+.today-hero-statbook h1,
+.today-hero-statbook h2 {
+  color: #ffffff;
+}
+
+.today-hero-statbook .quiet {
+  color: #c7d3dc;
+}
+
+.today-hero-statbook .actions .primary {
+  background: var(--bulldog-green);
+  color: #ffffff;
+  border: none;
+}
+
+.today-hero-statbook .actions .primary:hover {
+  background: #117b3a;
+}
+
+.today-hero-statbook .actions .secondary {
+  background: transparent;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+.today-hero-statbook .actions .secondary:hover {
+  border-color: #ffffff;
+}
+
+.today-hero-statbook .hero-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.14);
+  margin: 20px 0;
+}
+
+.today-hero-statbook .hero-stat-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+.today-hero-statbook .hero-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.today-hero-statbook .hero-stat b {
+  font-size: 22px;
+  font-weight: 780;
+  letter-spacing: -0.04em;
+}
+
+.today-hero-statbook .hero-stat span {
+  font-size: 11px;
+  color: #9fb0bd;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+@media (max-width: 560px) {
+  .today-hero-statbook {
+    padding: 20px;
+  }
+  .today-hero-statbook .hero-stat-row {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px 12px;
+  }
+}

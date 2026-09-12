@@ -624,113 +624,50 @@ function renderHome() {
     `;
   } else {
     $('#home').innerHTML = `
-      <div class="hero">
-        <article class="card hero-main">
-          <div class="eyebrow">Today / command center</div>
-          <h1>${hasActiveSession ? 'Your session is in progress.' : 'Know what changed. Capture what matters.'}</h1>
-          <p class="quiet">
-            ${hasActiveSession
-              ? `${activeSetCount} set${activeSetCount === 1 ? '' : 's'} are saved locally on this device.`
-              : 'Queue Coach’s next card, execute it on the gym floor, and carry both plan and performance into review.'}
-          </p>
-          <div class="actions">
-            ${hasActiveSession
-              ? `<button class="primary" id="homeResumeWorkout">Resume workout</button><button class="secondary" id="homeOpenPlan">Open plan</button>`
-              : hasQueuedPlan
-                ? `<button class="primary" id="homeStartQueuedWorkout">Start queued workout</button><button class="secondary" id="homeOpenPlan">Open plan</button>`
-                : `<button class="primary" id="homeCreatePlan">Create a plan from scratch</button><button class="secondary" id="homePastePlan">Paste plan from outside source</button>`
-            }
-          </div>
-        </article>
+      <article class="card today-hero-statbook">
+        <div class="eyebrow">Today / command center</div>
+        <h1>${hasActiveSession ? 'Your session is in progress.' : 'Know what changed. Capture what matters.'}</h1>
+        <p class="quiet">
+          ${hasActiveSession
+            ? `${activeSetCount} set${activeSetCount === 1 ? '' : 's'} are saved locally on this device.`
+            : 'Queue Coach’s next card, execute it on the gym floor, and carry both plan and performance into review.'}
+        </p>
+        <div class="actions">
+          ${hasActiveSession
+            ? `<button class="primary" id="homeResumeWorkout">Resume workout</button><button class="secondary" id="homeOpenPlan">Open plan</button>`
+            : hasQueuedPlan
+              ? `<button class="primary" id="homeStartQueuedWorkout">Start queued workout</button><button class="secondary" id="homeOpenPlan">Open plan</button>`
+              : `<button class="primary" id="homeCreatePlan">Create a plan from scratch</button><button class="secondary" id="homePastePlan">Paste plan from outside source</button>`
+          }
+        </div>
 
-        <aside class="card">
-          <div class="eyebrow">Next planned workout</div>
-          ${
-            safeNext
-              ? `
-                <h2 style="margin-top:8px">${esc(safeNext.title)}</h2>
-                <p class="quiet">${esc(planSummary(safeNext))}</p>
-                <div class="signal-card">
-                  <b>${safeNext.exerciseBlocks.length} planned exercise${safeNext.exerciseBlocks.length === 1 ? '' : 's'}</b>
-                  Queued from ${esc(safeNext.sourceType)}. Planned and performed values remain separate.
-                </div>
+        <div class="hero-divider"></div>
+
+        <div class="hero-stat-row">
+          <div class="hero-stat"><b>${m.sessions}</b><span>Historical sessions</span></div>
+          <div class="hero-stat"><b>${m.sets.toLocaleString()}</b><span>Historical sets</span></div>
+          <div class="hero-stat"><b>${queued().length}</b><span>Planned workouts</span></div>
+          <div class="hero-stat"><b>${done.length}</b><span>Completed locally</span></div>
+        </div>
+
+        ${
+          safeNext
+            ? `
+              <div class="hero-divider"></div>
+              <div class="hero-next-up">
+                <div class="eyebrow">Next up</div>
+                <h2 style="margin-top:6px">${esc(safeNext.title)}</h2>
+                <p class="quiet">${esc(planSummary(safeNext))} · ${safeNext.exerciseBlocks.length} exercise${safeNext.exerciseBlocks.length === 1 ? '' : 's'} · from ${esc(safeNext.sourceType)}</p>
                 <div class="actions">
                   <button class="primary" data-start="${safeNext.id}">Start workout</button>
                 </div>
-              `
-              : `
-                <h2 style="margin-top:8px">Nothing queued</h2>
-                <p class="quiet">Choose a starter card, paste your next Coach card, or create a custom plan.</p>
-              `
-          }
-        </aside>
-      </div>
+              </div>
+            `
+            : ''
+        }
+      </article>
 
       <div id="weekly-calendar-strip"></div>
-
-      <section class="metrics">
-        ${metric('Historical sessions', m.sessions, 'Markdown source data')}
-        ${metric('Historical sets', m.sets.toLocaleString(), 'Loaded training rows')}
-        ${metric('Planned workouts', queued().length, safeNext ? 'Next plan ready' : 'Nothing scheduled')}
-        ${metric('Completed locally', done.length, done[0] ? dateText(done[0].completedAt) : 'On this device')}
-      </section>
-
-      <section class="grid">
-        <article class="card">
-          <div class="card-head">
-            <div><h2>Current cycle</h2>What is queued and what it asks of you next.</div>
-            ${safeNext ? esc(safeNext.sourceType || 'queued') : '—'}
-          </div>
-          <div class="stack">
-            ${
-              safeNext
-                ? `
-                  <div class="signal-card">
-                    <b>${esc(safeNext.title)}</b>
-                    ${esc(planSummary(safeNext))}
-                  </div>
-                  <div class="today-grid-mini">
-                    <div class="metric-card">
-                      <div class="quiet">Exercises</div>
-                      <b>${safeNext.exerciseBlocks.length}</b>
-                    </div>
-                    <div class="metric-card">
-                      <div class="quiet">Source</div>
-                      <b>${esc(safeNext.sourceType || 'manual')}</b>
-                    </div>
-                  </div>
-                `
-                : `
-                  <div class="empty">No queued workout yet. Use the actions above to choose a card, paste a plan, or build one from scratch.</div>
-                `
-            }
-          </div>
-        </article>
-
-        <article class="card">
-          <h2>Phase workload</h2>
-          <div class="stack">
-            ${
-              phases.length
-                ? phases.map(p => `
-                  <div class="bar-row">
-                    Phase ${esc(p.phase)}
-                    <div class="bar"><i style="width:${(p.sets / max) * 100}%"></i></div>
-                    ${p.sets}
-                  </div>
-                `).join('')
-                : '<div class="empty">Historical rows are not currently available.</div>'
-            }
-          </div>
-        </article>
-
-        <article class="card">
-          <h2>What matters now</h2>
-          <div class="insight"><i class="dot"></i><div><b>Plan → execute → review</b> Every queued workout keeps its raw Coach card and structured exercise blocks alongside actual sets.</div></div>
-          <div class="insight"><i class="dot amber"></i><div><b>Questions stay lightweight</b> Session-level notes stay in Questions for Coach, while set-level notes capture specific gym-floor observations.</div></div>
-          <div class="insight"><i class="dot"></i><div><b>${esc(m.primary[0])} is the largest loaded category</b> ${Number(m.primary[1]).toLocaleString()} historical training sets are in the current snapshot.</div></div>
-        </article>
-      </section>
     `;
   }
 
