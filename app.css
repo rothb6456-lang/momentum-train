@@ -560,3 +560,67 @@ header .logo-img {
     gap: 16px 12px;
   }
 }
+/* ==========================================================================
+   BULLDOG STATBOOK PRE-FLOOR TEST BRAND & CONTRAST OVERRIDES
+   ========================================================================== */
+
+/* Primary Action Buttons (Deep Navy Brand Alignment) */
+.btn-primary,
+.btn-add-set,
+.btn-next-exercise,
+.btn-log-set,
+button.btn-next-exercise,
+button.btn-add-set {
+  background-color: #0F172A !important;
+  color: #FFFFFF !important;
+  font-weight: 700 !important;
+  border: none !important;
+  border-radius: 8px !important;
+  min-height: 48px !important;
+}
+
+.btn-primary:hover, .btn-add-set:hover {
+  background-color: #1E293B !important;
+}
+
+/* Active RIR Chip (Kelly Green Highlight) */
+.rir-chip.active,
+.rir-chip.selected,
+.btn-rir.active,
+.btn-rir.selected {
+  background-color: #16A34A !important;
+  color: #FFFFFF !important;
+  border-color: #15803D !important;
+  font-weight: 700 !important;
+}
+
+/* Calendar Strip Active Day */
+.calendar-strip .calendar-day.active,
+.calendar-day-card.active {
+  background-color: #0F172A !important;
+  border: 2px solid #16A34A !important;
+  color: #FFFFFF !important;
+}
+
+/* Rest Timer HUD & Skip Button */
+.rest-timer-bar, .rest-timer-hud {
+  background-color: #0F172A !important;
+  color: #F8FAFC !important;
+}
+
+.btn-skip-rest, #btn-skip-rest, button.btn-skip {
+  background-color: #334155 !important;
+  color: #FFFFFF !important;
+  font-weight: 700 !important;
+  padding: 6px 14px !important;
+  border-radius: 6px !important;
+  border: 1px solid #475569 !important;
+}
+
+/* Header Logo Scaling (10%) */
+.logo-bulldog-head,
+header .logo-img,
+header img {
+  transform: scale(1.10) !important;
+  transform-origin: left center !important;
+}
