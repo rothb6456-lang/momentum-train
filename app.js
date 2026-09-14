@@ -1426,13 +1426,36 @@ function nextExerciseNameFor(currentName) {
 
 function restSecondsFromPrescription(rest) {
   const sx = String(rest == null ? '' : rest).trim();
-  if (!sx) return 0;
-  const mins = sx.match(/(\d+(?:\.\d+)?)\s*min/i);
-  if (mins) return Math.round(parseFloat(mins[1]) * 60);
-  const secs = sx.match(/(\d+(?:\.\d+)?)\s*sec/i);
-  if (secs) return Math.round(parseFloat(secs[1]));
-  const m = sx.match(/(\d+(?:\.\d+)?)/);
-  return m ? Math.round(parseFloat(m[1]) * 60) : 0;
+  if (!sx) return 60; // no rest prescribed -> default to 60s
+  // Matches "90s", "90 sec", "90 seconds", "2m", "2 min", "2 minutes", etc.
+  const unit = sx.match(/(\d+(?:\.\d+)?)\s*(sec(?:ond)?s?|s|min(?:ute)?s?|m)\b/i);
+  if (unit) {
+    const amount = parseFloat(unit[1]);
+    const isMinutes = /^(min(?:ute)?s?|m)$/i.test(unit[2]);
+    return Math.round(isMinutes ? amount * 60 : amount);
+  }
+  // A bare number with no recognizable unit is ambiguous -- do not silently
+  // assume minutes (that was the original 5400s bug: "90s" without a "sec"
+  // match fell through here and got multiplied by 60). Treat bare numbers
+  // as seconds, which matches how every rest value in this codebase is
+  // authored ("60 sec", "90 sec", "2 min") once the unit-less case is hit.
+  const bare = sx.match(/(\d+(?:\.\d+)?)/);
+  return bare ? Math.round(parseFloat(bare[1])) : 60;
+}
+
+function insertRirOption(options, value) {
+  // Sort the extra chip into the list by its leading number so the row
+  // stays in ascending order (e.g. "2-3" lands between "2" and "2+").
+  const key = v => {
+    const n = parseFloat(String(v).match(/(\d+(?:\.\d+)?)/)?.[1]);
+    return Number.isNaN(n) ? Infinity : n;
+  };
+  const next = options.slice();
+  const vKey = key(value);
+  let idx = next.findIndex(o => key(o) > vKey);
+  if (idx < 0) idx = next.length;
+  next.splice(idx, 0, value);
+  return next;
 }
 
 function restBannerMarkup() {
@@ -1533,10 +1556,17 @@ function renderLog() {
   const loadVal = extractLoadNumber(rx.workingLoad || rx.load);
   const repsVal = topEndReps(rx.reps);
   const tempoParts = String(rx.tempo || '').split('-');
-  const rirOptions = ['0', '0-1', '1', '1-2', '2', '2+', '3+', '4+'];
+  const baseRirOptions = ['0', '0-1', '1', '1-2', '2', '2+', '3+', '4+'];
   const editingSet = Number.isInteger(state.editingSetIndex) ? active.sets[state.editingSetIndex] : null;
   const isEditingSet = !!(editingSet && (editingSet.exerciseName || editingSet.exercise) === rx.exerciseName);
   const activeRir = isEditingSet ? (editingSet.rir || '') : (rx.rir || '');
+  // The prescribed/edited RIR may not be one of the standard chip values
+  // (e.g. "2-3"), which previously matched nothing and left every chip
+  // unselected. Insert it into the option list, in its correct numeric
+  // position, so it's always present and can be defaulted-selected.
+  const rirOptions = (activeRir && !baseRirOptions.includes(activeRir))
+    ? insertRirOption(baseRirOptions, activeRir)
+    : baseRirOptions;
   const activeTempo = isEditingSet ? String(editingSet.tempo || '') : String(rx.tempo || '');
   const activeTempoParts = activeTempo.split('-');
 
