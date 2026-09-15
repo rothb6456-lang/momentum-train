@@ -400,7 +400,7 @@ header .logo-img {
 
   .set-history-table th,
   .set-history-table td {
-    padding: 8px 6px;
+    padding: 4px 6px;
     font-size: 0.78rem;
     white-space: nowrap;
   }
@@ -424,11 +424,11 @@ header .logo-img {
   }
 
   .set-history-table td.col-actions .btn-delete-set {
-    width: 28px;
-    height: 28px;
-    line-height: 26px;
+    width: 24px;
+    height: 24px;
+    line-height: 22px;
     padding: 0;
-    font-size: 1rem;
+    font-size: 0.95rem;
     border-radius: 6px;
   }
 }
