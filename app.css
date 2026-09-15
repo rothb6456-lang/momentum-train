@@ -398,36 +398,38 @@ header .logo-img {
     min-width: 0;
   }
 
-  .set-history-table thead {
-    display: none;
-  }
-
-  .set-history-table,
-  .set-history-table tbody,
-  .set-history-table tr,
+  .set-history-table th,
   .set-history-table td {
-    display: block;
-    width: 100%;
-    box-sizing: border-box;
+    padding: 8px 6px;
+    font-size: 0.78rem;
+    white-space: nowrap;
   }
 
-  .set-history-table tr {
-    padding: 10px;
-    border-bottom: 1px solid #334155;
+  .set-history-table th {
+    font-size: 0.62rem;
   }
 
-  .set-history-table td {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 6px 0;
-    border: 0;
+  /* Set #, Load, Reps, Tempo, RIR are numeric/short -> right-align so the
+     column reads as a scannable list instead of ragged-left text. */
+  .set-history-table th:not(:first-child):not(:last-child),
+  .set-history-table td:not(:first-child):not(:last-child) {
+    text-align: right;
   }
 
-  .set-history-table td::before {
-    content: attr(data-label);
-    color: #94a3b8;
-    font-weight: 700;
+  .set-history-table td.col-actions,
+  .set-history-table th:last-child {
+    text-align: center;
+    padding-left: 2px;
+    padding-right: 2px;
+  }
+
+  .set-history-table td.col-actions .btn-delete-set {
+    width: 28px;
+    height: 28px;
+    line-height: 26px;
+    padding: 0;
+    font-size: 1rem;
+    border-radius: 6px;
   }
 }
 

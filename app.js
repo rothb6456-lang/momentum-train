@@ -469,16 +469,16 @@ function logMarkup() {
 
   return matchingSets.length
     ? `<div class="set-history-table-wrap"><table class="set-history-table">
-        <thead><tr><th>Set #</th><th>Load (lbs)</th><th>Reps</th><th>Tempo</th><th>RIR</th><th>Actions</th></tr></thead>
+        <thead><tr><th>Set</th><th>Load</th><th>Reps</th><th>Tempo</th><th>RIR</th><th></th></tr></thead>
         <tbody>${matchingSets.map((set, index) => {
         const sessionIndex = sets.indexOf(set);
         return `<tr class="logged-set" data-edit-set="${sessionIndex}">
-          <td data-label="Set #">${index + 1}</td>
-          <td data-label="Load (lbs)">${esc(set.load ?? set.weight_lbs ?? set.weight ?? '—')}</td>
+          <td data-label="Set">${index + 1}</td>
+          <td data-label="Load">${esc(set.load ?? set.weight_lbs ?? set.weight ?? '—')}</td>
           <td data-label="Reps">${esc(set.reps ?? set.result ?? '—')}</td>
           <td data-label="Tempo">${esc(set.tempo || '—')}</td>
           <td data-label="RIR">${esc(set.rir || '—')}</td>
-          <td data-label="Actions"><button class="btn-delete-set" type="button" data-delete-set="${sessionIndex}" aria-label="Delete set ${index + 1}">Delete</button></td>
+          <td data-label="Actions" class="col-actions"><button class="btn-delete-set" type="button" data-delete-set="${sessionIndex}" aria-label="Delete set ${index + 1}">&times;</button></td>
         </tr>`;
       }).join('')}</tbody></table></div>`
     : '<div class="empty">No sets logged yet for this exercise.</div>';
