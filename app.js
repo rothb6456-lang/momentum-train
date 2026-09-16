@@ -1537,9 +1537,10 @@ function renderLog() {
 
   const block = (typeof activeBlock === 'function' ? activeBlock() : null) || {};
   const rx = prescriptionOf(block);
-  const completedForCurrent = rx.exerciseName
-    ? (active.sets || []).filter(s => (s.exerciseName || s.exercise) === rx.exerciseName).length
-    : 0;
+  const exerciseSets = rx.exerciseName
+    ? (active.sets || []).filter(s => (s.exerciseName || s.exercise) === rx.exerciseName || (s.exerciseName || s.exercise || '').toLowerCase() === rx.exerciseName.toLowerCase())
+    : [];
+  const completedForCurrent = exerciseSets.length;
   const setsTarget = prescribedSetsCount(block);
   const setsComplete = completedForCurrent >= setsTarget;
   const nextName = nextExerciseNameFor(rx.exerciseName);
@@ -1557,12 +1558,23 @@ function renderLog() {
     rx.rest && ('Rest ' + rx.rest)
   ].filter(Boolean).join(' · ') || 'No planned target';
 
-  const loadVal = extractLoadNumber(rx.workingLoad || rx.load);
+  let loadVal = '';
+  if (exerciseSets.length > 0) {
+    const lastSet = exerciseSets[exerciseSets.length - 1];
+    const lastLoad = (lastSet.load != null && lastSet.load !== '')
+      ? lastSet.load
+      : (lastSet.weight_lbs != null ? lastSet.weight_lbs : '');
+    loadVal = extractLoadNumber(lastLoad) || (lastLoad != null ? String(lastLoad).trim() : '');
+  } else {
+    const defaultLoad = rx.workingLoad || rx.load || (active && active.workingLoads && active.workingLoads[rx.exerciseName]) || '';
+    loadVal = extractLoadNumber(defaultLoad) || (defaultLoad != null ? String(defaultLoad).trim() : '');
+  }
   const repsVal = topEndReps(rx.reps);
   const tempoParts = String(rx.tempo || '').split('-');
   const baseRirOptions = ['0', '0-1', '1', '1-2', '2', '2+', '3+', '4+'];
   const editingSet = Number.isInteger(state.editingSetIndex) ? active.sets[state.editingSetIndex] : null;
-  const isEditingSet = !!(editingSet && (editingSet.exerciseName || editingSet.exercise) === rx.exerciseName);
+  const isEditingSet = !!(editingSet && ((editingSet.exerciseName || editingSet.exercise) === rx.exerciseName || (rx.exerciseName && (editingSet.exerciseName || editingSet.exercise || '').toLowerCase() === rx.exerciseName.toLowerCase())));
+  const editingLoad = editingSet ? (editingSet.load ?? editingSet.weight_lbs ?? '') : '';
   const activeRir = isEditingSet ? (editingSet.rir || '') : (rx.rir || '');
   // The prescribed/edited RIR may not be one of the standard chip values
   // (e.g. "2-3"), which previously matched nothing and left every chip
@@ -1603,7 +1615,7 @@ function renderLog() {
           <span class="rx-line">${esc(summary)}</span>
         </div>
         <div class="set-form">
-          <label class="field">Load<input id="load" class="input" inputmode="decimal" value="${esc(isEditingSet ? (editingSet.load || '') : loadVal)}" placeholder="0"></label>
+          <label class="field">Load<input id="load" class="input" inputmode="decimal" value="${esc(isEditingSet ? editingLoad : loadVal)}" placeholder="0"></label>
           <label class="field">${rx.timed ? 'Duration' : 'Reps'}<input id="result" class="input" inputmode="text" value="${esc(isEditingSet ? (editingSet.reps || editingSet.result || '') : repsVal)}" placeholder="${rx.timed ? '60 sec' : '0'}"></label>
           <div class="field full">RIR<div class="rir-chips">${rirOptions.map(x => `<button class="chip ${activeRir === x ? 'active' : ''}" data-rir="${x}">${x}</button>`).join('')}</div></div>
           <div class="field full">Tempo<div class="tempo"><input id="tempoE" class="input" value="${esc((isEditingSet ? activeTempoParts[0] : tempoParts[0]) || '')}" placeholder="E"><input id="tempoP" class="input" value="${esc((isEditingSet ? activeTempoParts[1] : tempoParts[1]) || '')}" placeholder="P"><input id="tempoC" class="input" value="${esc((isEditingSet ? activeTempoParts[2] : tempoParts[2]) || '')}" placeholder="C"></div></div>
@@ -2326,12 +2338,34 @@ document.addEventListener('visibilitychange', () => {
         session.sets
           .filter(set => (set.exerciseName || set.exercise) === exerciseName)
           .forEach((set, index) => { set.set_number = index + 1; });
-        // persist the chosen load as the working load so the next set pre-fills with it
-        if (window.MomentumPlanner && typeof MomentumPlanner.setCockpitWorkingLoad === 'function' && state.cockpit) {
+        // persist the chosen load as the working load so the next set pre-fills with it and exercise switching preserves it
+        if (state.cockpit) {
           const ex = Array.isArray(state.cockpit.exercises) ? state.cockpit.exercises : [];
-          let idx = ex.findIndex(e => e && e.exerciseName === exerciseName);
+          let idx = ex.findIndex(e => e && (e.exerciseName === exerciseName || (e.exerciseName && exerciseName && e.exerciseName.toLowerCase() === exerciseName.toLowerCase())));
           if (idx < 0 && typeof state.cockpit.exerciseIndex === 'number') idx = state.cockpit.exerciseIndex;
-          if (idx >= 0) state.cockpit = MomentumPlanner.setCockpitWorkingLoad(state.cockpit, idx, load);
+          if (idx >= 0) {
+            if (window.MomentumPlanner && typeof MomentumPlanner.setCockpitWorkingLoad === 'function') {
+              state.cockpit = MomentumPlanner.setCockpitWorkingLoad(state.cockpit, idx, load);
+            }
+            if (state.cockpit && Array.isArray(state.cockpit.exercises) && state.cockpit.exercises[idx]) {
+              state.cockpit.exercises[idx].workingLoad = load;
+            }
+          }
+        }
+        if (session) {
+          if (!session.workingLoads || typeof session.workingLoads !== 'object') {
+            session.workingLoads = {};
+          }
+          if (exerciseName) {
+            session.workingLoads[exerciseName] = load;
+          }
+          if (session.plannedWorkout && Array.isArray(session.plannedWorkout.exerciseBlocks)) {
+            const pb = session.plannedWorkout.exerciseBlocks.find(b => b && (b.exerciseName === exerciseName || (b.exerciseName && exerciseName && b.exerciseName.toLowerCase() === exerciseName.toLowerCase())));
+            if (pb) pb.workingLoad = load;
+          }
+        }
+        if (block && typeof block === 'object') {
+          block.workingLoad = load;
         }
         // start the prescribed rest timer
         const restSecs = (typeof restSecondsFromPrescription === 'function') ? restSecondsFromPrescription(rx.rest) : 0;
@@ -2384,12 +2418,33 @@ document.addEventListener('visibilitychange', () => {
         const session = ensureActiveSession();
         const block = (typeof activeBlock === 'function' ? activeBlock() : null) || {};
         const exerciseName = block.exerciseName || session.activeExercise || '';
-        if (window.MomentumPlanner && typeof MomentumPlanner.setCockpitWorkingLoad === 'function' && state.cockpit) {
+        const curLoad = loadInput.value.trim();
+        if (state.cockpit) {
           const exercises = Array.isArray(state.cockpit.exercises) ? state.cockpit.exercises : [];
-          let index = exercises.findIndex(exercise => exercise && exercise.exerciseName === exerciseName);
+          let index = exercises.findIndex(exercise => exercise && (exercise.exerciseName === exerciseName || (exercise.exerciseName && exerciseName && exercise.exerciseName.toLowerCase() === exerciseName.toLowerCase())));
           if (index < 0 && typeof state.cockpit.exerciseIndex === 'number') index = state.cockpit.exerciseIndex;
-          if (index >= 0) state.cockpit = MomentumPlanner.setCockpitWorkingLoad(state.cockpit, index, loadInput.value.trim());
+          if (index >= 0) {
+            if (window.MomentumPlanner && typeof MomentumPlanner.setCockpitWorkingLoad === 'function') {
+              state.cockpit = MomentumPlanner.setCockpitWorkingLoad(state.cockpit, index, curLoad);
+            }
+            if (state.cockpit && Array.isArray(state.cockpit.exercises) && state.cockpit.exercises[index]) {
+              state.cockpit.exercises[index].workingLoad = curLoad;
+            }
+          }
         }
+        if (session) {
+          if (!session.workingLoads || typeof session.workingLoads !== 'object') {
+            session.workingLoads = {};
+          }
+          if (exerciseName) {
+            session.workingLoads[exerciseName] = curLoad;
+          }
+          if (session.plannedWorkout && Array.isArray(session.plannedWorkout.exerciseBlocks)) {
+            const pb = session.plannedWorkout.exerciseBlocks.find(b => b && (b.exerciseName === exerciseName || (b.exerciseName && exerciseName && b.exerciseName.toLowerCase() === exerciseName.toLowerCase())));
+            if (pb) pb.workingLoad = curLoad;
+          }
+        }
+        if (block && typeof block === 'object') block.workingLoad = curLoad;
       };
 
       const dup = $('#duplicateLast');
