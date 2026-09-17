@@ -1,5 +1,5 @@
 self.addEventListener('install', function(e) { self.skipWaiting(); });
-const CACHE = 'momentum-v1789166782';
+const CACHE = 'momentum-v1789605018';
 const NETWORK_FIRST = new Set(['/', '/index.html', '/planner.js', '/app.js', '/sw.js']);
 const ASSETS = [
   '/',
