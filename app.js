@@ -1294,6 +1294,16 @@ function renderEditor(mode) {
     renderEditor('builder');
   });
 
+$$('[data-browse-exercise]').forEach(button => button.onclick = () => {
+    const blockId = button.dataset.browseExercise;
+    openExercisePickerModal(name => {
+      const block = editor.exerciseBlocks.find(x => x.id === blockId);
+      if (!block) return;
+      block.exerciseName = (typeof canonicalExerciseName === 'function') ? canonicalExerciseName(name) : name;
+      renderEditor('builder');
+    });
+  });
+
   const addBlock = $('#addBlock');
   if (addBlock) {
     addBlock.onclick = () => {
@@ -1641,7 +1651,10 @@ function renderLog() {
       </details>
 
       <details class="card collapsible"><summary>Switch exercise</summary>
-        <input id="searchExercise" class="input" placeholder="Search known exercises" style="margin-top:10px">
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <input id="searchExercise" class="input" placeholder="Search known exercises" style="flex:1">
+          <button type="button" class="secondary" id="browseExerciseLibrary" style="white-space:nowrap">Browse library</button>
+        </div>
         <div id="exercisePicker" class="picker-list" style="margin-top:8px"></div>
       </details>
     </div>
@@ -1847,8 +1860,139 @@ function renderHistory() {
 
 
 
+async function syncExerciseCatalog() {
+  try {
+    // Use the real token accessor (sync.js) instead of a hardcoded key —
+    // the original doc read 'bulldog_sanctum_token', which does not exist;
+    // your actual key is 'momentum_sanctum_token' via MomentumSync.getToken().
+    const token = (typeof MomentumSync !== 'undefined' && typeof MomentumSync.getToken === 'function')
+      ? MomentumSync.getToken()
+      : '';
+ 
+    if (navigator.onLine && token) {
+      // Build off API_BASE_URL (defined in sync.js) so this respects the
+      // momentum_api_url local override, same as every other sync call.
+      const res = await fetch(`${API_BASE_URL}/exercises`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        }
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json && Array.isArray(json.data)) {
+          localStorage.setItem('momentum_exercise_catalog', JSON.stringify(json.data));
+          console.log(`Momentum: Exercise catalog synced (${json.data.length} exercises cached)`);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Momentum: Exercise catalog sync skipped (offline or unauthenticated)', e);
+  }
+}
 
-
+// --- Exercise Picker Modal Engine ---
+let activePickerCallback = null;
+ 
+function openExercisePickerModal(onSelectCallback) {
+  activePickerCallback = onSelectCallback;
+  const modal = document.getElementById('exercisePickerModal');
+  const searchInput = document.getElementById('modalExerciseSearch');
+  if (searchInput) searchInput.value = '';
+ 
+  renderModalExerciseList();
+  if (modal) modal.classList.remove('hidden');
+ 
+  const cancelBtn = document.getElementById('modalExerciseCancelBtn');
+  if (cancelBtn) cancelBtn.onclick = closeExercisePickerModal;
+ 
+  const customBtn = document.getElementById('modalCustomExerciseBtn');
+  if (customBtn) customBtn.onclick = selectCustomExerciseModal;
+ 
+  if (searchInput) searchInput.oninput = filterModalExercises;
+}
+ 
+function closeExercisePickerModal() {
+  const modal = document.getElementById('exercisePickerModal');
+  if (modal) modal.classList.add('hidden');
+  activePickerCallback = null;
+}
+ 
+function renderModalExerciseList(query = '') {
+  const container = document.getElementById('modalExerciseList');
+  if (!container) return;
+ 
+  let catalog = [];
+  try {
+    const cached = localStorage.getItem('momentum_exercise_catalog');
+    catalog = cached ? JSON.parse(cached) : [];
+  } catch (e) {
+    catalog = [];
+  }
+ 
+  // Fallback to allExercises() if the catalog cache isn't populated yet
+  // (first load, offline, or not yet authenticated).
+  if (!Array.isArray(catalog) || !catalog.length) {
+    catalog = (typeof allExercises === 'function' ? allExercises() : []).map(name => ({
+      canonical_name: name,
+      exercise_category: 'Library'
+    }));
+  }
+ 
+  const q = query.toLowerCase().trim();
+  const filtered = catalog.filter(ex => (ex.canonical_name || '').toLowerCase().includes(q));
+ 
+  if (!filtered.length) {
+    container.innerHTML = '<div class="empty">No matching exercises found.</div>';
+    return;
+  }
+ 
+  const grouped = filtered.reduce((acc, ex) => {
+    const cat = ex.exercise_category || 'Other';
+    if (!acc[cat]) acc[cat] = [];
+    acc[cat].push(ex);
+    return acc;
+  }, {});
+ 
+  container.innerHTML = Object.keys(grouped).sort().map(category => `
+    <div class="eyebrow" style="margin-top:14px">${esc(category)}</div>
+    <div class="stack" style="margin-top:6px">
+      ${grouped[category].map(ex => `
+        <button type="button" class="pick" data-modal-select="${esc(ex.canonical_name)}">
+          <b>${esc(ex.canonical_name)}</b>
+        </button>
+      `).join('')}
+    </div>
+  `).join('');
+ 
+  container.querySelectorAll('[data-modal-select]').forEach(btn => {
+    btn.onclick = () => selectExerciseFromModal(btn.dataset.modalSelect);
+  });
+}
+ 
+function filterModalExercises() {
+  const query = document.getElementById('modalExerciseSearch')?.value || '';
+  renderModalExerciseList(query);
+}
+ 
+function selectExerciseFromModal(name) {
+  if (typeof activePickerCallback === 'function') {
+    activePickerCallback(name);
+  }
+  closeExercisePickerModal();
+}
+ 
+function selectCustomExerciseModal() {
+  // NOTE: native prompt() is a placeholder for parity with the original spec.
+  // It breaks the app's own toast/inline-validation/skeleton-state standards
+  // (no styling, blocks the main thread, poor mobile keyboard behavior).
+  // Flag for a follow-up patch: swap for an inline text field inside this
+  // modal instead. Not blocking — ship as-is if you want it working today.
+  const customName = prompt('Enter custom exercise name:');
+  if (customName && customName.trim()) {
+    selectExerciseFromModal(customName.trim());
+  }
+}
 
 /* ---------- startup / bootstrap ---------- */
 // Render every section once, then reveal the restored view. Each render is
@@ -1868,6 +2012,7 @@ function bootstrap() {
       console.error('Momentum: ' + name + ' failed', e);
     }
   }
+  if (typeof syncExerciseCatalog === 'function') syncExerciseCatalog();
   try {
     if (typeof show === 'function') {
       show(typeof restoreCurrentView === 'function' ? restoreCurrentView() : 'today');
@@ -2029,28 +2174,37 @@ document.addEventListener('visibilitychange', () => {
     };
   }
 
-  if (!has('allExercises')) {
-    window.allExercises = function allExercises() {
-      const names = new Set();
-      const add = b => { if (b && b.exerciseName) names.add(String(b.exerciseName).trim()); };
-      const cards = (typeof starterCards === 'function') ? starterCards() : [];
-      cards.forEach(c => (Array.isArray(c.exerciseBlocks) ? c.exerciseBlocks : []).forEach(add));
-      if (typeof MomentumPlanner !== 'undefined' && typeof MomentumPlanner.load === 'function') {
-        MomentumPlanner.load().forEach(p => (Array.isArray(p.exerciseBlocks) ? p.exerciseBlocks : []).forEach(add));
+if (!has('allExercises')) {
+  window.allExercises = function allExercises() {
+    const names = new Set();
+    const add = b => { if (b && b.exerciseName) names.add(String(b.exerciseName).trim()); };
+ 
+    // Canonical DB catalog (kept fresh by syncExerciseCatalog) is the
+    // standardization source of truth — ADR-001 / Exercise Standardization.
+    // A corrupt or missing cache must never block the picker.
+    try {
+      const cached = localStorage.getItem('momentum_exercise_catalog');
+      const catalog = cached ? JSON.parse(cached) : null;
+      if (Array.isArray(catalog)) {
+        catalog.forEach(ex => {
+          if (ex && ex.canonical_name) names.add(String(ex.canonical_name).trim());
+        });
       }
-      if (state.cockpit && Array.isArray(state.cockpit.exercises)) {
-        state.cockpit.exercises.forEach(add);
-      }
-      return [...names].filter(Boolean).sort();
-    };
-  }
-
-  if (!has('exerciseDatalistMarkup')) {
-    window.exerciseDatalistMarkup = function exerciseDatalistMarkup() {
-      const list = (typeof allExercises === 'function') ? allExercises() : [];
-      return list.map(name => `<option value="${esc(name)}"></option>`).join('');
-    };
-  }
+    } catch (e) {
+      // fall through to local sources below
+    }
+ 
+    const cards = (typeof starterCards === 'function') ? starterCards() : [];
+    cards.forEach(c => (Array.isArray(c.exerciseBlocks) ? c.exerciseBlocks : []).forEach(add));
+    if (typeof MomentumPlanner !== 'undefined' && typeof MomentumPlanner.load === 'function') {
+      MomentumPlanner.load().forEach(p => (Array.isArray(p.exerciseBlocks) ? p.exerciseBlocks : []).forEach(add));
+    }
+    if (state.cockpit && Array.isArray(state.cockpit.exercises)) {
+      state.cockpit.exercises.forEach(add);
+    }
+    return [...names].filter(Boolean).sort();
+  };
+}
 
   if (!has('plannerTeachingCopy')) {
     window.plannerTeachingCopy = function plannerTeachingCopy(editor) {
@@ -2077,7 +2231,12 @@ document.addEventListener('visibilitychange', () => {
       return `<div class="exercise-card" data-block-card="${bid}">
         <div class="card-head"><div><div class="eyebrow">Exercise ${index + 1}</div><h2 style="margin-top:4px">${esc(block.exerciseName || 'Untitled exercise')}</h2></div></div>
         <div class="set-form" style="margin-top:10px">
-          ${input('exerciseName', 'Exercise name')}
+         <label class="field full">Exercise name
+            <div style="display:flex;gap:8px;align-items:center">
+              <input class="input" data-block="${bid}" data-field="exerciseName" value="${esc(block.exerciseName ?? '')}" style="flex:1">
+              <button type="button" class="secondary" data-browse-exercise="${bid}" style="white-space:nowrap">Browse</button>
+            </div>
+          </label>
           ${input('targetSets', 'Target sets', 'inputmode="numeric"')}
           ${input('targetRepsOrDuration', 'Reps / duration')}
           ${input('targetWeightOrLoad', 'Load (lbs)', 'inputmode="decimal"')}
@@ -2521,6 +2680,15 @@ document.addEventListener('visibilitychange', () => {
       if (search) search.oninput = () => { if (typeof renderPicker === 'function') renderPicker(search.value); };
     };
   }
+
+const browseLibrary = $('#browseExerciseLibrary');
+      if (browseLibrary) browseLibrary.onclick = () => {
+        openExercisePickerModal(name => {
+          active.activeExercise = (typeof canonicalExerciseName === 'function') ? canonicalExerciseName(name) : name;
+          persist();
+          renderLog();
+        });
+      };
 
   function triggerTimerAlert() {
     try {

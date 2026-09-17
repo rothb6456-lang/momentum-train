@@ -52,6 +52,31 @@
     </div>
   </div>
 
+<!-- Exercise Picker Modal -->
+<div id="exercisePickerModal" class="modal-overlay hidden">
+  <div class="modal-card">
+    <div class="modal-header">
+      <div class="eyebrow">Exercise Library</div>
+      <h2 style="margin-top:6px">Select Exercise</h2>
+    </div>
+
+    <div class="field full" style="margin-top:14px">
+      <input id="modalExerciseSearch" class="input" type="text" placeholder="Search exercises…" autocomplete="off">
+    </div>
+
+    <div id="modalExerciseList" class="stack" style="margin-top:14px;max-height:320px;overflow-y:auto">
+      <div class="empty">Loading exercise library…</div>
+    </div>
+
+    <div class="actions" style="margin-top:14px;display:flex;gap:10px">
+      <button type="button" class="secondary" id="modalCustomExerciseBtn" style="flex:1">Can't find it? Add custom</button>
+    </div>
+    <div class="actions" style="margin-top:8px">
+      <button type="button" class="secondary" id="modalExerciseCancelBtn" style="width:100%">Cancel</button>
+    </div>
+  </div>
+</div>
+
   <script src="/data.js"></script>  
   <script src="/workout-cards.js"></script>  
   <script src="/planner.js?v=1.1.9"></script>  
