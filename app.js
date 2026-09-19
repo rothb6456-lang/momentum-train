@@ -637,12 +637,9 @@ function renderHome() {
             : 'Queue Coach’s next card, execute it on the gym floor, and carry both plan and performance into review.'}
         </p>
         <div class="actions">
-          ${hasActiveSession
-            ? `<button class="primary" id="homeResumeWorkout">Resume workout</button><button class="secondary" id="homeOpenPlan">Open plan</button>`
-            : hasQueuedPlan
-              ? `<button class="primary" id="homeStartQueuedWorkout">Start queued workout</button><button class="secondary" id="homeOpenPlan">Open plan</button>`
-              : `<button class="primary" id="homeCreatePlan">Create a plan from scratch</button><button class="secondary" id="homePastePlan">Paste plan from outside source</button>`
-          }
+          ${primaryActionMarkup}
+          ${secondaryActionMarkup}
+          ${tertiaryActionMarkup}
         </div>
 
         <div class="hero-divider"></div>
@@ -2531,6 +2528,11 @@ if (!has('allExercises')) {
         state.restTimer = restSecs > 0 ? { total: restSecs, startedAt: Date.now() } : null;
         if (typeof persist === 'function') persist();
         if (typeof renderLog === 'function') renderLog();
+        // Compensate for the rest-timer banner shifting the action buttons out of view
+        requestAnimationFrame(() => {
+          const actionsRow = document.querySelector('.set-entry-card .actions');
+          if (actionsRow) actionsRow.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        });
       };
 
       $$('[data-edit-set]').forEach(row => row.onclick = () => {
