@@ -132,6 +132,498 @@ function persist() {
   persistEditor();
 }
 
+/* =========================
+   PERSONALIZATION (Theme: Training Profile / Onboarding)
+   Local-first profile data: experience level, goals, equipment access,
+   and training guardrails. Shape mirrors the Bulldog backend tables
+   (player_training_profiles / player_training_goals / player_equipment_access /
+   player_training_guardrails) field-for-field so a future sync pass is a
+   straight mapping, not a redesign.
+   ========================= */
+STORAGE_KEYS.profile = 'momentum.profile.v1';
+
+const EXPERIENCE_LEVELS = [
+  { value: 'beginner', label: 'Beginner', blurb: 'New to structured training' },
+  { value: 'intermediate', label: 'Intermediate', blurb: '6+ months of consistent training' },
+  { value: 'advanced', label: 'Advanced', blurb: 'Years of structured programming' }
+];
+
+// Mirrors database/seeders/TrainingGoalTemplateSeeder.php in the Bulldog repo.
+// Keep these two lists in sync until goal templates are served from the API.
+const GOAL_TEMPLATES = [
+  { code: 'CONSISTENCY_4WK', title: 'Train consistently for 4 weeks', description: 'Complete your planned sessions each week for a full month.', category: 'consistency', icon: '📅', metricKey: 'sessions_per_week', defaultUnit: 'sessions' },
+  { code: 'STRENGTH_1RM_PLUS', title: "Increase a lift's working max", description: 'Add measurable load to a key lift over the course of a phase.', category: 'strength', icon: '🏋️', metricKey: 'exercise_1rm', defaultUnit: 'lbs' },
+  { code: 'BODYWEIGHT_TARGET', title: 'Reach a target bodyweight', description: 'Move toward a target bodyweight in support of a broader goal.', category: 'general_fitness', icon: '⚖️', metricKey: 'bodyweight', defaultUnit: 'lbs' },
+  { code: 'RETURN_TO_PLAY', title: 'Return to play after injury', description: 'Progress rehab work toward full clearance for sport participation.', category: 'return_to_play', icon: '🔁', metricKey: null, defaultUnit: null },
+  { code: 'MOBILITY_IMPROVEMENT', title: 'Improve mobility in a problem area', description: 'Build range of motion and control in a specific joint or movement.', category: 'mobility', icon: '🤸', metricKey: null, defaultUnit: null },
+  { code: 'GENERAL_FITNESS', title: 'General fitness and health', description: 'No specific performance target — just building a sustainable training habit.', category: 'general_fitness', icon: '💪', metricKey: null, defaultUnit: null }
+];
+
+// Curated client-side vocabulary. NOTE: unlike movement_pattern on the Exercise
+// model, equipment_type is a free-text field in Filament today, not a real
+// enum — this list is a sane starting convention, not a synced source of truth.
+// Reconcile with actual exercise data once that field is backed by real options.
+const EQUIPMENT_OPTIONS = [
+  'Bodyweight only', 'Dumbbells', 'Barbell & Rack', 'Kettlebells', 'Cable Machine',
+  'Resistance Bands', 'Pull-up Bar', 'Selectorized Machines', 'Full Commercial Gym'
+];
+
+const BODY_REGIONS = [
+  'Shoulder', 'Elbow', 'Wrist / Hand', 'Neck', 'Upper Back', 'Low Back', 'Hip', 'Knee', 'Ankle / Foot'
+];
+
+// Same caveat as EQUIPMENT_OPTIONS — movement_pattern is free text on the backend today.
+const MOVEMENT_PATTERNS = [
+  'Overhead Press', 'Horizontal Press', 'Pull / Row', 'Squat / Lunge', 'Hip Hinge / Deadlift', 'Carry', 'Rotation / Core', 'Jumping / Plyometric'
+];
+
+const RESTRICTION_TYPES = [
+  { value: 'avoid', label: 'Avoid completely' },
+  { value: 'modify', label: 'Modify — lighter load / altered range' },
+  { value: 'monitor', label: 'Monitor — proceed with caution' }
+];
+
+function defaultProfile() {
+  return {
+    version: 1,
+    onboardingStatus: 'not_started', // not_started | quick_start | completed
+    experienceLevel: '',
+    goals: [],
+    equipment: [],
+    guardrails: [],
+    guardrailsReviewed: false, // true once the user has passed through the guardrails step at least once
+    updatedAt: null
+  };
+}
+
+function loadProfile() {
+  const stored = loadJson(STORAGE_KEYS.profile, null);
+  if (!stored || typeof stored !== 'object') return defaultProfile();
+  // Merge onto defaults so a profile saved by an older build still gets any new fields.
+  return Object.assign(defaultProfile(), stored);
+}
+
+function saveProfile() {
+  profile.updatedAt = new Date().toISOString();
+  saveJson(STORAGE_KEYS.profile, profile);
+}
+
+let profile = loadProfile();
+
+function profileCompletion() {
+  const items = [
+    { key: 'experience', label: 'Experience level', done: !!profile.experienceLevel },
+    { key: 'goals', label: 'Goals', done: profile.goals.length > 0 },
+    { key: 'equipment', label: 'Equipment access', done: profile.equipment.length > 0 },
+    { key: 'guardrails', label: 'Guardrails', done: profile.guardrailsReviewed }
+  ];
+  return { items, count: items.filter(i => i.done).length, total: items.length };
+}
+
+/* ---------- personalization: modal engine ---------- */
+const profileWizard = {
+  mode: 'settings', // 'onboarding' | 'settings'
+  step: 'menu',
+  stepOrder: ['experience', 'goals', 'equipment', 'guardrails']
+};
+
+// Transient in-progress state for the "add a guardrail" mini-form. Not persisted —
+// reset whenever the guardrails step is (re)entered or a guardrail is successfully added.
+let guardrailDraft = null;
+function resetGuardrailDraft() {
+  guardrailDraft = { bodyRegion: '', restrictedMovementPatterns: [], restrictionType: 'avoid', description: '' };
+}
+
+function openProfileModal(mode) {
+  profileWizard.mode = mode;
+  profileWizard.step = mode === 'onboarding' ? 'welcome' : 'menu';
+  resetGuardrailDraft();
+  const overlay = document.getElementById('profileModal');
+  if (overlay) overlay.classList.remove('hidden');
+  renderProfileModal();
+}
+
+function closeProfileModal() {
+  // Dismissing onboarding at any point counts as choosing Quick Start, so it
+  // never re-triggers uninvited on a later app load.
+  if (profileWizard.mode === 'onboarding' && profile.onboardingStatus === 'not_started') {
+    profile.onboardingStatus = 'quick_start';
+    saveProfile();
+  }
+  const overlay = document.getElementById('profileModal');
+  if (overlay) overlay.classList.add('hidden');
+  if (typeof renderHome === 'function') renderHome();
+}
+
+function profileWizardNext() {
+  const order = profileWizard.stepOrder;
+  const idx = order.indexOf(profileWizard.step);
+  profileWizard.step = (idx === -1 || idx === order.length - 1) ? 'done' : order[idx + 1];
+  renderProfileModal();
+}
+
+function profileWizardBack() {
+  if (profileWizard.mode === 'settings') {
+    profileWizard.step = 'menu';
+    renderProfileModal();
+    return;
+  }
+  const order = profileWizard.stepOrder;
+  const idx = order.indexOf(profileWizard.step);
+  profileWizard.step = idx <= 0 ? 'welcome' : order[idx - 1];
+  renderProfileModal();
+}
+
+// "Next" in onboarding advances the wizard; in settings mode the same button
+// just means "done editing this section" and returns to the menu, since every
+// edit in settings mode already auto-saves as it happens.
+function profileWizardPrimaryAdvance() {
+  if (profileWizard.mode === 'onboarding') {
+    profileWizardNext();
+  } else {
+    profileWizard.step = 'menu';
+    renderProfileModal();
+  }
+}
+
+function renderProfileStepNav() {
+  const backLabel = profileWizard.mode === 'settings' ? 'Back to menu' : 'Back';
+  const nextLabel = profileWizard.mode === 'onboarding' ? 'Next' : 'Save & back';
+  return `
+    <div class="actions" style="margin-top:18px">
+      <button type="button" class="secondary" id="profileStepBack" style="flex:1">${backLabel}</button>
+      <button type="button" class="primary" id="profileStepNext" style="flex:1">${esc(nextLabel)}</button>
+    </div>
+  `;
+}
+
+function renderProfileModal() {
+  const body = document.getElementById('profileModalBody');
+  const titleEl = document.getElementById('profileModalTitle');
+  const progressWrap = document.getElementById('profileProgressWrap');
+  const progressFill = document.getElementById('profileProgressFill');
+  const progressLabel = document.getElementById('profileProgressLabel');
+  if (!body) return;
+
+  const inOnboardingSteps = profileWizard.mode === 'onboarding' && profileWizard.stepOrder.includes(profileWizard.step);
+  if (progressWrap) progressWrap.classList.toggle('hidden', !inOnboardingSteps);
+  if (inOnboardingSteps) {
+    const idx = profileWizard.stepOrder.indexOf(profileWizard.step);
+    const pct = Math.round(((idx + 1) / profileWizard.stepOrder.length) * 100);
+    if (progressFill) progressFill.style.width = pct + '%';
+    if (progressLabel) progressLabel.textContent = `Step ${idx + 1} of ${profileWizard.stepOrder.length}`;
+  }
+
+  const titles = {
+    welcome: 'Welcome to Momentum', menu: 'Training profile', experience: 'Experience level',
+    goals: 'Your goals', equipment: 'Equipment access', guardrails: 'Guardrails', done: 'All set'
+  };
+  if (titleEl) titleEl.textContent = titles[profileWizard.step] || 'Training profile';
+
+  const renderers = {
+    welcome: renderProfileWelcomeStep, menu: renderProfileMenuStep, experience: renderProfileExperienceStep,
+    goals: renderProfileGoalsStep, equipment: renderProfileEquipmentStep, guardrails: renderProfileGuardrailsStep,
+    done: renderProfileDoneStep
+  };
+  const renderFn = renderers[profileWizard.step] || renderProfileMenuStep;
+  body.innerHTML = renderFn();
+  bindProfileStep(profileWizard.step);
+}
+
+function renderProfileWelcomeStep() {
+  return `
+    <div class="stack" style="text-align:center;padding:6px 0 2px">
+      <div style="font-size:40px">🎯</div>
+      <h2 style="font-size:20px;margin:2px 0">Let's personalize your training</h2>
+      <p class="quiet">Tell us about your goals, equipment, and anything we should work around — your AI Coach uses this to build better workout cards. Takes about 2 minutes, or skip and set it up later.</p>
+    </div>
+    <div class="actions" style="flex-direction:column;margin-top:18px">
+      <button type="button" class="primary" id="profileStartPersonalize" style="width:100%">Personalize my training</button>
+      <button type="button" class="secondary" id="profileQuickStart" style="width:100%">Quick Start — jump right in</button>
+    </div>
+  `;
+}
+
+function renderProfileMenuStep() {
+  const completion = profileCompletion();
+  const goalCount = profile.goals.filter(g => g.status === 'active').length;
+  const equipCount = profile.equipment.length;
+  const guardrailCount = profile.guardrails.filter(g => g.status === 'active').length;
+  const expLabel = profile.experienceLevel
+    ? ((EXPERIENCE_LEVELS.find(l => l.value === profile.experienceLevel) || {}).label || profile.experienceLevel)
+    : 'Not set';
+  const rows = [
+    { key: 'experience', icon: '📈', label: 'Experience level', value: expLabel },
+    { key: 'goals', icon: '🎯', label: 'Goals', value: goalCount ? `${goalCount} active` : 'None yet' },
+    { key: 'equipment', icon: '🏋️', label: 'Equipment access', value: equipCount ? `${equipCount} item${equipCount === 1 ? '' : 's'}` : 'None yet' },
+    { key: 'guardrails', icon: '🛡️', label: 'Guardrails', value: guardrailCount ? `${guardrailCount} active` : 'None' }
+  ];
+  return `
+    <p class="quiet" style="margin-top:0">${completion.count} of ${completion.total} set up</p>
+    <div class="stack">
+      ${rows.map(r => `
+        <button type="button" class="pick" data-jump="${r.key}" style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+          <span style="display:flex;align-items:center;gap:10px"><span style="font-size:18px">${r.icon}</span><b>${esc(r.label)}</b></span>
+          <span class="quiet" style="white-space:nowrap">${esc(r.value)} ›</span>
+        </button>
+      `).join('')}
+    </div>
+    <div class="actions" style="margin-top:16px">
+      <button type="button" class="secondary" id="profileModalCloseFromMenu" style="width:100%">Close</button>
+    </div>
+  `;
+}
+
+function renderProfileExperienceStep() {
+  const cards = EXPERIENCE_LEVELS.map(lvl => `
+    <button type="button" class="pick ${profile.experienceLevel === lvl.value ? 'active' : ''}" data-exp="${lvl.value}" style="width:100%">
+      <b>${esc(lvl.label)}</b>
+      <small>${esc(lvl.blurb)}</small>
+    </button>
+  `).join('');
+  return `<div class="stack">${cards}</div>${renderProfileStepNav()}`;
+}
+
+function renderProfileGoalsStep() {
+  const activeGoals = profile.goals.filter(g => g.status === 'active');
+  const templateCards = GOAL_TEMPLATES.map(t => {
+    const added = activeGoals.some(g => g.templateCode === t.code);
+    return `
+      <button type="button" class="pick option-card ${added ? 'active' : ''}" data-template="${t.code}">
+        <span style="font-size:22px">${t.icon}</span>
+        <b>${esc(t.title)}</b>
+        <small>${esc(t.description)}</small>
+      </button>
+    `;
+  }).join('');
+  const goalsList = activeGoals.map(g => `
+    <div class="log-row" style="grid-template-columns:1fr auto">
+      <span>${esc(g.title)}</span>
+      <button type="button" class="icon-btn" data-remove-goal="${g.id}" aria-label="Remove goal">✕</button>
+    </div>
+  `).join('');
+  return `
+    <p class="quiet" style="margin-top:0">Tap a goal to add it — add as many or as few as you like.</p>
+    <div class="option-card-grid">${templateCards}</div>
+    <div class="field full" style="margin-top:14px">
+      <label>Something else?<input class="input" type="text" id="profileCustomGoalInput" placeholder="Type a custom goal…"></label>
+    </div>
+    <div class="actions"><button type="button" class="secondary" id="profileAddCustomGoal">Add custom goal</button></div>
+    ${activeGoals.length ? `<div class="section"><div class="eyebrow">Your goals</div><div class="stack" style="margin-top:8px">${goalsList}</div></div>` : ''}
+    ${renderProfileStepNav()}
+  `;
+}
+
+function renderProfileEquipmentStep() {
+  const chips = EQUIPMENT_OPTIONS.map(opt => {
+    const active = profile.equipment.some(e => e.equipmentType === opt);
+    return `<button type="button" class="chip ${active ? 'active' : ''}" data-equip="${esc(opt)}">${esc(opt)}</button>`;
+  }).join('');
+  const customItems = profile.equipment.filter(e => !EQUIPMENT_OPTIONS.includes(e.equipmentType));
+  const customChips = customItems.map(e => `<button type="button" class="chip active" data-equip-custom="${e.id}">${esc(e.equipmentType)} ✕</button>`).join('');
+  return `
+    <p class="quiet" style="margin-top:0">Tap everything you have access to.</p>
+    <div class="chip-row">${chips}${customChips}</div>
+    <div class="field full" style="margin-top:14px">
+      <label>Something else?<input class="input" type="text" id="profileCustomEquipmentInput" placeholder="e.g. Sandbag, TRX…"></label>
+    </div>
+    <div class="actions"><button type="button" class="secondary" id="profileAddCustomEquipment">Add</button></div>
+    ${renderProfileStepNav()}
+  `;
+}
+
+function renderProfileGuardrailsStep() {
+  if (!guardrailDraft) resetGuardrailDraft();
+  const activeGuardrails = profile.guardrails.filter(g => g.status === 'active');
+  const list = activeGuardrails.map(g => `
+    <div class="flag">
+      <b>${esc(g.bodyRegion)}</b> — ${esc((RESTRICTION_TYPES.find(r => r.value === g.restrictionType) || {}).label || g.restrictionType)}
+      ${g.restrictedMovementPatterns.length ? `<div class="quiet" style="margin-top:2px">${g.restrictedMovementPatterns.map(p => esc(p)).join(', ')}</div>` : ''}
+      ${g.description ? `<div class="quiet" style="margin-top:2px">${esc(g.description)}</div>` : ''}
+      <div class="actions" style="margin-top:8px"><button type="button" class="secondary mini" data-resolve-guardrail="${g.id}">Mark resolved</button></div>
+    </div>
+  `).join('');
+  const regionChips = BODY_REGIONS.map(r => `<button type="button" class="chip ${guardrailDraft.bodyRegion === r ? 'active' : ''}" data-draft-region="${esc(r)}">${esc(r)}</button>`).join('');
+  const patternChips = MOVEMENT_PATTERNS.map(p => `<button type="button" class="chip ${guardrailDraft.restrictedMovementPatterns.includes(p) ? 'active' : ''}" data-draft-pattern="${esc(p)}">${esc(p)}</button>`).join('');
+  const restrictionTags = RESTRICTION_TYPES.map(r => `<button type="button" class="tag ${guardrailDraft.restrictionType === r.value ? 'active' : ''}" data-draft-restriction="${r.value}">${esc(r.label)}</button>`).join('');
+  return `
+    <div class="actions" style="margin-top:0"><button type="button" class="primary" id="profileGuardrailsNone" style="width:100%">Nothing to add right now</button></div>
+    ${list ? `<div class="section"><div class="eyebrow">Active</div><div class="stack" style="margin-top:8px">${list}</div></div>` : ''}
+    <div class="section">
+      <div class="eyebrow">Add a guardrail</div>
+      <p class="quiet" style="margin:6px 0">Anything we should work around — an old injury, surgery, or area to be careful with?</p>
+      <div class="field full"><label>Body region</label></div>
+      <div class="chip-row">${regionChips}</div>
+      <div class="field full" style="margin-top:10px"><label>Movements to watch (optional)</label></div>
+      <div class="chip-row">${patternChips}</div>
+      <div class="field full" style="margin-top:10px"><label>How cautious?</label></div>
+      <div class="tag-row">${restrictionTags}</div>
+      <div class="field full" style="margin-top:10px">
+        <label>Notes (optional)<textarea id="profileGuardrailNotes" placeholder="e.g. Rotator cuff repair, 2019 — cleared for light overhead work">${esc(guardrailDraft.description)}</textarea></label>
+      </div>
+      <div class="actions"><button type="button" class="secondary" id="profileAddGuardrail" style="width:100%">Add guardrail</button></div>
+    </div>
+    ${renderProfileStepNav()}
+  `;
+}
+
+function renderProfileDoneStep() {
+  return `
+    <div class="stack" style="text-align:center;padding:6px 0 2px">
+      <div style="font-size:40px">✅</div>
+      <h2 style="font-size:20px;margin:2px 0">You're all set</h2>
+      <p class="quiet">Your AI Coach will use this to personalize your training. Update it anytime from the gear icon.</p>
+    </div>
+    <div class="actions" style="margin-top:16px"><button type="button" class="primary" id="profileFinish" style="width:100%">Let's train</button></div>
+  `;
+}
+
+function bindProfileStep(step) {
+  const closeBtn = document.getElementById('profileModalClose');
+  if (closeBtn) closeBtn.onclick = () => closeProfileModal();
+
+  const back = document.getElementById('profileStepBack');
+  if (back) back.onclick = () => profileWizardBack();
+  const next = document.getElementById('profileStepNext');
+  if (next) next.onclick = () => profileWizardPrimaryAdvance();
+
+  if (step === 'welcome') {
+    const personalize = document.getElementById('profileStartPersonalize');
+    if (personalize) personalize.onclick = () => { profileWizard.step = 'experience'; renderProfileModal(); };
+    const quick = document.getElementById('profileQuickStart');
+    if (quick) quick.onclick = () => { profile.onboardingStatus = 'quick_start'; saveProfile(); closeProfileModal(); };
+  }
+
+  if (step === 'menu') {
+    $$('[data-jump]').forEach(btn => { btn.onclick = () => { profileWizard.step = btn.dataset.jump; renderProfileModal(); }; });
+    const closeFromMenu = document.getElementById('profileModalCloseFromMenu');
+    if (closeFromMenu) closeFromMenu.onclick = () => closeProfileModal();
+  }
+
+  if (step === 'experience') {
+    $$('[data-exp]').forEach(btn => {
+      btn.onclick = () => { profile.experienceLevel = btn.dataset.exp; saveProfile(); renderProfileModal(); };
+    });
+  }
+
+  if (step === 'goals') {
+    $$('[data-template]').forEach(btn => {
+      btn.onclick = () => {
+        const code = btn.dataset.template;
+        const existingIdx = profile.goals.findIndex(g => g.templateCode === code && g.status === 'active');
+        if (existingIdx > -1) {
+          profile.goals.splice(existingIdx, 1);
+        } else {
+          const tmpl = GOAL_TEMPLATES.find(t => t.code === code);
+          if (tmpl) {
+            profile.goals.push({
+              id: momentumUid('goal'), templateCode: tmpl.code, title: tmpl.title, description: tmpl.description,
+              category: tmpl.category, scope: 'long_term', phaseId: null,
+              targetMetricKey: tmpl.metricKey, targetValue: null, targetUnit: tmpl.defaultUnit,
+              startDate: new Date().toISOString().slice(0, 10), targetDate: null,
+              status: 'active', achievedAt: null, source: 'self'
+            });
+          }
+        }
+        saveProfile();
+        renderProfileModal();
+      };
+    });
+    $$('[data-remove-goal]').forEach(btn => {
+      btn.onclick = () => { profile.goals = profile.goals.filter(g => g.id !== btn.dataset.removeGoal); saveProfile(); renderProfileModal(); };
+    });
+    const addCustom = document.getElementById('profileAddCustomGoal');
+    if (addCustom) addCustom.onclick = () => {
+      const input = document.getElementById('profileCustomGoalInput');
+      const val = input && input.value.trim();
+      if (!val) return;
+      const dup = profile.goals.some(g => g.status === 'active' && g.title.trim().toLowerCase() === val.toLowerCase());
+      if (dup) { if (typeof toast === 'function') toast('You already have that goal.'); return; }
+      profile.goals.push({
+        id: momentumUid('goal'), templateCode: null, title: val, description: '', category: 'custom',
+        scope: 'long_term', phaseId: null, targetMetricKey: null, targetValue: null, targetUnit: null,
+        startDate: new Date().toISOString().slice(0, 10), targetDate: null, status: 'active', achievedAt: null, source: 'self'
+      });
+      saveProfile();
+      renderProfileModal();
+    };
+  }
+
+  if (step === 'equipment') {
+    $$('[data-equip]').forEach(btn => {
+      btn.onclick = () => {
+        const type = btn.dataset.equip;
+        const idx = profile.equipment.findIndex(e => e.equipmentType === type);
+        if (idx > -1) profile.equipment.splice(idx, 1);
+        else profile.equipment.push({ id: momentumUid('equip'), equipmentType: type, facilityLabel: '' });
+        saveProfile();
+        renderProfileModal();
+      };
+    });
+    $$('[data-equip-custom]').forEach(btn => {
+      btn.onclick = () => { profile.equipment = profile.equipment.filter(e => e.id !== btn.dataset.equipCustom); saveProfile(); renderProfileModal(); };
+    });
+    const addCustomEquip = document.getElementById('profileAddCustomEquipment');
+    if (addCustomEquip) addCustomEquip.onclick = () => {
+      const input = document.getElementById('profileCustomEquipmentInput');
+      const val = input && input.value.trim();
+      if (!val) return;
+      const dup = profile.equipment.some(e => e.equipmentType.trim().toLowerCase() === val.toLowerCase());
+      if (dup) { if (typeof toast === 'function') toast('Already on your list.'); return; }
+      profile.equipment.push({ id: momentumUid('equip'), equipmentType: val, facilityLabel: '' });
+      saveProfile();
+      renderProfileModal();
+    };
+  }
+
+  if (step === 'guardrails') {
+    const none = document.getElementById('profileGuardrailsNone');
+    if (none) none.onclick = () => { profile.guardrailsReviewed = true; saveProfile(); profileWizardPrimaryAdvance(); };
+    $$('[data-resolve-guardrail]').forEach(btn => {
+      btn.onclick = () => {
+        const g = profile.guardrails.find(x => x.id === btn.dataset.resolveGuardrail);
+        if (g) { g.status = 'resolved'; g.resolvedDate = new Date().toISOString().slice(0, 10); }
+        saveProfile();
+        renderProfileModal();
+      };
+    });
+    $$('[data-draft-region]').forEach(btn => { btn.onclick = () => { guardrailDraft.bodyRegion = btn.dataset.draftRegion; renderProfileModal(); }; });
+    $$('[data-draft-pattern]').forEach(btn => {
+      btn.onclick = () => {
+        const p = btn.dataset.draftPattern;
+        const idx = guardrailDraft.restrictedMovementPatterns.indexOf(p);
+        if (idx > -1) guardrailDraft.restrictedMovementPatterns.splice(idx, 1);
+        else guardrailDraft.restrictedMovementPatterns.push(p);
+        renderProfileModal();
+      };
+    });
+    $$('[data-draft-restriction]').forEach(btn => { btn.onclick = () => { guardrailDraft.restrictionType = btn.dataset.draftRestriction; renderProfileModal(); }; });
+    const notes = document.getElementById('profileGuardrailNotes');
+    if (notes) notes.oninput = () => { guardrailDraft.description = notes.value; };
+    const addGuardrail = document.getElementById('profileAddGuardrail');
+    if (addGuardrail) addGuardrail.onclick = () => {
+      if (!guardrailDraft.bodyRegion) { if (typeof toast === 'function') toast('Pick a body region first.'); return; }
+      const dup = profile.guardrails.some(g => g.status === 'active' && g.bodyRegion === guardrailDraft.bodyRegion && g.restrictionType === guardrailDraft.restrictionType);
+      profile.guardrails.push({
+        id: momentumUid('guardrail'), bodyRegion: guardrailDraft.bodyRegion,
+        restrictedMovementPatterns: guardrailDraft.restrictedMovementPatterns.slice(),
+        restrictionType: guardrailDraft.restrictionType, description: guardrailDraft.description,
+        status: 'active', source: 'self', firstNotedDate: new Date().toISOString().slice(0, 10), resolvedDate: null
+      });
+      profile.guardrailsReviewed = true;
+      saveProfile();
+      resetGuardrailDraft();
+      renderProfileModal();
+      if (dup && typeof toast === 'function') toast('Added — you already had a similar active guardrail for this region.');
+    };
+  }
+
+  if (step === 'done') {
+    const finish = document.getElementById('profileFinish');
+    if (finish) finish.onclick = () => { profile.onboardingStatus = 'completed'; saveProfile(); closeProfileModal(); };
+  }
+}
+
 /* ---------- planner / queue helpers ---------- */
 function queued() {
   if (typeof MomentumPlanner === 'undefined' || typeof MomentumPlanner.load !== 'function') {
@@ -2016,6 +2508,15 @@ function bootstrap() {
     }
   } catch (e) {
     console.error('Momentum: show failed', e);
+  }
+
+  const gearBtn = document.getElementById('openProfileSettings');
+  if (gearBtn) gearBtn.onclick = () => openProfileModal('settings');
+  const profileCloseBtn = document.getElementById('profileModalClose');
+  if (profileCloseBtn) profileCloseBtn.onclick = () => closeProfileModal();
+
+  if (profile.onboardingStatus === 'not_started') {
+    openProfileModal('onboarding');
   }
 }
 
