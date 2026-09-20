@@ -472,8 +472,8 @@ function renderProfileGuardrailsStep() {
     ${list ? `<div class="section"><div class="eyebrow">Active</div><div class="stack" style="margin-top:8px">${list}</div></div>` : ''}
     <div class="section">
       <div class="eyebrow">Add a guardrail</div>
-      <p class="quiet" style="margin:6px 0">Anything we should work around — an old injury, surgery, or area to be careful with?</p>
-      <div class="field full"><label>Body region</label></div>
+      <p class="quiet" style="margin:6px 0">Anything we should work around — an old injury, surgery, or area to be careful with? Add one at a time; you can add another right after.</p>
+      <div class="field full"><label>Body region — pick one</label></div>
       <div class="chip-row">${regionChips}</div>
       <div class="field full" style="margin-top:10px"><label>Movements to watch (optional)</label></div>
       <div class="chip-row">${patternChips}</div>
@@ -2059,6 +2059,41 @@ function renderLog() {
 
   const block = (typeof activeBlock === 'function' ? activeBlock() : null) || {};
   const rx = prescriptionOf(block);
+
+  // Nothing staged yet (no plan/cockpit block, no exercise picked): the full
+  // set-entry chrome below assumes an active exercise and previously rendered
+  // a dead "Choose exercise" heading with no way to actually choose one — the
+  // real picker was collapsed under "Switch exercise" further down the page.
+  // Surface it immediately instead.
+  if (!rx.exerciseName) {
+    root.innerHTML = `
+      <div class="log-shell">
+        <header class="active-session compact-bar">
+          <div class="bar-title-wrap"><h1 class="bar-title">Choose an exercise to begin</h1></div>
+          <div class="session-tools"><button class="danger mini" id="discard">Discard</button></div>
+        </header>
+
+        <article class="card" style="text-align:center;padding:24px 19px">
+          ${profileIcon('target', 34)}
+          <h2 style="margin-top:10px">Pick your first exercise</h2>
+          <p class="quiet">Search the exercise library or browse by category to start logging sets.</p>
+        </article>
+
+        <article class="card" style="margin-top:14px">
+          <div style="display:flex;gap:8px">
+            <input id="searchExercise" class="input" placeholder="Search known exercises" style="flex:1">
+            <button type="button" class="secondary" id="browseExerciseLibrary" style="white-space:nowrap">Browse library</button>
+          </div>
+          <div id="exercisePicker" class="picker-list" style="margin-top:10px"></div>
+        </article>
+      </div>
+    `;
+    if (typeof renderPicker === 'function') renderPicker();
+    if (typeof bindLog === 'function') bindLog();
+    if (typeof bindSessionContext === 'function') bindSessionContext();
+    return;
+  }
+
   const exerciseSets = rx.exerciseName
     ? (active.sets || []).filter(s => (s.exerciseName || s.exercise) === rx.exerciseName || (s.exerciseName || s.exercise || '').toLowerCase() === rx.exerciseName.toLowerCase())
     : [];
