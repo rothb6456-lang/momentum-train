@@ -151,12 +151,12 @@ const EXPERIENCE_LEVELS = [
 // Mirrors database/seeders/TrainingGoalTemplateSeeder.php in the Bulldog repo.
 // Keep these two lists in sync until goal templates are served from the API.
 const GOAL_TEMPLATES = [
-  { code: 'CONSISTENCY_4WK', title: 'Train consistently for 4 weeks', description: 'Complete your planned sessions each week for a full month.', category: 'consistency', icon: '📅', metricKey: 'sessions_per_week', defaultUnit: 'sessions' },
-  { code: 'STRENGTH_1RM_PLUS', title: "Increase a lift's working max", description: 'Add measurable load to a key lift over the course of a phase.', category: 'strength', icon: '🏋️', metricKey: 'exercise_1rm', defaultUnit: 'lbs' },
-  { code: 'BODYWEIGHT_TARGET', title: 'Reach a target bodyweight', description: 'Move toward a target bodyweight in support of a broader goal.', category: 'general_fitness', icon: '⚖️', metricKey: 'bodyweight', defaultUnit: 'lbs' },
-  { code: 'RETURN_TO_PLAY', title: 'Return to play after injury', description: 'Progress rehab work toward full clearance for sport participation.', category: 'return_to_play', icon: '🔁', metricKey: null, defaultUnit: null },
-  { code: 'MOBILITY_IMPROVEMENT', title: 'Improve mobility in a problem area', description: 'Build range of motion and control in a specific joint or movement.', category: 'mobility', icon: '🤸', metricKey: null, defaultUnit: null },
-  { code: 'GENERAL_FITNESS', title: 'General fitness and health', description: 'No specific performance target — just building a sustainable training habit.', category: 'general_fitness', icon: '💪', metricKey: null, defaultUnit: null }
+  { code: 'CONSISTENCY_4WK', title: 'Train consistently for 4 weeks', description: 'Complete your planned sessions each week for a full month.', category: 'consistency', icon: 'calendar', metricKey: 'sessions_per_week', defaultUnit: 'sessions' },
+  { code: 'STRENGTH_1RM_PLUS', title: "Increase a lift's working max", description: 'Add measurable load to a key lift over the course of a phase.', category: 'strength', icon: 'dumbbell', metricKey: 'exercise_1rm', defaultUnit: 'lbs' },
+  { code: 'BODYWEIGHT_TARGET', title: 'Reach a target bodyweight', description: 'Move toward a target bodyweight in support of a broader goal.', category: 'general_fitness', icon: 'gauge', metricKey: 'bodyweight', defaultUnit: 'lbs' },
+  { code: 'RETURN_TO_PLAY', title: 'Return to play after injury', description: 'Progress rehab work toward full clearance for sport participation.', category: 'return_to_play', icon: 'cycle', metricKey: null, defaultUnit: null },
+  { code: 'MOBILITY_IMPROVEMENT', title: 'Improve mobility in a problem area', description: 'Build range of motion and control in a specific joint or movement.', category: 'mobility', icon: 'stretch', metricKey: null, defaultUnit: null },
+  { code: 'GENERAL_FITNESS', title: 'General fitness and health', description: 'No specific performance target — just building a sustainable training habit.', category: 'general_fitness', icon: 'pulse', metricKey: null, defaultUnit: null }
 ];
 
 // Curated client-side vocabulary. NOTE: unlike movement_pattern on the Exercise
@@ -182,6 +182,25 @@ const RESTRICTION_TYPES = [
   { value: 'modify', label: 'Modify — lighter load / altered range' },
   { value: 'monitor', label: 'Monitor — proceed with caution' }
 ];
+
+// Minimal line icons, on-brand (inherit color via currentColor, so they pick up
+// var(--mint) and follow light/dark theme automatically) instead of generic emoji.
+const PROFILE_ICONS = {
+  dumbbell: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 9v6M4 8.5v7M2 10v4"/><path d="M17.5 9v6M20 8.5v7M22 10v4"/><path d="M6.5 12h11"/></svg>',
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9.5"/></svg>',
+  calendar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/></svg>',
+  gauge: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18a8 8 0 0 1 16 0"/><path d="M12 18l4-6"/><circle cx="12" cy="18" r="1"/></svg>',
+  cycle: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M18 4v4h-4"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M6 20v-4h4"/></svg>',
+  stretch: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><path d="M12 7v6"/><path d="M12 13l-4 6"/><path d="M12 13l5 4"/><path d="M8 10l-3-1"/></svg>',
+  pulse: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2-5 3 10 2-7 1.5 2H21"/></svg>',
+  target: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg>',
+  shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 5-3.5 7.5-7 9-3.5-1.5-7-4-7-9V6l7-3z"/></svg>',
+  trending: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>'
+};
+function profileIcon(name, size) {
+  size = size || 22;
+  return `<span class="profile-icon" style="width:${size}px;height:${size}px">${PROFILE_ICONS[name] || ''}</span>`;
+}
 
 function defaultProfile() {
   return {
@@ -333,8 +352,10 @@ function renderProfileModal() {
 function renderProfileWelcomeStep() {
   return `
     <div class="stack" style="text-align:center;padding:6px 0 2px">
-      <div style="font-size:40px">🎯</div>
-      <h2 style="font-size:20px;margin:2px 0">Let's personalize your training</h2>
+      <div style="display:flex;align-items:center;justify-content:center;gap:10px">
+        ${profileIcon('dumbbell', 28)}
+        <h2 style="font-size:20px;margin:0">Let's personalize your training</h2>
+      </div>
       <p class="quiet">Tell us about your goals, equipment, and anything we should work around — your AI Coach uses this to build better workout cards. Takes about 2 minutes, or skip and set it up later.</p>
     </div>
     <div class="actions" style="flex-direction:column;margin-top:18px">
@@ -353,17 +374,17 @@ function renderProfileMenuStep() {
     ? ((EXPERIENCE_LEVELS.find(l => l.value === profile.experienceLevel) || {}).label || profile.experienceLevel)
     : 'Not set';
   const rows = [
-    { key: 'experience', icon: '📈', label: 'Experience level', value: expLabel },
-    { key: 'goals', icon: '🎯', label: 'Goals', value: goalCount ? `${goalCount} active` : 'None yet' },
-    { key: 'equipment', icon: '🏋️', label: 'Equipment access', value: equipCount ? `${equipCount} item${equipCount === 1 ? '' : 's'}` : 'None yet' },
-    { key: 'guardrails', icon: '🛡️', label: 'Guardrails', value: guardrailCount ? `${guardrailCount} active` : 'None' }
+    { key: 'experience', icon: 'trending', label: 'Experience level', value: expLabel },
+    { key: 'goals', icon: 'target', label: 'Goals', value: goalCount ? `${goalCount} active` : 'None yet' },
+    { key: 'equipment', icon: 'dumbbell', label: 'Equipment access', value: equipCount ? `${equipCount} item${equipCount === 1 ? '' : 's'}` : 'None yet' },
+    { key: 'guardrails', icon: 'shield', label: 'Guardrails', value: guardrailCount ? `${guardrailCount} active` : 'None' }
   ];
   return `
     <p class="quiet" style="margin-top:0">${completion.count} of ${completion.total} set up</p>
     <div class="stack">
       ${rows.map(r => `
         <button type="button" class="pick" data-jump="${r.key}" style="display:flex;justify-content:space-between;align-items:center;gap:10px">
-          <span style="display:flex;align-items:center;gap:10px"><span style="font-size:18px">${r.icon}</span><b>${esc(r.label)}</b></span>
+          <span style="display:flex;align-items:center;gap:10px">${profileIcon(r.icon, 18)}<b>${esc(r.label)}</b></span>
           <span class="quiet" style="white-space:nowrap">${esc(r.value)} ›</span>
         </button>
       `).join('')}
@@ -390,7 +411,7 @@ function renderProfileGoalsStep() {
     const added = activeGoals.some(g => g.templateCode === t.code);
     return `
       <button type="button" class="pick option-card ${added ? 'active' : ''}" data-template="${t.code}">
-        <span style="font-size:22px">${t.icon}</span>
+        ${profileIcon(t.icon, 24)}
         <b>${esc(t.title)}</b>
         <small>${esc(t.description)}</small>
       </button>
@@ -470,8 +491,10 @@ function renderProfileGuardrailsStep() {
 function renderProfileDoneStep() {
   return `
     <div class="stack" style="text-align:center;padding:6px 0 2px">
-      <div style="font-size:40px">✅</div>
-      <h2 style="font-size:20px;margin:2px 0">You're all set</h2>
+      <div style="display:flex;align-items:center;justify-content:center;gap:10px">
+        ${profileIcon('check', 28)}
+        <h2 style="font-size:20px;margin:0">You're all set</h2>
+      </div>
       <p class="quiet">Your AI Coach will use this to personalize your training. Update it anytime from the gear icon.</p>
     </div>
     <div class="actions" style="margin-top:16px"><button type="button" class="primary" id="profileFinish" style="width:100%">Let's train</button></div>
