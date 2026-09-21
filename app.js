@@ -250,7 +250,7 @@ const profileWizard = {
 // reset whenever the guardrails step is (re)entered or a guardrail is successfully added.
 let guardrailDraft = null;
 function resetGuardrailDraft() {
-  guardrailDraft = { bodyRegion: '', restrictedMovementPatterns: [], restrictionType: 'avoid', description: '' };
+  guardrailDraft = { bodyStructureId: null, bodyStructureName: '', restrictionType: 'avoid', description: '' };
 }
 
 function openProfileModal(mode) {
@@ -435,12 +435,20 @@ function renderProfileGoalsStep() {
   `;
 }
 
+// Real catalog when synced; falls back to the curated list on a fresh install
+// that hasn't hit the network yet, so the step is never blank.
+function equipmentOptionsWithFallback() {
+  const real = (typeof catalogEquipmentOptions === 'function') ? catalogEquipmentOptions() : [];
+  return real.length ? real : EQUIPMENT_OPTIONS.map(name => ({ id: null, name }));
+}
+
 function renderProfileEquipmentStep() {
-  const chips = EQUIPMENT_OPTIONS.map(opt => {
-    const active = profile.equipment.some(e => e.equipmentType === opt);
-    return `<button type="button" class="chip ${active ? 'active' : ''}" data-equip="${esc(opt)}">${esc(opt)}</button>`;
+  const options = equipmentOptionsWithFallback();
+  const chips = options.map(opt => {
+    const active = profile.equipment.some(e => opt.id ? e.equipmentId === opt.id : e.equipmentType === opt.name);
+    return `<button type="button" class="chip ${active ? 'active' : ''}" data-equip-id="${opt.id || ''}" data-equip-name="${esc(opt.name)}">${esc(opt.name)}</button>`;
   }).join('');
-  const customItems = profile.equipment.filter(e => !EQUIPMENT_OPTIONS.includes(e.equipmentType));
+  const customItems = profile.equipment.filter(e => !e.equipmentId && !options.some(o => o.name === e.equipmentType));
   const customChips = customItems.map(e => `<button type="button" class="chip active" data-equip-custom="${e.id}">${esc(e.equipmentType)} ✕</button>`).join('');
   return `
     <p class="quiet" style="margin-top:0">Tap everything you have access to.</p>
@@ -453,19 +461,43 @@ function renderProfileEquipmentStep() {
   `;
 }
 
+// Real catalog structures when synced, grouped by region; falls back to the
+// curated BODY_REGIONS list (as pseudo-structures) on a fresh, unsynced install.
+function bodyStructureOptionsWithFallback() {
+  const real = (typeof catalogBodyStructureOptions === 'function') ? catalogBodyStructureOptions() : [];
+  if (real.length) return real;
+  return BODY_REGIONS.map(name => ({ id: null, name, type: 'region', region: name }));
+}
+
+function groupByRegion(options) {
+  const groups = new Map();
+  options.forEach(o => {
+    const region = o.region || 'Other';
+    if (!groups.has(region)) groups.set(region, []);
+    groups.get(region).push(o);
+  });
+  return groups;
+}
+
 function renderProfileGuardrailsStep() {
   if (!guardrailDraft) resetGuardrailDraft();
   const activeGuardrails = profile.guardrails.filter(g => g.status === 'active');
   const list = activeGuardrails.map(g => `
     <div class="flag">
-      <b>${esc(g.bodyRegion)}</b> — ${esc((RESTRICTION_TYPES.find(r => r.value === g.restrictionType) || {}).label || g.restrictionType)}
-      ${g.restrictedMovementPatterns.length ? `<div class="quiet" style="margin-top:2px">${g.restrictedMovementPatterns.map(p => esc(p)).join(', ')}</div>` : ''}
+      <b>${esc(g.bodyStructureName)}</b> — ${esc((RESTRICTION_TYPES.find(r => r.value === g.restrictionType) || {}).label || g.restrictionType)}
       ${g.description ? `<div class="quiet" style="margin-top:2px">${esc(g.description)}</div>` : ''}
       <div class="actions" style="margin-top:8px"><button type="button" class="secondary mini" data-resolve-guardrail="${g.id}">Mark resolved</button></div>
     </div>
   `).join('');
-  const regionChips = BODY_REGIONS.map(r => `<button type="button" class="chip ${guardrailDraft.bodyRegion === r ? 'active' : ''}" data-draft-region="${esc(r)}">${esc(r)}</button>`).join('');
-  const patternChips = MOVEMENT_PATTERNS.map(p => `<button type="button" class="chip ${guardrailDraft.restrictedMovementPatterns.includes(p) ? 'active' : ''}" data-draft-pattern="${esc(p)}">${esc(p)}</button>`).join('');
+
+  const structureGroups = groupByRegion(bodyStructureOptionsWithFallback());
+  const structurePicker = [...structureGroups.entries()].map(([region, items]) => `
+    <div class="quiet" style="margin-top:10px;font-size:11px;text-transform:uppercase;letter-spacing:.03em">${esc(region)}</div>
+    <div class="chip-row" style="margin-top:4px">
+      ${items.map(s => `<button type="button" class="chip ${(guardrailDraft.bodyStructureId ? guardrailDraft.bodyStructureId === s.id : guardrailDraft.bodyStructureName === s.name) ? 'active' : ''}" data-draft-structure-id="${s.id || ''}" data-draft-structure-name="${esc(s.name)}">${esc(s.name)}</button>`).join('')}
+    </div>
+  `).join('');
+
   const restrictionTags = RESTRICTION_TYPES.map(r => `<button type="button" class="tag ${guardrailDraft.restrictionType === r.value ? 'active' : ''}" data-draft-restriction="${r.value}">${esc(r.label)}</button>`).join('');
   return `
     <div class="actions" style="margin-top:0"><button type="button" class="primary" id="profileGuardrailsNone" style="width:100%">Nothing to add right now</button></div>
@@ -473,11 +505,9 @@ function renderProfileGuardrailsStep() {
     <div class="section">
       <div class="eyebrow">Add a guardrail</div>
       <p class="quiet" style="margin:6px 0">Anything we should work around — an old injury, surgery, or area to be careful with? Add one at a time; you can add another right after.</p>
-      <div class="field full"><label>Body region — pick one</label></div>
-      <div class="chip-row">${regionChips}</div>
-      <div class="field full" style="margin-top:10px"><label>Movements to watch (optional)</label></div>
-      <div class="chip-row">${patternChips}</div>
-      <div class="field full" style="margin-top:10px"><label>How cautious?</label></div>
+      <div class="field full"><label>What to watch — pick one</label></div>
+      ${structurePicker}
+      <div class="field full" style="margin-top:14px"><label>How cautious?</label></div>
       <div class="tag-row">${restrictionTags}</div>
       <div class="field full" style="margin-top:10px">
         <label>Notes (optional)<textarea id="profileGuardrailNotes" placeholder="e.g. Rotator cuff repair, 2019 — cleared for light overhead work">${esc(guardrailDraft.description)}</textarea></label>
@@ -573,12 +603,16 @@ function bindProfileStep(step) {
   }
 
   if (step === 'equipment') {
-    $$('[data-equip]').forEach(btn => {
+    $$('[data-equip-id], [data-equip-name]').forEach(btn => {
       btn.onclick = () => {
-        const type = btn.dataset.equip;
-        const idx = profile.equipment.findIndex(e => e.equipmentType === type);
-        if (idx > -1) profile.equipment.splice(idx, 1);
-        else profile.equipment.push({ id: momentumUid('equip'), equipmentType: type, facilityLabel: '' });
+        const equipId = btn.dataset.equipId || null;
+        const name = btn.dataset.equipName;
+        const idx = profile.equipment.findIndex(e => equipId ? e.equipmentId === equipId : (!e.equipmentId && e.equipmentType === name));
+        if (idx > -1) {
+          profile.equipment.splice(idx, 1);
+        } else {
+          profile.equipment.push({ id: momentumUid('equip'), equipmentId: equipId, equipmentType: name, facilityLabel: '' });
+        }
         saveProfile();
         renderProfileModal();
       };
@@ -593,7 +627,7 @@ function bindProfileStep(step) {
       if (!val) return;
       const dup = profile.equipment.some(e => e.equipmentType.trim().toLowerCase() === val.toLowerCase());
       if (dup) { if (typeof toast === 'function') toast('Already on your list.'); return; }
-      profile.equipment.push({ id: momentumUid('equip'), equipmentType: val, facilityLabel: '' });
+      profile.equipment.push({ id: momentumUid('equip'), equipmentId: null, equipmentType: val, facilityLabel: '' });
       saveProfile();
       renderProfileModal();
     };
@@ -610,13 +644,10 @@ function bindProfileStep(step) {
         renderProfileModal();
       };
     });
-    $$('[data-draft-region]').forEach(btn => { btn.onclick = () => { guardrailDraft.bodyRegion = btn.dataset.draftRegion; renderProfileModal(); }; });
-    $$('[data-draft-pattern]').forEach(btn => {
+    $$('[data-draft-structure-id], [data-draft-structure-name]').forEach(btn => {
       btn.onclick = () => {
-        const p = btn.dataset.draftPattern;
-        const idx = guardrailDraft.restrictedMovementPatterns.indexOf(p);
-        if (idx > -1) guardrailDraft.restrictedMovementPatterns.splice(idx, 1);
-        else guardrailDraft.restrictedMovementPatterns.push(p);
+        guardrailDraft.bodyStructureId = btn.dataset.draftStructureId || null;
+        guardrailDraft.bodyStructureName = btn.dataset.draftStructureName;
         renderProfileModal();
       };
     });
@@ -625,11 +656,10 @@ function bindProfileStep(step) {
     if (notes) notes.oninput = () => { guardrailDraft.description = notes.value; };
     const addGuardrail = document.getElementById('profileAddGuardrail');
     if (addGuardrail) addGuardrail.onclick = () => {
-      if (!guardrailDraft.bodyRegion) { if (typeof toast === 'function') toast('Pick a body region first.'); return; }
-      const dup = profile.guardrails.some(g => g.status === 'active' && g.bodyRegion === guardrailDraft.bodyRegion && g.restrictionType === guardrailDraft.restrictionType);
+      if (!guardrailDraft.bodyStructureName) { if (typeof toast === 'function') toast('Pick what to watch first.'); return; }
+      const dup = profile.guardrails.some(g => g.status === 'active' && g.bodyStructureName === guardrailDraft.bodyStructureName && g.restrictionType === guardrailDraft.restrictionType);
       profile.guardrails.push({
-        id: momentumUid('guardrail'), bodyRegion: guardrailDraft.bodyRegion,
-        restrictedMovementPatterns: guardrailDraft.restrictedMovementPatterns.slice(),
+        id: momentumUid('guardrail'), bodyStructureId: guardrailDraft.bodyStructureId, bodyStructureName: guardrailDraft.bodyStructureName,
         restrictionType: guardrailDraft.restrictionType, description: guardrailDraft.description,
         status: 'active', source: 'self', firstNotedDate: new Date().toISOString().slice(0, 10), resolvedDate: null
       });
@@ -637,7 +667,7 @@ function bindProfileStep(step) {
       saveProfile();
       resetGuardrailDraft();
       renderProfileModal();
-      if (dup && typeof toast === 'function') toast('Added — you already had a similar active guardrail for this region.');
+      if (dup && typeof toast === 'function') toast('Added — you already had a similar active guardrail for this.');
     };
   }
 
@@ -1003,28 +1033,71 @@ function logMarkup() {
     : '<div class="empty">No sets logged yet for this exercise.</div>';
 }
 
+// Picker filter state — module-level so it persists across re-renders within a session.
+let pickerFilters = { equipmentId: '', structureId: '' };
+
+function renderPickerFilters() {
+  const bar = $('#exercisePickerFilters');
+  if (!bar) return;
+  const equipOptions = (typeof catalogEquipmentOptions === 'function') ? catalogEquipmentOptions() : [];
+  const structureOptions = (typeof catalogBodyStructureOptions === 'function') ? catalogBodyStructureOptions() : [];
+  // Filters need the real catalog (with ids) to mean anything — hide the bar
+  // entirely rather than show non-functional filters before the first sync.
+  if (!equipOptions.length && !structureOptions.length) { bar.innerHTML = ''; return; }
+  bar.innerHTML = `
+    <select id="pickerFilterEquipment" class="input" style="flex:1">
+      <option value="">Any equipment</option>
+      ${equipOptions.map(o => `<option value="${o.id}" ${pickerFilters.equipmentId === o.id ? 'selected' : ''}>${esc(o.name)}</option>`).join('')}
+    </select>
+    <select id="pickerFilterStructure" class="input" style="flex:1">
+      <option value="">Any muscle/area</option>
+      ${structureOptions.map(o => `<option value="${o.id}" ${pickerFilters.structureId === o.id ? 'selected' : ''}>${esc(o.name)}</option>`).join('')}
+    </select>
+  `;
+  const eqSel = $('#pickerFilterEquipment');
+  if (eqSel) eqSel.onchange = () => { pickerFilters.equipmentId = eqSel.value; renderPicker($('#searchExercise') ? $('#searchExercise').value : ''); };
+  const stSel = $('#pickerFilterStructure');
+  if (stSel) stSel.onchange = () => { pickerFilters.structureId = stSel.value; renderPicker($('#searchExercise') ? $('#searchExercise').value : ''); };
+}
+
 function renderPicker(query = '') {
   const root = $('#exercisePicker');
   if (!root || !active) return;
+  renderPickerFilters();
 
   const plan = planForActive();
   const plannedNames = new Set(((plan && plan.exerciseBlocks) || []).map(x => x.exerciseName));
-  const library = (typeof allExercises === 'function') ? allExercises() : [];
   const cockpitNames = Array.isArray(state?.cockpit?.exercises)
     ? state.cockpit.exercises.map(x => x.exerciseName).filter(Boolean)
     : [];
-  const planNames = [...plannedNames];
-  const combined = [...new Set([...cockpitNames, ...planNames, ...library])];
-  const names = combined.filter(x => String(x).toLowerCase().includes(query.toLowerCase()));
+  const priorityNames = [...new Set([...cockpitNames, ...plannedNames])]
+    .filter(x => String(x).toLowerCase().includes(query.toLowerCase()));
+
+  const hasFilters = !!(pickerFilters.equipmentId || pickerFilters.structureId);
+  let libraryNames;
+  if (hasFilters) {
+    const catalog = (typeof exerciseCatalogFull === 'function') ? exerciseCatalogFull() : [];
+    libraryNames = catalog
+      .filter(ex => !pickerFilters.equipmentId || (ex.equipment && ex.equipment.id === pickerFilters.equipmentId))
+      .filter(ex => !pickerFilters.structureId || (Array.isArray(ex.bodyStructures) && ex.bodyStructures.some(s => s.id === pickerFilters.structureId)))
+      .map(ex => ex.canonical_name)
+      .filter(Boolean);
+  } else {
+    // No filters active: identical behavior to before this change.
+    libraryNames = (typeof allExercises === 'function') ? allExercises() : [];
+  }
+  libraryNames = libraryNames.filter(x => String(x).toLowerCase().includes(query.toLowerCase()));
+
+  const combined = [...new Set([...priorityNames, ...libraryNames])];
 
   root.innerHTML =
-    names.map(x => `
+    combined.map(x => `
       <button class="pick ${x === active.activeExercise ? 'active' : ''}" data-pick="${esc(x)}">
         <b>${esc(x)}</b>
         <small>${plannedNames.has(x) ? 'Planned workout' : 'Exercise library'}</small>
       </button>
     `).join('') ||
-    '<div class="empty">No matching known exercises.</div>';
+    (hasFilters ? '<div class="empty">No exercises match those filters.</div>' : '<div class="empty">No matching known exercises.</div>');
 
   $$('[data-pick]', root).forEach(b => {
     b.onclick = () => {
@@ -2084,6 +2157,7 @@ function renderLog() {
             <input id="searchExercise" class="input" placeholder="Search known exercises" style="flex:1">
             <button type="button" class="secondary" id="browseExerciseLibrary" style="white-space:nowrap">Browse library</button>
           </div>
+          <div id="exercisePickerFilters" style="display:flex;gap:8px;margin-top:8px"></div>
           <div id="exercisePicker" class="picker-list" style="margin-top:10px"></div>
         </article>
       </div>
@@ -2202,6 +2276,7 @@ function renderLog() {
           <input id="searchExercise" class="input" placeholder="Search known exercises" style="flex:1">
           <button type="button" class="secondary" id="browseExerciseLibrary" style="white-space:nowrap">Browse library</button>
         </div>
+        <div id="exercisePickerFilters" style="display:flex;gap:8px;margin-top:8px"></div>
         <div id="exercisePicker" class="picker-list" style="margin-top:8px"></div>
       </details>
     </div>
@@ -2761,6 +2836,52 @@ if (!has('allExercises')) {
     return [...names].filter(Boolean).sort();
   };
 }
+
+  // Full catalog objects (equipment, body structures) — allExercises() above only
+  // returns bare names for the simple picker; this exposes everything the
+  // /exercises API + syncExerciseCatalog() already cache, for the filterable
+  // browser and for sourcing real equipment/body-structure vocabulary.
+  if (!has('exerciseCatalogFull')) {
+    window.exerciseCatalogFull = function exerciseCatalogFull() {
+      try {
+        const cached = localStorage.getItem('momentum_exercise_catalog');
+        const catalog = cached ? JSON.parse(cached) : null;
+        return Array.isArray(catalog) ? catalog : [];
+      } catch (e) {
+        return [];
+      }
+    };
+  }
+
+  // Distinct equipment {id, name, category} referenced by the synced catalog,
+  // sorted by name. Falls back to [] until the catalog has synced at least once.
+  if (!has('catalogEquipmentOptions')) {
+    window.catalogEquipmentOptions = function catalogEquipmentOptions() {
+      const seen = new Map();
+      exerciseCatalogFull().forEach(ex => {
+        if (ex && ex.equipment && ex.equipment.id && !seen.has(ex.equipment.id)) {
+          seen.set(ex.equipment.id, { id: ex.equipment.id, name: ex.equipment.name, category: ex.equipment.category || '' });
+        }
+      });
+      return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
+    };
+  }
+
+  // Distinct body structures {id, name, type, region} referenced by the synced
+  // catalog, grouped implicitly by region (caller groups as needed).
+  if (!has('catalogBodyStructureOptions')) {
+    window.catalogBodyStructureOptions = function catalogBodyStructureOptions() {
+      const seen = new Map();
+      exerciseCatalogFull().forEach(ex => {
+        (Array.isArray(ex && ex.bodyStructures) ? ex.bodyStructures : []).forEach(s => {
+          if (s && s.id && !seen.has(s.id)) {
+            seen.set(s.id, { id: s.id, name: s.name, type: s.type || '', region: s.region || 'Other' });
+          }
+        });
+      });
+      return [...seen.values()].sort((a, b) => a.region.localeCompare(b.region) || a.name.localeCompare(b.name));
+    };
+  }
 
   if (!has('plannerTeachingCopy')) {
     window.plannerTeachingCopy = function plannerTeachingCopy(editor) {
