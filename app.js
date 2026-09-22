@@ -211,6 +211,8 @@ function defaultProfile() {
     equipment: [],
     guardrails: [],
     guardrailsReviewed: false, // true once the user has passed through the guardrails step at least once
+    coachTipsEnabled: true, // shows the (i) Coach guide affordance next to body structures
+    learnedStructureIds: [], // local mirror of ANATOMY_INSIGHT awards, to avoid redundant network calls
     updatedAt: null
   };
 }
@@ -388,7 +390,12 @@ function renderProfileMenuStep() {
           <span class="quiet" style="white-space:nowrap">${esc(r.value)} ›</span>
         </button>
       `).join('')}
+      <button type="button" class="pick" id="toggleCoachTips" style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+        <span style="display:flex;align-items:center;gap:10px">${profileIcon('target', 18)}<b>Coach Tips</b></span>
+        <span class="quiet" style="white-space:nowrap">${profile.coachTipsEnabled ? 'On' : 'Off'}</span>
+      </button>
     </div>
+    <p class="quiet" style="margin:6px 0 0;font-size:12px">When on, an (i) next to a muscle or body part opens a quick Coach explainer — and earns you a little XP the first time.</p>
     <div class="actions" style="margin-top:16px">
       <button type="button" class="secondary" id="profileModalCloseFromMenu" style="width:100%">Close</button>
     </div>
@@ -494,7 +501,12 @@ function renderProfileGuardrailsStep() {
   const structurePicker = [...structureGroups.entries()].map(([region, items]) => `
     <div class="quiet" style="margin-top:10px;font-size:11px;text-transform:uppercase;letter-spacing:.03em">${esc(region)}</div>
     <div class="chip-row" style="margin-top:4px">
-      ${items.map(s => `<button type="button" class="chip ${(guardrailDraft.bodyStructureId ? guardrailDraft.bodyStructureId === s.id : guardrailDraft.bodyStructureName === s.name) ? 'active' : ''}" data-draft-structure-id="${s.id || ''}" data-draft-structure-name="${esc(s.name)}">${esc(s.name)}</button>`).join('')}
+      ${items.map(s => `
+        <span style="display:inline-flex;align-items:center;gap:2px">
+          <button type="button" class="chip ${(guardrailDraft.bodyStructureId ? guardrailDraft.bodyStructureId === s.id : guardrailDraft.bodyStructureName === s.name) ? 'active' : ''}" data-draft-structure-id="${s.id || ''}" data-draft-structure-name="${esc(s.name)}">${esc(s.name)}</button>
+          ${(profile.coachTipsEnabled && s.id) ? `<button type="button" class="icon-btn" data-coach-guide="${s.id}" aria-label="Learn about ${esc(s.name)}" style="font-size:14px">ⓘ</button>` : ''}
+        </span>
+      `).join('')}
     </div>
   `).join('');
 
@@ -551,6 +563,8 @@ function bindProfileStep(step) {
     $$('[data-jump]').forEach(btn => { btn.onclick = () => { profileWizard.step = btn.dataset.jump; renderProfileModal(); }; });
     const closeFromMenu = document.getElementById('profileModalCloseFromMenu');
     if (closeFromMenu) closeFromMenu.onclick = () => closeProfileModal();
+    const coachToggle = document.getElementById('toggleCoachTips');
+    if (coachToggle) coachToggle.onclick = () => { profile.coachTipsEnabled = !profile.coachTipsEnabled; saveProfile(); renderProfileModal(); };
   }
 
   if (step === 'experience') {
@@ -650,6 +664,9 @@ function bindProfileStep(step) {
         guardrailDraft.bodyStructureName = btn.dataset.draftStructureName;
         renderProfileModal();
       };
+    });
+    $$('[data-coach-guide]').forEach(btn => {
+      btn.onclick = () => openCoachGuide(btn.dataset.coachGuide);
     });
     $$('[data-draft-restriction]').forEach(btn => { btn.onclick = () => { guardrailDraft.restrictionType = btn.dataset.draftRestriction; renderProfileModal(); }; });
     const notes = document.getElementById('profileGuardrailNotes');
@@ -2513,6 +2530,107 @@ async function syncExerciseCatalog() {
   }
 }
 
+// Synced separately from the exercise catalog since the same ~32 structures
+// repeat across dozens of exercises — one small, cacheable reference dataset
+// rather than re-fetching full descriptions on every exercise.
+async function syncBodyStructureLibrary() {
+  try {
+    const token = (typeof MomentumSync !== 'undefined' && typeof MomentumSync.getToken === 'function')
+      ? MomentumSync.getToken()
+      : '';
+
+    if (navigator.onLine && token) {
+      const res = await fetch(`${API_BASE_URL}/body-structures`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        }
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json && Array.isArray(json.data)) {
+          localStorage.setItem('momentum_body_structure_library', JSON.stringify(json.data));
+          console.log(`Momentum: Body structure library synced (${json.data.length} entries cached)`);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Momentum: Body structure library sync skipped (offline or unauthenticated)', e);
+  }
+}
+
+function openCoachGuide(structureId) {
+  const structure = bodyStructureLibraryFull().find(s => s.id === structureId);
+  const overlay = document.getElementById('coachGuideModal');
+  const body = document.getElementById('coachGuideBody');
+  if (!overlay || !body) return;
+
+  if (!structure) {
+    body.innerHTML = `<p class="quiet">Coach hasn't synced up on this one yet — try again once you're back online.</p>`;
+  } else {
+    body.innerHTML = `
+      <h2 style="margin-top:0">${esc(structure.name)}</h2>
+      <p>${esc(structure.short_description || '')}</p>
+      ${structure.function_notes ? `<div class="section"><div class="eyebrow">What it does</div><p style="margin-top:6px">${esc(structure.function_notes)}</p></div>` : ''}
+      ${structure.common_issues ? `<div class="section"><div class="eyebrow">Worth knowing</div><p style="margin-top:6px">${esc(structure.common_issues)}</p></div>` : ''}
+    `;
+    markBodyStructureLearned(structure.id, structure.name);
+  }
+  overlay.classList.remove('hidden');
+  const closeBtn = document.getElementById('coachGuideClose');
+  if (closeBtn) closeBtn.onclick = closeCoachGuide;
+  const doneBtn = document.getElementById('coachGuideDone');
+  if (doneBtn) doneBtn.onclick = closeCoachGuide;
+}
+
+function closeCoachGuide() {
+  const overlay = document.getElementById('coachGuideModal');
+  if (overlay) overlay.classList.add('hidden');
+}
+
+function bodyStructureLibraryFull() {
+  try {
+    const cached = localStorage.getItem('momentum_body_structure_library');
+    const lib = cached ? JSON.parse(cached) : null;
+    return Array.isArray(lib) ? lib : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+// Marks a structure as learned locally (instant UI feedback) and, if online
+// and authenticated, reports it to the backend for the real ANATOMY_INSIGHT
+// award + XP. Safe to call repeatedly — the backend dedups; this just avoids
+// firing the network call again once we already know it succeeded.
+async function markBodyStructureLearned(structureId, structureName) {
+  if (!profile.learnedStructureIds.includes(structureId)) {
+    profile.learnedStructureIds.push(structureId);
+    saveProfile();
+  } else {
+    return; // already recorded locally — don't re-hit the network for it
+  }
+
+  try {
+    const token = (typeof MomentumSync !== 'undefined' && typeof MomentumSync.getToken === 'function')
+      ? MomentumSync.getToken()
+      : '';
+    if (!navigator.onLine || !token) return;
+
+    const res = await fetch(`${API_BASE_URL}/body-structures/${structureId}/learned`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' }
+    });
+    if (res.ok) {
+      const json = await res.json();
+      if (json && json.data && json.data.awarded && json.data.xp > 0 && typeof toast === 'function') {
+        toast(`+${json.data.xp} XP — learned about the ${structureName}`);
+      }
+    }
+  } catch (e) {
+    console.warn('Momentum: body structure learned event not sent (offline or unauthenticated)', e);
+  }
+}
+
 // --- Exercise Picker Modal Engine ---
 let activePickerCallback = null;
  
@@ -2635,6 +2753,7 @@ function bootstrap() {
     }
   }
   if (typeof syncExerciseCatalog === 'function') syncExerciseCatalog();
+  if (typeof syncBodyStructureLibrary === 'function') syncBodyStructureLibrary();
   try {
     if (typeof show === 'function') {
       show(typeof restoreCurrentView === 'function' ? restoreCurrentView() : 'today');
