@@ -381,7 +381,13 @@ function renderProfileMenuStep() {
     { key: 'equipment', icon: 'dumbbell', label: 'Equipment access', value: equipCount ? `${equipCount} item${equipCount === 1 ? '' : 's'}` : 'None yet' },
     { key: 'guardrails', icon: 'shield', label: 'Guardrails', value: guardrailCount ? `${guardrailCount} active` : 'None' }
   ];
+  const signedIn = (typeof MomentumSync !== 'undefined' && typeof MomentumSync.isAuthenticated === 'function') ? MomentumSync.isAuthenticated() : false;
   return `
+    <button type="button" class="pick" id="profileAccountRow" style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px">
+      <span style="display:flex;align-items:center;gap:10px">${profileIcon('check', 18)}<b>Account</b></span>
+      <span class="quiet" style="white-space:nowrap">${signedIn ? 'Signed in' : 'Sign in to sync ›'}</span>
+    </button>
+    ${!signedIn ? `<p class="quiet" style="margin:0 0 10px;font-size:12px">Sign in to search the full exercise library, filter by muscle/equipment, and use Coach Tips.</p>` : ''}
     <p class="quiet" style="margin-top:0">${completion.count} of ${completion.total} set up</p>
     <div class="stack">
       ${rows.map(r => `
@@ -498,8 +504,10 @@ function renderProfileGuardrailsStep() {
   `).join('');
 
   const structureGroups = groupByRegion(bodyStructureOptionsWithFallback());
-  const structurePicker = [...structureGroups.entries()].map(([region, items]) => `
-    <div class="quiet" style="margin-top:10px;font-size:11px;text-transform:uppercase;letter-spacing:.03em">${esc(region)}</div>
+    const structurePicker = [...structureGroups.entries()].map(([region, items]) => {
+    const isRedundantHeader = items.length === 1 && items[0].name === region;
+    return `
+    ${isRedundantHeader ? '' : `<div class="quiet" style="margin-top:10px;font-size:11px;text-transform:uppercase;letter-spacing:.03em">${esc(region)}</div>`}
     <div class="chip-row" style="margin-top:4px">
       ${items.map(s => `
         <span style="display:inline-flex;align-items:center;gap:2px">
@@ -508,7 +516,8 @@ function renderProfileGuardrailsStep() {
         </span>
       `).join('')}
     </div>
-  `).join('');
+  `;
+  }).join('');
 
   const restrictionTags = RESTRICTION_TYPES.map(r => `<button type="button" class="tag ${guardrailDraft.restrictionType === r.value ? 'active' : ''}" data-draft-restriction="${r.value}">${esc(r.label)}</button>`).join('');
   return `
@@ -563,8 +572,20 @@ function bindProfileStep(step) {
     $$('[data-jump]').forEach(btn => { btn.onclick = () => { profileWizard.step = btn.dataset.jump; renderProfileModal(); }; });
     const closeFromMenu = document.getElementById('profileModalCloseFromMenu');
     if (closeFromMenu) closeFromMenu.onclick = () => closeProfileModal();
-    const coachToggle = document.getElementById('toggleCoachTips');
+        const coachToggle = document.getElementById('toggleCoachTips');
     if (coachToggle) coachToggle.onclick = () => { profile.coachTipsEnabled = !profile.coachTipsEnabled; saveProfile(); renderProfileModal(); };
+    const accountRow = document.getElementById('profileAccountRow');
+    if (accountRow) accountRow.onclick = () => {
+      const alreadyIn = (typeof MomentumSync !== 'undefined' && typeof MomentumSync.isAuthenticated === 'function') && MomentumSync.isAuthenticated();
+      if (alreadyIn) return;
+      if (typeof MomentumSync !== 'undefined' && typeof MomentumSync.showAuthModal === 'function') {
+        MomentumSync.showAuthModal(() => {
+          if (typeof syncExerciseCatalog === 'function') syncExerciseCatalog();
+          if (typeof syncBodyStructureLibrary === 'function') syncBodyStructureLibrary();
+          renderProfileModal();
+        });
+      }
+    };
   }
 
   if (step === 'experience') {
@@ -3477,12 +3498,10 @@ if (!has('allExercises')) {
         $$('[data-rir]').forEach(x => x.classList.toggle('active', x === b));
       });
 
-      const search = $('#searchExercise');
+            const search = $('#searchExercise');
       if (search) search.oninput = () => { if (typeof renderPicker === 'function') renderPicker(search.value); };
-    };
-  }
 
-const browseLibrary = $('#browseExerciseLibrary');
+      const browseLibrary = $('#browseExerciseLibrary');
       if (browseLibrary) browseLibrary.onclick = () => {
         openExercisePickerModal(name => {
           active.activeExercise = (typeof canonicalExerciseName === 'function') ? canonicalExerciseName(name) : name;
@@ -3490,6 +3509,8 @@ const browseLibrary = $('#browseExerciseLibrary');
           renderLog();
         });
       };
+    };
+  }
 
   function triggerTimerAlert() {
     try {
