@@ -1,142 +1,123 @@
 # Momentum Training Intelligence
 
-Momentum is a static, local-first training app for planning, logging, and reviewing workouts without requiring a backend or a live database. The current build is a mobile-first PWA with a dedicated Today/Plan/Log/Review/History flow and a local storage model for active sessions, completed workouts, and draft coaching context.
+Momentum is the Bulldog ecosystem's local-first training PWA. It is a static, mobile-first application for planning, logging, reviewing, and exporting workouts.
 
-## Current build overview
+Core operation does not require a backend or database. Optional authenticated features connect to the Bulldog Laravel API.
 
-This repository is the actual client app, not a dashboard deployment folder. The project root contains the deployable static assets:
+> `bulldogstats.com` is a separate WordPress site and is not part of this repository.
 
-- `index.html` — app shell and navigation
-- `app.js` — core UI state, rendering, session logic, exports, and view management
-- `planner.js` — workout parsing, queueing, and cockpit/session planning helpers
-- `workout-cards.js` — starter templates and prescribed-card metadata
-- `data.js` — Markdown-backed data access layer for historical metrics
-- `sw.js` — service worker for offline caching
-- `data/` — reviewed Markdown snapshots used by the app at runtime
+## Stack
 
-The app is intentionally plain HTML/CSS/JavaScript with no framework or build step. It runs as a static site and can be served from Cloudflare Pages, GitHub Pages, or any static host.
+- Vanilla JavaScript
+- HTML/CSS
+- PWA APIs
+- localStorage
+- Service Worker
+- Reviewed Markdown data
+- No framework
+- No build step
+- Optional Laravel/Sanctum API integration
 
-## Design and UX
+## App surfaces
 
-### Mobile-first app structure
+- Today
+- Plan
+- Log
+- Review
+- History
 
-The interface is organized as a five-screen training flow:
+## Module responsibilities
 
-- Today: landing surface and quick status overview
-- Plan: workout queue, manual workout creation, and scheduled card management
-- Log: active session capture and per-exercise logging
-- Review: completed session review, coaching summaries, and exports
-- History: historical view of recorded data and prior sessions
+- `app.js`: application state, rendering, navigation, logging, profile UI, persistence
+- `planner.js`: workout parsing, normalization, queueing
+- `workout-cards.js`: prescribed cards and starter templates
+- `data.js`: reviewed Markdown data access
+- `sync.js`: optional Bulldog authentication, catalog/session/Coach API calls
+- `sw.js`: offline cache lifecycle
 
-The design is optimized for gym-floor use: compact cards, dense info layout, large action buttons, and a low-friction set-entry pattern for quick logging.
+## Local-first storage
 
-### Workout planning model
+Use strict per-concern storage keys. Current keys include:
 
-Momentum supports three sources of workout structure:
+```text
+momentum.active.v3
+momentum.sessions.v3
+momentum.cockpit.v1
+momentum.editor.v1
+momentum.profile.v1
+momentum:lastView
+momentum_sanctum_token
+momentum.queued-workouts.v1
+```
 
-- Prescribed cards such as the current program day structure
-- Starter templates for Control, Strength, and Endurance sessions
-- Manual or pasted workout cards parsed into reusable queue items
+The authentication token is separate from workout data. New persistent concerns should normally receive their own versioned key.
 
-The planner layer converts raw workout text into structured plan blocks, normalizes fields like sets, reps, tempo, load, duration, and RIR, and then builds an active session cockpit for logging.
+## Session lifecycle
 
-### Logging workflow
+```text
+plan -> queue -> cockpit -> active session
+     -> local set logging -> completed session
+     -> review/history -> optional Bulldog sync
+```
 
-The current logging experience includes:
+Failed network requests must not destroy local workout data.
 
-- Exercise-level capture with set-by-set tracking
-- Reps or timed-duration mode selection
-- Load input and working-load updates
-- Tempo entry using a three-part format
-- RIR selection and technical checkpoints
-- Quick tags and notes
-- Duplicate/delete actions for a session or exercise
-- Automatic persistence of the active session in local storage
+## Parser
 
-This makes the app usable for live recording in the gym without a network connection.
+The parser converts authored workout cards into structured plan blocks. Workout metadata is not an exercise. Numeric fragments such as treadmill speed, incline, target duration, and confidence must not become accidental exercise records.
 
-## Data model and storage boundaries
+Test both table-style and narrative cards when changing parser behavior.
 
-### Local-first storage
+## Markdown reference data
 
-Momentum stores session data on the current device in browser local storage. The active session, queued plans, review queue, and completed-session records are kept locally and are not uploaded to a server automatically.
-
-This is intentional: the app is designed to behave like a private training log that you can export before changing devices or clearing browser data.
-
-### Data source safety
-
-The app does not read or require a workbook file at runtime. It uses reviewed Markdown files in `data/` as the source of truth for historical training context and analysis.
-
-The repository intentionally avoids pulling in raw Excel exports or unreviewed training files. The workbook remains a separate source artifact and is not deployed with the application.
-
-## Markdown-backed reference data
-
-The repository includes these data snapshots:
-
+Runtime data comes from reviewed files:
 - `data/01_Training_Core.md`
 - `data/02_Training_Reference.md`
 - `data/03_Training_Analysis.md`
 - `data/04_Training_Schema.md`
 
-These files supply derived training context, exercise history, reference data, and schema metadata for the app without requiring backend access. The data loader handles the current table-driven markdown formats and is resilient to both the newer structured exports and the earlier positional-core exports.
+The Excel workbook is a source artifact, not a runtime dependency.
 
-## Exports and coaching output
+## Bulldog integration
 
-The app includes export flows tailored for training review and coaching:
-
-- Coach debrief summary for a completed workout
-- JSON export of a completed session in Momentum-native format
-- CSV export shaped for the Excel staging process
-
-The CSV is designed to keep the data in a portable staging-friendly structure. Tempo, RIR, technical notes, checkpoints, and quick tags remain associated with the training note fields so the downstream spreadsheet logic can enrich the final view.
-
-## Service worker and offline behavior
-
-The service worker caches the app shell and reviewed data snapshots so the app remains usable after the first load, even when the network is unstable or unavailable. This supports the same workflow on mobile devices and tablet browsers in the gym.
-
-## Repository layout
+Current training API examples:
 
 ```text
-.
-├── app.js
-├── data.js
-├── planner.js
-├── workout-cards.js
-├── sw.js
-├── index.html
-├── manifest.webmanifest
-├── README.md
-├── CHANGELOG.md
-├── DEPLOYMENT_CHECKLIST.md
-├── data/
-│   ├── 01_Training_Core.md
-│   ├── 02_Training_Reference.md
-│   ├── 03_Training_Analysis.md
-│   └── 04_Training_Schema.md
-└── _headers
+GET  /api/v1/training/exercises
+GET  /api/v1/training/body-structures
+POST /api/v1/training/body-structures/{bodyStructure}/learned
+GET  /api/v1/training/sessions
+POST /api/v1/training/sessions
+GET  /api/v1/training/sessions/{session}
+POST /api/v1/training/coach/generate-card
 ```
 
-## Deployment guidance
+These routes are Sanctum-protected.
 
-This project is designed to deploy as a static site. The usual process is:
+Do not infer `/api/v1/auth/login`. Bulldog's browser `/login` route is a separate session-authentication surface.
 
-1. Commit the app files and Markdown data snapshots.
-2. Connect the repository to a static hosting provider such as Cloudflare Pages.
-3. Publish the root directory as the deploy target.
-4. Verify the app loads, the service worker caches correctly, and the app works on a mobile browser.
+## Offline behavior
 
-Do not upload raw workbook files, unreviewed health exports, or backend credentials as part of the app deployment.
+The service worker caches the app shell and reviewed data. After changing cached assets, update the service-worker cache identifier and test close/reopen behavior on an installed PWA.
 
-## Release checklist
+## Local execution
 
-Use `DEPLOYMENT_CHECKLIST.md` as the release gate before publishing. It covers workbook safety, markdown refreshes, review of workout cards, mobile verification, and operational guardrails.
+Momentum has no build step:
 
-## Current product intent
+```bash
+python3 -m http.server 8000
+```
 
-The app is not a backend-driven analytics platform. The current direction is a disciplined, private, mobile-first training log that keeps the coach and athlete aligned through:
+Open `http://localhost:8000`. Do not use `file://`.
 
-- structured gym-floor logging
-- local durability
-- clean recap and export flows
-- reviewed markdown data context
-- zero dependence on a live database or workbook in production
+## Deployment
+
+The current production path is static hosting through Cloudflare Pages at `train.bulldogstats.com`.
+
+Before release, verify the five views, persistence, parser behavior, offline reopen, mobile controls, service-worker updates, and intended authenticated sync.
+
+See [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md).
+
+## Data safety
+
+Do not deploy credentials, API keys, raw private health/training exports, or unreviewed source artifacts.
