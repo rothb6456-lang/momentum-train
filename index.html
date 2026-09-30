@@ -8,6 +8,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="icon" href="/bulldogstats-logo-dog_head.png" type="image/png">
   <link rel="stylesheet" href="app.css?v=1.2.0">
+  <link rel="manifest" href="/manifest.webmanifest">
   <title>Momentum | Training intelligence</title>
 </head>
 <body>  
@@ -112,10 +113,12 @@
   </div>
 </div>
 
+  <script src="/account-bridge.js"></script>
+  <script src="/card-filters.js"></script>
   <script src="/data.js"></script>  
   <script src="/workout-cards.js"></script>  
   <script src="/planner.js?v=1.1.9"></script>  
   <script src="/sync.js"></script>  
-  <script src="/app.js?v=1.1.9"></script>  
+  <script>MomentumAccount.ready.finally(() => { const script = document.createElement('script'); script.src = '/app.js?v=beta-2'; script.onload = () => { const extras = document.createElement('script'); extras.src = '/beta-tools.js'; document.body.appendChild(extras); }; document.body.appendChild(script); });</script>
 </body>  
-</html>    
+</html>

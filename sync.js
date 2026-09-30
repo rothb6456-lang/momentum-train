@@ -3,16 +3,23 @@
  * Unified with Bulldog Statbook Backend (Patch V1.1.2)
  */
 
-const API_BASE_URL = (typeof localStorage !== 'undefined' && localStorage.getItem('momentum_api_url')
+const API_BASE_URL = (window.MOMENTUM_CONFIG?.apiUrl || (typeof localStorage !== 'undefined' && localStorage.getItem('momentum_api_url')
   ? localStorage.getItem('momentum_api_url')
-  : 'https://statbook.bulldogstats.com/api/v1/training').replace(/\/+$/, '');
+  : 'https://statbook.bulldogstats.com/api/v1/training')).replace(/\/+$/, '');
 
-const AUTH_API_URL = (typeof localStorage !== 'undefined' && localStorage.getItem('momentum_auth_url')
+const AUTH_API_URL = (window.MOMENTUM_CONFIG?.authUrl || (typeof localStorage !== 'undefined' && localStorage.getItem('momentum_auth_url')
   ? localStorage.getItem('momentum_auth_url')
-  : 'https://statbook.bulldogstats.com/api/v1/auth').replace(/\/+$/, '');
+  : 'https://statbook.bulldogstats.com/api/v1/auth')).replace(/\/+$/, '');
 
 const MomentumSync = (() => {
   const TOKEN_KEY = 'momentum_sanctum_token';
+
+  function parseDuration(value) {
+    const text = String(value || '').trim();
+    if (/^\d+:\d{2}$/.test(text)) { const [m, s] = text.split(':').map(Number); return m * 60 + s; }
+    const match = text.match(/^(\d+(?:\.\d+)?)\s*(sec(?:onds?)?|s|min(?:utes?)?|m)?$/i);
+    return match ? Math.round(Number(match[1]) * (/^m/i.test(match[2] || '') ? 60 : 1)) : null;
+  }
 
   function getToken() {
     return localStorage.getItem(TOKEN_KEY) || '';
@@ -28,6 +35,28 @@ const MomentumSync = (() => {
 
   function isAuthenticated() {
     return !!getToken();
+  }
+
+  let profileTimer;
+  function syncProfile(profile) {
+    clearTimeout(profileTimer);
+    const owner = window.MomentumAccount?.owner();
+    const token = getToken();
+    if (!token || !navigator.onLine) return;
+    const payload = {
+      experience_level: profile.experienceLevel || null,
+      goals: (profile.goals || []).filter(goal => goal.status === 'active').map(goal => ({ title: goal.title }))
+    };
+    profileTimer = setTimeout(async () => {
+      if (window.MomentumAccount?.owner() !== owner || getToken() !== token) return;
+      try {
+        const response = await fetch(`${API_BASE_URL}/profile`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify(payload)
+        });
+        if (!response.ok) showToast('Profile saved on this device. Cloud profile sync is pending.', 'error');
+      } catch (_) { /* Local profile remains available while offline. */ }
+    }, 500);
   }
 
   function showToast(msg, type = 'info') {
@@ -106,9 +135,12 @@ const MomentumSync = (() => {
             throw new Error(data.message || data.error || 'Authentication failed. Please verify credentials.');
           }
 
+          if (window.MomentumAccount) await MomentumAccount.connect(data);
           setToken(data.token);
           modal.classList.add('hidden');
           showToast('Connected to Bulldog Statbook', 'success');
+          location.reload();
+          return;
 
           if (typeof onSuccess === 'function') {
             onSuccess(data.token);
@@ -150,6 +182,11 @@ const MomentumSync = (() => {
         sets: (sessionData.sets || []).map((s, index) => ({
           set_number: parseInt(s.set_number || s.setNumber || (index + 1), 10),
           exercise_name: s.exerciseName || s.exercise || s.exercise_name || '',
+          exercise_id: s.exerciseId || s.exercise_id || undefined,
+          weight_lbs: /^\d+(\.\d+)?$/.test(String(s.load ?? '').trim()) ? Number(s.load) : null,
+          reps: !(s.timed || s.is_timed) && /^\d+$/.test(String(s.reps ?? s.result ?? '').trim()) ? Number(s.reps ?? s.result) : null,
+          duration_seconds: (s.timed || s.is_timed) ? parseDuration(s.reps ?? s.result ?? s.reps_or_duration) : null,
+          set_notes: [s.notes, s.load ? 'Logged load: ' + s.load : '', 'Logged result: ' + (s.reps ?? s.result ?? s.reps_or_duration ?? '')].filter(Boolean).join(' | '),
           load: s.load || '',
           reps_or_duration: s.reps || s.result || s.reps_or_duration || '',
           is_timed: !!(s.timed || s.is_timed),
@@ -231,6 +268,7 @@ const MomentumSync = (() => {
     getToken,
     setToken,
     isAuthenticated,
+    syncProfile,
     showAuthModal,
     pushSession: syncSessionToStatbook,
     syncSessionToStatbook,

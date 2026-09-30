@@ -94,7 +94,11 @@ POST /api/v1/training/coach/generate-card
 
 These routes are Sanctum-protected.
 
-Do not infer `/api/v1/auth/login`. Bulldog's browser `/login` route is a separate session-authentication surface.
+`POST /api/v1/auth/login` is the supported token endpoint. The Bulldog hub also launches Momentum through a single-use, 90-second code exchanged at `/api/v1/auth/exchange`; no second password entry is needed. `account-bridge.js` partitions local workspaces by account before loading `app.js`. Tokens are kept separate from archived workouts.
+
+`card-filters.js` derives equipment and body structure filters from required exercises and canonical catalog aliases. Unknown metadata excludes a card from restrictive equipment filters. `beta-tools.js` provides hub navigation, install guidance, and the Log walkthrough. Profile updates sync to `/api/v1/training/profile`; workout retries use the original client session ID.
+
+Run `node tests/card-filters.cjs`, `node tests/account-bridge.cjs`, and `node tests/parser-smoke.js` from this repository. Cloudflare Pages project `momentum-train-app` deploys `main` to `train.bulldogstats.com`; pushing main publishes the application.
 
 ## Offline behavior
 

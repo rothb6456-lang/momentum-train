@@ -68,7 +68,7 @@ Do not infer endpoints by convention.
 
 ### 1. Invalid login endpoint
 
-Momentum's login flow previously called `POST /api/v1/auth/login`. Bulldog does not currently expose that endpoint in `routes/api.php`. The browser `/login` route is a different authentication surface.
+Bulldog now exposes `POST /api/v1/auth/login` and the single-use `POST /api/v1/auth/exchange` bridge. The browser `/login` route remains a separate session surface. Verify both repositories when changing account handoff.
 
 ### 2. bindLog() scope regression
 

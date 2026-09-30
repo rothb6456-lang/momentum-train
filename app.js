@@ -44,7 +44,9 @@ function loadJson(key, fallback = null) {
   }
 }
 
+const APP_ACCOUNT_OWNER = window.MomentumAccount?.owner() || 'local';
 function saveJson(key, value) {
+  if (window.MomentumAccount && MomentumAccount.owner() !== APP_ACCOUNT_OWNER) return;
   localStorage.setItem(key, JSON.stringify(value));
 }
 
@@ -125,6 +127,7 @@ function ensureActiveSession() {
 }
 
 function persist() {
+  if (window.MomentumAccount && MomentumAccount.owner() !== APP_ACCOUNT_OWNER) return;
   ensureActiveSession();
   active.updatedAt = new Date().toISOString();
   saveJson(STORAGE_KEYS.active, active);
@@ -227,6 +230,7 @@ function loadProfile() {
 function saveProfile() {
   profile.updatedAt = new Date().toISOString();
   saveJson(STORAGE_KEYS.profile, profile);
+  if (window.MomentumSync?.syncProfile) MomentumSync.syncProfile(profile);
 }
 
 let profile = loadProfile();
@@ -794,6 +798,7 @@ function metric(label, value, detail) {
 /* ---------- stable session / navigation / planner helpers ---------- */
 
 let starterPreviewKey = null;
+let cardFilters = { equipment: 'all', structureId: '' };
 
 function selectedReviewedSession() {
   const sessions = getDone();
@@ -1368,7 +1373,9 @@ function renderToday() {
   const next = list[0] || null;
 
   const rawCards = (typeof starterCards === 'function' ? starterCards() : []) || [];
-  const cards = (Array.isArray(rawCards) ? rawCards : []).map(card => ({
+  const cardCatalog = typeof exerciseCatalogFull === 'function' ? exerciseCatalogFull() : [];
+  const profileEquipment = (loadJson('momentum.profile.v1', {})?.equipment || []).map(e => e.equipmentId).filter(Boolean);
+  const cards = (Array.isArray(rawCards) ? rawCards : []).filter(card => !window.MomentumCardFilters || MomentumCardFilters.matches(card, cardCatalog, { ...cardFilters, equipmentIds: profileEquipment })).map(card => ({
     key: card && card.key != null ? card.key : '',
     title: (card && card.title) || 'Untitled card',
     descriptor: (card && card.descriptor) || '',
@@ -1419,6 +1426,13 @@ function renderToday() {
           ${cards.length}
         </div>
 
+        <div class="field-grid" style="display:flex;gap:12px;flex-wrap:wrap;margin:16px 0">
+          <label style="flex:1;min-width:180px">Available equipment<select id="cardEquipment"><option value="all">All cards</option><option value="bodyweight">Bodyweight only</option><option value="profile">My saved equipment</option>
+          ${(typeof catalogEquipmentOptions === 'function' ? catalogEquipmentOptions() : []).map(e => `<option value="${esc(e.id)}">${esc(e.name)} + bodyweight</option>`).join('')}</select></label>
+          <label style="flex:1;min-width:180px">Body structure<select id="cardStructure"><option value="">All structures</option>${(typeof catalogBodyStructureOptions === 'function' ? catalogBodyStructureOptions() : []).map(e => `<option value="${esc(e.id)}">${esc(e.name)}</option>`).join('')}</select></label>
+        </div>
+        <p class="quiet">Equipment filters include only cards whose required exercises are fully matched to the catalog. Optional exercises can be skipped.</p>
+        ${cards.length ? '' : '<p role="status">No fully matched cards fit these filters. Try all cards or create a custom workout. Sync the catalog when online for more matches.</p>'}
         <div class="starter-grid">
           ${cards.map(card => `
             <div class="starter-tile">
@@ -1551,6 +1565,10 @@ function renderToday() {
   `;
 
   bindToday();
+  for (const [id, key] of [['cardEquipment', 'equipment'], ['cardStructure', 'structureId']]) {
+    const select = document.getElementById(id);
+    if (select) { select.value = cardFilters[key]; select.onchange = () => { cardFilters[key] = select.value; renderToday(); }; }
+  }
 
   $$('[data-use-starter]').forEach(button => {
     button.onclick = () => {
@@ -2541,7 +2559,9 @@ async function syncExerciseCatalog() {
       if (res.ok) {
         const json = await res.json();
         if (json && Array.isArray(json.data)) {
-          localStorage.setItem('momentum_exercise_catalog', JSON.stringify(json.data));
+          const catalog = json.data.map(ex => ({ ...ex, bodyStructures: ex.bodyStructures || ex.body_structures || [], aliases: ex.aliases || ex.name_maps || [] }));
+          localStorage.setItem('momentum_exercise_catalog', JSON.stringify(catalog));
+          renderToday();
           console.log(`Momentum: Exercise catalog synced (${json.data.length} exercises cached)`);
         }
       }
@@ -3013,7 +3033,7 @@ if (!has('allExercises')) {
     window.catalogBodyStructureOptions = function catalogBodyStructureOptions() {
       const seen = new Map();
       exerciseCatalogFull().forEach(ex => {
-        (Array.isArray(ex && ex.bodyStructures) ? ex.bodyStructures : []).forEach(s => {
+        (Array.isArray(ex && (ex.bodyStructures || ex.body_structures)) ? (ex.bodyStructures || ex.body_structures) : []).forEach(s => {
           if (s && s.id && !seen.has(s.id)) {
             seen.set(s.id, { id: s.id, name: s.name, type: s.type || '', region: s.region || 'Other' });
           }
