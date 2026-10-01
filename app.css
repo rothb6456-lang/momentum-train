@@ -966,3 +966,6 @@ a:focus-visible {
   --text-soft: #94a3b8;
   --accent-green-bright: #22c55e;
 }
+
+/* Brand badge keeps the original dark artwork legible in both themes. */
+header.top .brand-logo { width: 44px; height: 44px; padding: 4px; object-fit: contain; background: #f3f6f4; border-radius: 10px; transform: none !important; }

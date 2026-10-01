@@ -1,11 +1,17 @@
 self.addEventListener('install', function(e) { self.skipWaiting(); });
-const CACHE = 'momentum-education-5';
+const CACHE = 'momentum-education-6';
 const NETWORK_FIRST = new Set(['/', '/index.html', '/planner.js', '/app.js', '/sw.js']);
 const ASSETS = [
   '/',
   '/index.html',
   '/app.css',
   '/theme.js',
+  '/icons/src/bulldogstats-logo-dog_head.png',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
+  '/icons/icon-maskable-512.png',
+  '/icons/apple-touch-icon-180.png',
+  '/icons/favicon-32.png',
   '/beta-tools.js',
   '/education.js',
   '/education.css',
