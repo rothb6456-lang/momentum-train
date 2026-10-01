@@ -286,7 +286,7 @@ button.btn-add-set,
 .btn-rir.active,
 .btn-rir.selected,
 .rir-chips .chip.active {
-  background: var(--active-bg) !important;
+  background: var(--accent-green-strong) !important;
   color: var(--active-ink) !important;
   border-color: var(--active-border) !important;
   font-weight: 700 !important;
@@ -578,8 +578,8 @@ button.btn-add-set,
 #nextExercise,
 .set-entry-card #addSet,
 .set-entry-card #nextExercise {
-  background: var(--override-0f172a) !important;
-  color: var(--override-ffffff) !important;
+  background: var(--surface-strong) !important;
+  color: var(--text-on-strong) !important;
   font-weight: 700 !important;
   border: none !important;
   border-radius: 8px !important;
@@ -590,7 +590,7 @@ button.btn-add-set,
 .btn-add-set:hover,
 #addSet:hover,
 #nextExercise:hover {
-  background: var(--override-1e293b) !important;
+  background: var(--surface-raised-strong) !important;
 }
 
 /* 2. Active Calendar Day & Today Card */
@@ -600,16 +600,16 @@ button.btn-add-set,
 .calendar-day.today,
 .calendar-day-card.active,
 .calendar-day-card.is-today {
-  background: var(--override-0f172a) !important;
-  border: 2px solid var(--override-16a34a) !important;
-  color: var(--override-ffffff) !important;
+  background: var(--surface-strong) !important;
+  border: 2px solid var(--accent-green) !important;
+  color: var(--text-on-strong) !important;
 }
 
 .calendar-strip .calendar-day.active *,
 .calendar-strip .calendar-day.today *,
 .calendar-day-card.active *,
 .calendar-day-card.is-today * {
-  color: var(--override-ffffff) !important;
+  color: var(--text-on-strong) !important;
 }
 
 /* 3. Active RIR Chip (Kelly Green Highlight) */
@@ -618,9 +618,9 @@ button.btn-add-set,
 .btn-rir.active,
 .btn-rir.selected,
 .rir-chips .chip.active {
-  background: var(--override-16a34a) !important;
-  color: var(--override-ffffff) !important;
-  border-color: var(--override-15803d) !important;
+  background: var(--accent-green-strong) !important;
+  color: var(--text-on-strong) !important;
+  border-color: var(--accent-green-strong) !important;
   font-weight: 700 !important;
   box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.4) !important;
 }
@@ -628,8 +628,8 @@ button.btn-add-set,
 /* 4. Rest Timer HUD & Skip Button */
 .rest-timer-bar,
 .rest-timer-hud {
-  background: var(--override-0f172a) !important;
-  color: var(--override-f8fafc) !important;
+  background: var(--surface-strong) !important;
+  color: var(--text-strong) !important;
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
@@ -642,12 +642,12 @@ button.btn-add-set,
 button.btn-skip,
 .rest-timer-hud button,
 .rest-timer-bar button {
-  background: var(--override-334155) !important;
-  color: var(--override-ffffff) !important;
+  background: var(--surface-control-strong) !important;
+  color: var(--text-on-strong) !important;
   font-weight: 700 !important;
   padding: 6px 14px !important;
   border-radius: 6px !important;
-  border: 1px solid var(--override-475569) !important;
+  border: 1px solid var(--border-strong) !important;
   visibility: visible !important;
   opacity: 1 !important;
 }
@@ -677,9 +677,9 @@ button.btn-add-set,
 .set-entry-card #nextExercise,
 #addSet,
 #nextExercise {
-  background: var(--override-0f172a) !important;
-  background-color: var(--override-0f172a) !important;
-  color: var(--override-ffffff) !important;
+  background: var(--surface-strong) !important;
+  background-color: var(--surface-strong) !important;
+  color: var(--text-on-strong) !important;
   font-weight: 700 !important;
   border: none !important;
   border-radius: 8px !important;
@@ -691,8 +691,8 @@ button.btn-add-set,
 .btn-coach-ai:hover,
 #addSet:hover,
 #nextExercise:hover {
-  background: var(--override-1e293b) !important;
-  background-color: var(--override-1e293b) !important;
+  background: var(--surface-raised-strong) !important;
+  background-color: var(--surface-raised-strong) !important;
 }
 
 /* 2. Calendar Strip Active / Today Card */
@@ -702,17 +702,17 @@ button.btn-add-set,
 .calendar-day.today,
 .calendar-day-card.active,
 .calendar-day-card.is-today {
-  background: var(--override-0f172a) !important;
-  background-color: var(--override-0f172a) !important;
-  border: 2px solid var(--override-16a34a) !important;
-  color: var(--override-ffffff) !important;
+  background: var(--surface-strong) !important;
+  background-color: var(--surface-strong) !important;
+  border: 2px solid var(--accent-green) !important;
+  color: var(--text-on-strong) !important;
 }
 
 .calendar-strip .calendar-day.active *,
 .calendar-strip .calendar-day.today *,
 .calendar-day-card.active *,
 .calendar-day-card.is-today * {
-  color: var(--override-ffffff) !important;
+  color: var(--text-on-strong) !important;
 }
 
 /* 3. Active RIR Chip (Kelly Green Highlight) */
@@ -721,10 +721,10 @@ button.btn-add-set,
 .btn-rir.active,
 .btn-rir.selected,
 .rir-chips .chip.active {
-  background: var(--override-16a34a) !important;
-  background-color: var(--override-16a34a) !important;
-  color: var(--override-ffffff) !important;
-  border-color: var(--override-15803d) !important;
+  background: var(--accent-green-strong) !important;
+  background-color: var(--accent-green-strong) !important;
+  color: var(--text-on-strong) !important;
+  border-color: var(--accent-green-strong) !important;
   font-weight: 700 !important;
 }
 
@@ -735,13 +735,13 @@ button.btn-add-set,
 #btn-skip-rest,
 button.btn-skip,
 .rest-banner #skipRest {
-  background: var(--override-334155) !important;
-  background-color: var(--override-334155) !important;
-  color: var(--override-ffffff) !important;
+  background: var(--surface-control-strong) !important;
+  background-color: var(--surface-control-strong) !important;
+  color: var(--text-on-strong) !important;
   font-weight: 700 !important;
   padding: 8px 16px !important;
   border-radius: 6px !important;
-  border: 1px solid var(--override-475569) !important;
+  border: 1px solid var(--border-strong) !important;
   visibility: visible !important;
   opacity: 1 !important;
 }
@@ -850,7 +850,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
    sibling) over both app.css and the inline \3c style> block above -- that is
    why it is placed last here too, to preserve identical behavior.
    ========================================================================== */
-.set-entry-card{padding:16px 17px}.toast{max-width:calc(100vw - 28px)}.set-entry-card .set-form{gap:10px}.set-entry-card .input{font-size:18px;min-height:52px}.set-entry-card .actions{display:flex;flex-direction:column;gap:10px;margin-top:14px}.set-entry-card .actions button{width:100%;min-height:52px;font-size:16px}.prescription-summary{margin-top:6px;font-size:13px;line-height:1.45}.rest-banner{display:flex;align-items:center;gap:10px;justify-content:center;background:var(--override-16323a);border:1px solid var(--mint);border-radius:14px;padding:11px 14px;margin-bottom:12px;font-size:15px;color:var(--override-f8fafc)}.rest-banner #restTime{font-size:22px;color:var(--override-ffffff);min-width:48px;text-align:center}.rest-banner #skipRest{margin-left:auto}.collapsible{margin-top:12px;padding:13px 16px}.collapsible summary{cursor:pointer;list-style:none;color:var(--muted);font-weight:700;font-size:13px}.collapsible summary::-webkit-details-marker{display:none}.next-exercise,.btn-next-exercise,.set-entry-card #nextExercise,.set-entry-card #addSet{background:var(--override-0f172a) !important;color:var(--override-ffffff) !important;font-weight:700 !important;text-shadow:0 1px 2px rgba(0,0,0,.4);min-height:48px}.rir-chips .chip,.rir-chip,.btn-rir{background:var(--override-1e293b) !important;color:var(--override-94a3b8) !important;border:1px solid var(--override-334155) !important;font-weight:600}.rir-chips .chip.active,.rir-chip.active,.rir-chip.selected,.btn-rir.active,.btn-rir.selected{background:var(--override-16a34a) !important;color:var(--override-ffffff) !important;border-color:var(--override-22c55e) !important;font-weight:700 !important}.active-session.compact-bar{padding:7px 10px;margin-bottom:10px;gap:8px;flex-wrap:nowrap}.bar-title-wrap{display:flex;align-items:center;gap:8px;min-width:0;flex:1 1 auto}.bar-title{font-size:16px;font-weight:780;margin:0;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.15}.bar-badge{flex:0 0 auto;font-size:11px;font-weight:700;color:var(--mint);border:1px solid var(--line);border-radius:99px;padding:3px 8px;white-space:nowrap}.compact-bar .session-tools{display:flex;gap:16px;flex:0 0 auto}.mini{min-height:30px;padding:5px 9px;font-size:11px}.rx-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:10px}.rx-badge{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mint);border:1px solid var(--line);border-radius:99px;padding:3px 9px;white-space:nowrap}.rx-line{color:var(--muted);font-size:12.5px;line-height:1.35;flex:1 1 200px}@media(max-width:720px){.set-entry-card .input{font-size:20px;min-height:56px}.set-entry-card .actions button{min-height:56px;font-size:17px}.compact-bar{flex-wrap:nowrap}.bar-title{font-size:15px}.rx-line{flex:1 1 100%}.session-tools button{min-height:34px}}
+.set-entry-card{padding:16px 17px}.toast{max-width:calc(100vw - 28px)}.set-entry-card .set-form{gap:10px}.set-entry-card .input{font-size:18px;min-height:52px}.set-entry-card .actions{display:flex;flex-direction:column;gap:10px;margin-top:14px}.set-entry-card .actions button{width:100%;min-height:52px;font-size:16px}.prescription-summary{margin-top:6px;font-size:13px;line-height:1.45}.rest-banner{display:flex;align-items:center;gap:10px;justify-content:center;background:var(--surface-rest);border:1px solid var(--mint);border-radius:14px;padding:11px 14px;margin-bottom:12px;font-size:15px;color:var(--text-strong)}.rest-banner #restTime{font-size:22px;color:var(--text-on-strong);min-width:48px;text-align:center}.rest-banner #skipRest{margin-left:auto}.collapsible{margin-top:12px;padding:13px 16px}.collapsible summary{cursor:pointer;list-style:none;color:var(--muted);font-weight:700;font-size:13px}.collapsible summary::-webkit-details-marker{display:none}.next-exercise,.btn-next-exercise,.set-entry-card #nextExercise,.set-entry-card #addSet{background:var(--surface-strong) !important;color:var(--text-on-strong) !important;font-weight:700 !important;text-shadow:0 1px 2px rgba(0,0,0,.4);min-height:48px}.rir-chips .chip,.rir-chip,.btn-rir{background:var(--surface-raised-strong) !important;color:var(--text-soft) !important;border:1px solid var(--surface-control-strong) !important;font-weight:600}.rir-chips .chip.active,.rir-chip.active,.rir-chip.selected,.btn-rir.active,.btn-rir.selected{background:var(--accent-green-strong) !important;color:var(--text-on-strong) !important;border-color:var(--accent-green-bright) !important;font-weight:700 !important}.active-session.compact-bar{padding:7px 10px;margin-bottom:10px;gap:8px;flex-wrap:nowrap}.bar-title-wrap{display:flex;align-items:center;gap:8px;min-width:0;flex:1 1 auto}.bar-title{font-size:16px;font-weight:780;margin:0;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.15}.bar-badge{flex:0 0 auto;font-size:11px;font-weight:700;color:var(--mint);border:1px solid var(--line);border-radius:99px;padding:3px 8px;white-space:nowrap}.compact-bar .session-tools{display:flex;gap:16px;flex:0 0 auto}.mini{min-height:30px;padding:5px 9px;font-size:11px}.rx-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:10px}.rx-badge{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mint);border:1px solid var(--line);border-radius:99px;padding:3px 9px;white-space:nowrap}.rx-line{color:var(--muted);font-size:12.5px;line-height:1.35;flex:1 1 200px}@media(max-width:720px){.set-entry-card .input{font-size:20px;min-height:56px}.set-entry-card .actions button{min-height:56px;font-size:17px}.compact-bar{flex-wrap:nowrap}.bar-title{font-size:15px}.rx-line{flex:1 1 100%}.session-tools button{min-height:34px}}
 /* ==========================================================================
    Keyboard focus visibility (accessibility) -- additive only, :focus-visible
    never triggers on mouse/touch, so this cannot change existing tap/click
@@ -1043,15 +1043,15 @@ a:focus-visible {
 .theme-control select { width: auto; min-width: 104px; min-height: 44px; padding: 8px 12px; background: var(--control-bg); color: var(--ink); border: 1px solid var(--line); border-radius: 9px; font: inherit; cursor: pointer; }
 .theme-control select:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 :root {
-  --override-0f172a: #0F172A;
-  --override-ffffff: #ffffff;
-  --override-1e293b: #1e293b;
-  --override-16a34a: #16a34a;
-  --override-15803d: #15803D;
-  --override-f8fafc: #f8fafc;
-  --override-334155: #334155;
-  --override-475569: #475569;
-  --override-16323a: #16323a;
-  --override-94a3b8: #94a3b8;
-  --override-22c55e: #22c55e;
+  --surface-strong: #0F172A;
+  --text-on-strong: #ffffff;
+  --surface-raised-strong: #1e293b;
+  --accent-green: #16a34a;
+  --accent-green-strong: #15803D;
+  --text-strong: #f8fafc;
+  --surface-control-strong: #334155;
+  --border-strong: #475569;
+  --surface-rest: #16323a;
+  --text-soft: #94a3b8;
+  --accent-green-bright: #22c55e;
 }
