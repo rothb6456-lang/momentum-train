@@ -1,10 +1,11 @@
 self.addEventListener('install', function(e) { self.skipWaiting(); });
-const CACHE = 'momentum-education-4';
+const CACHE = 'momentum-education-5';
 const NETWORK_FIRST = new Set(['/', '/index.html', '/planner.js', '/app.js', '/sw.js']);
 const ASSETS = [
   '/',
   '/index.html',
   '/app.css',
+  '/theme.js',
   '/beta-tools.js',
   '/education.js',
   '/education.css',
