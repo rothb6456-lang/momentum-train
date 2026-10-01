@@ -1,11 +1,16 @@
 self.addEventListener('install', function(e) { self.skipWaiting(); });
-const CACHE = 'momentum-beta-2';
+const CACHE = 'momentum-education-4';
 const NETWORK_FIRST = new Set(['/', '/index.html', '/planner.js', '/app.js', '/sw.js']);
 const ASSETS = [
   '/',
   '/index.html',
   '/app.css',
   '/beta-tools.js',
+  '/education.js',
+  '/education.css',
+  '/education-lessons.json',
+  '/education-anatomy.json',
+  '/assets/anatomy/openstax-muscles.jpg',
   '/manifest.webmanifest',
   '/icon.svg',
   '/bulldogstats-logo-dog_head.png',

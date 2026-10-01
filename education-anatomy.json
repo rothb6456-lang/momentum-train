@@ -1,0 +1,42 @@
+{
+  "sources": {
+    "upper": "https://openstax.org/books/anatomy-and-physiology-2e/pages/11-5-muscles-of-the-pectoral-girdle-and-upper-limbs",
+    "lower": "https://openstax.org/books/anatomy-and-physiology-2e/pages/11-6-appendicular-muscles-of-the-pelvic-girdle-and-lower-limbs",
+    "trunk": "https://openstax.org/books/anatomy-and-physiology-2e/pages/11-4-axial-muscles-of-the-abdominal-wall-and-thorax",
+    "roles": "https://openstax.org/books/anatomy-and-physiology-2e/pages/11-1-interactions-of-skeletal-muscles-their-fascicle-arrangement-and-their-lever-systems"
+  },
+  "structures": {
+    "Chest": ["Pectoralis major moves the upper arm; pectoralis minor positions the scapula.", "upper"],
+    "Upper Chest": ["The clavicular portion belongs to pectoralis major.", "upper"],
+    "Back": ["A region containing several muscles, not one muscle.", "upper"],
+    "Lats": ["Latissimus dorsi helps extend and adduct the arm.", "upper"],
+    "Rhomboids": ["Rhomboid major and minor retract and stabilize the scapula.", "upper"],
+    "Traps": ["Trapezius positions the scapula.", "upper"],
+    "Shoulders": ["Includes muscles moving the arm and positioning the shoulder girdle.", "upper"],
+    "Lateral Delts": ["The middle deltoid contributes to arm abduction.", "upper"],
+    "Rear Delts": ["The posterior deltoid contributes to arm extension.", "upper"],
+    "Anterior Delts": ["The anterior deltoid contributes to arm flexion.", "upper"],
+    "Rotator Cuff": ["Supraspinatus, infraspinatus, teres minor and subscapularis surround the shoulder joint.", "upper"],
+    "External Rotators": ["Infraspinatus and teres minor contribute to outward arm rotation.", "upper"],
+    "Serratus Anterior": ["Moves and stabilizes the scapula against the thorax.", "upper"],
+    "Biceps": ["Biceps brachii flexes the elbow and supinates the forearm.", "upper"],
+    "Triceps": ["Triceps brachii extends the elbow.", "upper"],
+    "Brachialis": ["Brachialis flexes the elbow.", "upper"],
+    "Forearms": ["Contain muscles controlling wrist and finger movement.", "upper"],
+    "Fingers": ["Movement involves both forearm and intrinsic hand muscles.", "upper"],
+    "Arms": ["A broad region, not a single muscle.", "upper"],
+    "Lower Back": ["This region includes posterior trunk muscles that support and move the vertebral column.", "trunk"],
+    "Spine": ["A skeletal region supported and moved by surrounding muscles; it is not itself a muscle.", "trunk"],
+    "Core": ["A training term for trunk musculature, including abdominal muscles. It is not one anatomical structure.", "trunk"],
+    "Obliques": ["Internal and external obliques contribute to trunk rotation and lateral flexion.", "trunk"],
+    "Glutes": ["Gluteus maximus contributes to hip extension; gluteus medius and minimus contribute to abduction.", "lower"],
+    "Hamstrings": ["Posterior thigh muscles contribute to knee flexion; most also extend the hip.", "lower"],
+    "Quads": ["The quadriceps group extends the knee. Rectus femoris also crosses the hip.", "lower"],
+    "Hip Flexors": ["Iliacus and psoas major are important contributors to hip flexion.", "lower"],
+    "Calves": ["Gastrocnemius and soleus contribute to ankle plantar flexion, pointing the foot downward.", "lower"],
+    "Tibialis Anterior": ["Contributes to ankle dorsiflexion, lifting the front of the foot, and inversion.", "lower"],
+    "Legs": ["A broad training region containing multiple muscle groups and joints.", "lower"],
+    "Full Body": ["A training category, not a single structure. Movement combines the actions of multiple muscles.", "roles"],
+    "Stabilizers": ["A functional role: muscles can hold a bone steady so another movement can occur.", "roles"]
+  }
+}

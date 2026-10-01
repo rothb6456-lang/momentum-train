@@ -24,6 +24,8 @@
   const tutorialButton = document.createElement('button'); tutorialButton.className = 'secondary'; tutorialButton.textContent = 'Log walkthrough';
   tutorialButton.onclick = () => { show('log'); tutorial(true); };
   bar.append(tutorialButton);
+  const learn = document.createElement('button'); learn.className = 'secondary'; learn.textContent = 'Body & movement';
+  learn.onclick = () => window.MomentumEducation.open(); bar.append(learn);
   document.querySelector('main.app')?.prepend(bar);
   function tutorial(force = false) {
     const log = document.getElementById('log');
