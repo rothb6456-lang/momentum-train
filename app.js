@@ -405,7 +405,7 @@ function renderProfileMenuStep() {
         <span class="quiet" style="white-space:nowrap">${profile.coachTipsEnabled ? 'On' : 'Off'}</span>
       </button>
     </div>
-    <p class="quiet" style="margin:6px 0 0;font-size:12px">When on, an (i) next to a muscle or body part opens a quick Coach explainer — and earns you a little XP the first time.</p>
+    <p class="quiet" style="margin:6px 0 0;font-size:12px">When on, an (i) next to a muscle or body part opens anatomy education. Complete a lesson and its knowledge check to earn XP once after account sync.</p>
     <div class="actions" style="margin-top:16px">
       <button type="button" class="secondary" id="profileModalCloseFromMenu" style="width:100%">Close</button>
     </div>
@@ -531,6 +531,7 @@ function renderProfileGuardrailsStep() {
       <div class="eyebrow">Add a guardrail</div>
       <p class="quiet" style="margin:6px 0">Anything we should work around — an old injury, surgery, or area to be careful with? Add one at a time; you can add another right after.</p>
       <div class="field full"><label>What to watch — pick one</label></div>
+      <button type="button" class="secondary" id="profileExploreBody">Explore the body diagram</button>
       ${structurePicker}
       <div class="field full" style="margin-top:14px"><label>How cautious?</label></div>
       <div class="tag-row">${restrictionTags}</div>
@@ -673,6 +674,12 @@ function bindProfileStep(step) {
   }
 
   if (step === 'guardrails') {
+    const explore = document.getElementById('profileExploreBody');
+    if (explore) explore.onclick = () => window.MomentumEducation.open({onSelect: structure => {
+      guardrailDraft.bodyStructureId = structure.id;
+      guardrailDraft.bodyStructureName = structure.name;
+      renderProfileModal();
+    }});
     const none = document.getElementById('profileGuardrailsNone');
     if (none) none.onclick = () => { profile.guardrailsReviewed = true; saveProfile(); profileWizardPrimaryAdvance(); };
     $$('[data-resolve-guardrail]').forEach(btn => {
@@ -1139,6 +1146,7 @@ function renderPicker(query = '') {
         <b>${esc(x)}</b>
         <small>${plannedNames.has(x) ? 'Planned workout' : 'Exercise library'}</small>
       </button>
+      <button class="secondary mini" data-learn-exercise="${esc(x)}" aria-label="Learn about ${esc(x)}">ⓘ Anatomy & evidence</button>
     `).join('') ||
     (hasFilters ? '<div class="empty">No exercises match those filters.</div>' : '<div class="empty">No matching known exercises.</div>');
 
@@ -1149,6 +1157,7 @@ function renderPicker(query = '') {
       renderLog();
     };
   });
+  $$('[data-learn-exercise]', root).forEach(b => { b.onclick = () => window.MomentumEducation.open({exercise:b.dataset.learnExercise}); });
 }
 
 function bindSessionContext() {
@@ -2601,75 +2610,7 @@ async function syncBodyStructureLibrary() {
 }
 
 function openCoachGuide(structureId) {
-  const structure = bodyStructureLibraryFull().find(s => s.id === structureId);
-  const overlay = document.getElementById('coachGuideModal');
-  const body = document.getElementById('coachGuideBody');
-  if (!overlay || !body) return;
-
-  if (!structure) {
-    body.innerHTML = `<p class="quiet">Coach hasn't synced up on this one yet — try again once you're back online.</p>`;
-  } else {
-    body.innerHTML = `
-      <h2 style="margin-top:0">${esc(structure.name)}</h2>
-      <p>${esc(structure.short_description || '')}</p>
-      ${structure.function_notes ? `<div class="section"><div class="eyebrow">What it does</div><p style="margin-top:6px">${esc(structure.function_notes)}</p></div>` : ''}
-      ${structure.common_issues ? `<div class="section"><div class="eyebrow">Worth knowing</div><p style="margin-top:6px">${esc(structure.common_issues)}</p></div>` : ''}
-    `;
-    markBodyStructureLearned(structure.id, structure.name);
-  }
-  overlay.classList.remove('hidden');
-  const closeBtn = document.getElementById('coachGuideClose');
-  if (closeBtn) closeBtn.onclick = closeCoachGuide;
-  const doneBtn = document.getElementById('coachGuideDone');
-  if (doneBtn) doneBtn.onclick = closeCoachGuide;
-}
-
-function closeCoachGuide() {
-  const overlay = document.getElementById('coachGuideModal');
-  if (overlay) overlay.classList.add('hidden');
-}
-
-function bodyStructureLibraryFull() {
-  try {
-    const cached = localStorage.getItem('momentum_body_structure_library');
-    const lib = cached ? JSON.parse(cached) : null;
-    return Array.isArray(lib) ? lib : [];
-  } catch (e) {
-    return [];
-  }
-}
-
-// Marks a structure as learned locally (instant UI feedback) and, if online
-// and authenticated, reports it to the backend for the real ANATOMY_INSIGHT
-// award + XP. Safe to call repeatedly — the backend dedups; this just avoids
-// firing the network call again once we already know it succeeded.
-async function markBodyStructureLearned(structureId, structureName) {
-  if (!profile.learnedStructureIds.includes(structureId)) {
-    profile.learnedStructureIds.push(structureId);
-    saveProfile();
-  } else {
-    return; // already recorded locally — don't re-hit the network for it
-  }
-
-  try {
-    const token = (typeof MomentumSync !== 'undefined' && typeof MomentumSync.getToken === 'function')
-      ? MomentumSync.getToken()
-      : '';
-    if (!navigator.onLine || !token) return;
-
-    const res = await fetch(`${API_BASE_URL}/body-structures/${structureId}/learned`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' }
-    });
-    if (res.ok) {
-      const json = await res.json();
-      if (json && json.data && json.data.awarded && json.data.xp > 0 && typeof toast === 'function') {
-        toast(`+${json.data.xp} XP — learned about the ${structureName}`);
-      }
-    }
-  } catch (e) {
-    console.warn('Momentum: body structure learned event not sent (offline or unauthenticated)', e);
-  }
+  window.MomentumEducation.open({structure: structureId});
 }
 
 // --- Exercise Picker Modal Engine ---
@@ -2742,6 +2683,7 @@ function renderModalExerciseList(query = '') {
         <button type="button" class="pick" data-modal-select="${esc(ex.canonical_name)}">
           <b>${esc(ex.canonical_name)}</b>
         </button>
+        <button type="button" class="secondary mini" data-learn-exercise="${esc(ex.canonical_name)}">ⓘ Anatomy & evidence</button>
       `).join('')}
     </div>
   `).join('');
@@ -2749,6 +2691,7 @@ function renderModalExerciseList(query = '') {
   container.querySelectorAll('[data-modal-select]').forEach(btn => {
     btn.onclick = () => selectExerciseFromModal(btn.dataset.modalSelect);
   });
+  container.querySelectorAll('[data-learn-exercise]').forEach(btn => { btn.onclick = () => window.MomentumEducation.open({exercise:btn.dataset.learnExercise}); });
 }
  
 function filterModalExercises() {

@@ -5,6 +5,12 @@
 
 ## 1. Principles
 
+### ADR: sourced education and completion (2026-09-30)
+
+`education.js` owns the body explorer and introductory lessons. `education-lessons.json` is mirrored exactly in Bulldog `resources/education/lessons.json`; the contract test rejects drift. Each lesson has a source, version and knowledge check. `momentum.education.v1` stores pending/confirmed completion separately from profile and workout data, and is partitioned by the existing account bridge. Only the authenticated server grants XP, once per lesson and PlayerIdentity, after validating the answer. Failed requests remain pending; online/focus/manual retry resends them. No team timeline is created.
+
+The front/back OpenStax image is a muscle reference with regional navigation. Layer selection changes introductory lesson content, not an anatomical dissection. Z-Anatomy assets are not bundled. Attribution is in `assets/anatomy/ATTRIBUTION.md` and the UI. Old `learnedStructureIds` remain preserved but are not proof of lesson completion. `education-anatomy.json` provides sourced short descriptions for the 32 existing catalog structures; five foundational lessons carry knowledge checks and XP. Exercise associations use canonical catalog records, not name guesses. Exercise-specific comparative studies still require deliberate review and expansion.
+
 1. Local-first is the primary runtime model.
 2. No build step is required.
 3. State is separated by concern.
